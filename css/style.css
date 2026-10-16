@@ -194,6 +194,9 @@ a:hover { color: var(--brand-deep); }
     var(--sim-yellow);
 }
 .mode-badge[data-mode="none"] { font-family: var(--font-ui); font-weight: 600; letter-spacing: 0; font-size: var(--fs-sm); }
+/* The M2 night preview: neither a scripted replay (no hazard tape) nor the live agent (no brand fill),
+   so it takes the ink of the cell and of the neutral "Simulated cell" tag. */
+.mode-badge[data-mode="preview"] { color: var(--text); border-color: var(--ink-9); background: var(--porcelain); }
 
 @keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
 
@@ -255,7 +258,9 @@ a:hover { color: var(--brand-deep); }
 .kpi[data-tone="at-risk"] .kpi-value { color: var(--warning-text); }
 .kpi[data-tone="on-time"] { background: var(--success-4); border-color: var(--success-mid); }
 .kpi[data-tone="on-time"] .kpi-value { color: var(--success-text); }
-.kpi[data-tone="muted"] .kpi-value { color: var(--text-faint); }
+/* Muted: a figure not yet meaningful (no night yet). Muted ink, not faint: faint on porcelain is 4.44:1,
+   short of the 4.5:1 a tile's figure needs once it shrinks below large text on a small laptop. */
+.kpi[data-tone="muted"] .kpi-value { color: var(--text-muted); }
 .kpi-value.flip { animation: kpiFlip 0.55s cubic-bezier(.2,.8,.2,1); }
 @keyframes kpiFlip {
   0% { transform: translateY(-0.35em); opacity: 0; }
@@ -381,8 +386,17 @@ a:hover { color: var(--brand-deep); }
 /* ------------------------------------------------------------------------------------------ */
 
 @media (max-width: 1700px) {
-  .kpi { min-width: 132px; max-width: 210px; padding: 6px 12px 7px; }
+  .kpi { min-width: 120px; max-width: 230px; padding: 5px 12px 6px; }
+  .kpi-value { font-size: 1.75rem; }
   .brand-sub { display: none; }
+}
+
+/* Small laptops: the four tiles keep their figures whole beside the brand and the badges. */
+@media (max-width: 1400px) {
+  .kpis { gap: 6px; }
+  .kpi { min-width: 0; padding: 5px 10px 6px; }
+  .kpi-value { font-size: 1.4rem; }
+  .kpi-label { font-size: var(--fs-xs); }
 }
 
 /* Laptop widths, including 1536 px (a 1080p screen at 125 % scaling): keep the control bar on one row. */

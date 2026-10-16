@@ -50,6 +50,7 @@ export function chooseMode({ runLabel }) {
       intro: "Live is the real thing. Simulation is for rehearsal, an offline fallback and exploring without a key.",
       body: [
         h("div", { class: "run-summary" }, h("span", { class: "label" }, "Will run:"), h("strong", {}, runLabel)),
+        APP.stageNote ? h("p", { class: "stage-note", role: "note" }, icon("info", 18), APP.stageNote) : null,
         h("div", { class: "mode-cards" }, simCard, liveCard)
       ],
       footer,

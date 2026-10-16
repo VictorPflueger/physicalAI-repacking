@@ -264,3 +264,33 @@
 .entry-actions .btn { min-height: 40px; }
 .run-facts { margin-top: 6px; color: var(--text-muted); font-size: var(--fs-sm); }
 .run-facts strong { color: var(--text); font-weight: 600; }
+
+/* The night (js/console_night.js) -------------------------------------------------------------- */
+/* Marks carry the colour grammar: blue for a sensor's correction (checking), burgundy for an item
+   handed to a person, amber for a cut-off risk, violet for the agent's wake-up, green and red for a
+   truck on time or late. The text stays ink; the mark and a word carry the state. */
+.entry[data-type="correction"] .entry-mark { color: var(--info-text); }
+.entry[data-type="escalation"] .entry-mark { color: var(--brand); }
+.entry[data-type="escalation"] .entry-body strong { color: var(--brand-text); }
+.entry[data-type="risk"] .entry-mark { color: var(--warning-text); }
+.entry[data-type="risk"] .entry-body strong { color: var(--warning-text); }
+.entry[data-type="wake"] .entry-mark { color: var(--violet-text); }
+.entry[data-type="wake"] .entry-body { color: var(--text-muted); }
+.entry[data-type="wake"] .entry-body strong { color: var(--violet-text); }
+.entry[data-type="dispatch"][data-state="on-time"] .entry-mark { color: var(--success-text); }
+.entry[data-type="dispatch"][data-state="late"] .entry-mark { color: var(--danger-text); }
+.entry[data-type="dispatch"][data-state="late"] .entry-body strong { color: var(--danger-text); }
+.entry[data-type="hour"] .entry-body { color: var(--text-muted); font-size: var(--fs-sm); }
+.entry[data-type="hour"] .entry-body strong { color: var(--text); font-weight: 600; }
+.entry[data-type="night"] .entry-mark, .entry[data-type="order"] .entry-mark { color: var(--ink-9); }
+
+.night-report { border: 1px solid var(--line-strong); border-radius: var(--r-lg); background: var(--paper); padding: 10px 14px; }
+.entry[data-type="report"][data-state="on-time"] .night-report { border-left: 4px solid var(--success-line); }
+.entry[data-type="report"][data-state="late"] .night-report { border-left: 4px solid var(--danger-line); }
+.entry[data-type="report"][data-state="on-time"] .entry-mark { color: var(--success-text); }
+.entry[data-type="report"][data-state="late"] .entry-mark { color: var(--danger-text); }
+.night-report-title { font-weight: 700; margin-bottom: 6px; }
+.night-report dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 14px; margin: 0; font-variant-numeric: tabular-nums lining-nums; }
+.night-report dt { color: var(--text-muted); }
+.night-report dd { margin: 0; font-weight: 600; }
+.night-report-note { margin: 8px 0 0; color: var(--text-muted); font-size: var(--fs-sm); }

@@ -1,8 +1,8 @@
 # Repack Pilot — design system
 
-How Repack Pilot looks, why it looks that way, and how to change it without breaking it. Version 0.1.0 (milestone M1, the shell), 16 October 2026.
+How Repack Pilot looks, why it looks that way, and how to change it without breaking it. Version 0.2.0 (milestone M2, the physical layer), 16 October 2026.
 
-Repack Pilot shares its design system with its sister prototypes **Rebate Hunter** (7.1.0) and the **Navigator** (1.1.0): the same burgundy source colour, the same generated palette value for value, the same type, components, colour grammar and agentic patterns. The logo, the names and the domain words differ, and so does the centrepiece: where the Navigator shows a map and Rebate Hunter a rebate board, Repack Pilot shows a **cell board**: the inbound pallet, the simulated robot cell with its camera, scale and gripper, the manual station and twelve store totes against their truck cut-offs. The board arrives with M2; in M1 its panel shows the night it will draw (§7).
+Repack Pilot shares its design system with its sister prototypes **Rebate Hunter** (7.1.0) and the **Navigator** (1.1.0): the same burgundy source colour, the same generated palette value for value, the same type, components, colour grammar and agentic patterns. The logo, the names and the domain words differ, and so does the centrepiece: where the Navigator shows a map and Rebate Hunter a rebate board, Repack Pilot shows a **cell board**: the inbound pallet, the simulated robot cell with its camera, scale and gripper, the manual station and twelve store totes against their truck cut-offs (§7).
 
 ---
 
@@ -44,7 +44,7 @@ Each colour means one thing, everywhere.
 
 On stage, in one sentence: *"Burgundy is you, violet is the AI, red, amber and green are the store orders against their trucks."*
 
-**Two honesty marks, two different jobs.** The cell is simulated in both modes, so its tag is neutral ink on paper with a strong border (`.sim-cell-tag`), in the panel's top right corner whatever the mode. The hazard-style SIMULATION badge is reserved for scripted replays, as in the reference prototypes (build brief, "Honesty rules"). Generated data carries a dashed **Synthetic** chip in muted ink (`.chip[data-tone="synthetic"]`).
+**Two honesty marks, two different jobs.** The cell is simulated in both modes, so its tag is neutral ink on paper with a strong border (`.sim-cell-tag`), in the panel's top right corner whatever the mode. The hazard-style SIMULATION badge is reserved for scripted replays, as in the reference prototypes (build brief, "Honesty rules"). Generated data carries a dashed **Synthetic** chip in muted ink (`.chip[data-tone="synthetic"]`). In M2 the night plays without the agent, so its badge reads **NIGHT PREVIEW** in the same neutral ink as the cell's tag: it is neither a scripted replay nor the live agent (`TECH_NOTES.md` D17).
 
 Every status colour comes with a second cue (WCAG 1.4.1): a word (*Late*, *At risk*, *On time*), an icon, a larger marker or a heavier line. The danger red appears on two buttons only, **Abort** and **Forget key**, because they stop or delete something.
 
@@ -100,9 +100,9 @@ Every status colour comes with a second cue (WCAG 1.4.1): a word (*Late*, *At ri
 
 **Token files, 2 checks.** `css/tokens.css` and `design/tokens.json` must match what the generator produces now.
 
-**Contrast in the running page.** The palette check tests primitives; `tests/smoke.mjs` (case `contrast`) measures every visible text element of the running page against its real background, at 1920×1080 and 1280×720, in eleven states: the intro, the idle workspace, Diagnostics, the five drawer tabs, the mode choice, the key dialog with its message, and the notice with its banner. Normal text needs 4.5:1 and large text 3:1; inactive controls have no duty (WCAG 1.4.3). On 16 Oct 2026 no text fell short.
+**Contrast in the running page.** The palette check tests primitives; `tests/smoke.mjs` (case `contrast`) measures every visible text element of the running page against its real background, at 1920×1080 and 1280×720, in thirteen states: the intro, the idle workspace, Diagnostics, the five drawer tabs (the KPI board and the Assumptions tab with their figures), the mode choice, the key dialog with its message, the notice with its banner, the running night, and the night with the drawer open. Normal text needs 4.5:1 and large text 3:1; inactive controls have no duty (WCAG 1.4.3). On 16 Oct 2026 no text fell short.
 
-**A gap the palette shares with its sisters.** Rebate Hunter's review (REVIEW.md, W9) found that the checker takes the app background to be `ink-2`, while the page paints it `ink-3` (porcelain), and that faint text on porcelain measures 4.44:1, below 4.5. The same holds here, because the palettes are identical. No M1 screen puts faint text on porcelain, and the `contrast` case uses exactly that pair as its control: the test must catch it, or it fails. The fix belongs in all three prototypes together, so their palettes stay identical; until then new components keep faint text off porcelain, and the `contrast` case guards it.
+**A gap the palette shares with its sisters.** Rebate Hunter's review (REVIEW.md, W9) found that the checker takes the app background to be `ink-2`, while the page paints it `ink-3` (porcelain), and that faint text on porcelain measures 4.44:1, below 4.5. The same holds here, because the palettes are identical. No screen puts faint text on porcelain: in M2 the case caught the header tiles' muted figures, faint on porcelain, once they shrink below large-text size at 1280 px, and they now use muted ink (`TECH_NOTES.md` D27). The `contrast` case uses exactly that pair as its control: the test must catch it, or it fails. The fix belongs in all three prototypes together, so their palettes stay identical; until then new components keep faint text off porcelain, and the `contrast` case guards it.
 
 ## 6. Agentic patterns
 
@@ -121,28 +121,46 @@ Yocco's six patterns for agentic AI, and where each one lives:
 
 **Handover** (`js/handover.js`). The run state *awaiting approval* covers three moments, so the status pill, the console's phase line and the rail all name the human step the same way: **Awaiting your decision** while the options wait, **Awaiting your approval** while the drafts wait, and **Awaiting your confirmation** while an escalated item waits.
 
-## 7. The cell panel
+## 7. The cell board
 
-**In M1.** The panel keeps the board's frame: a caption at top left (*Ruhrkorb DC Unna* and tonight's scenario), the **Simulated cell** tag at top right, and in the middle a card with the night the board will draw: the flow from pallet to truck, the stores with their cut-offs, tonight's units, the two inbound waves and the two stations, all from the synthetic world, with the Synthetic chip. The card follows the panel's height (container queries in `css/cell.css`): it drops the flow on a shorter panel, folds to its title and one summary line when the drawer is open, and to the summary line alone on the shortest panels, so it never needs to scroll and its Synthetic label stays in view. The caption, the tag and the card never overlap (`tests/smoke.mjs`, case `viewports`, at five sizes with the drawer closed and open).
+The board is drawn from the night's events only (`js/cell.js`, `js/cell_data.js`): the night player emits them, from M3 the agent and the scripted replays emit the same events, and the board never asks which producer runs.
 
-**From M2.** The board itself, in SVG and built like Rebate Hunter's: the pallet, camera detections with their confidence, each grasp rehearsal and attempt, scale readings, and the totes filling against their cut-offs. Every entity is a focusable button of at least 44 px with a popover, and nothing moves under reduced motion.
+- **Frame.** A floating caption at top left (*Ruhrkorb DC Unna*, the night's date where a scenario has one, the scenario); the night clock and the **Simulated cell** tag at top right, in both modes.
+- **The cell line.** Five stations from left to right: the inbound pallet (the next wave, units still to repack), the camera (the last item and its confidence; amber for a barcode the item master does not know), the robot cell (its success rate, over the last 100 grasps once there are 100, then the SKU and grip in hand; a green or red pulse on a sample of grasps; red when E3 fires), the scale (the reading against the world model's weight, blue when they differ by more than the tolerance) and the manual station (its queue and picks; burgundy for the units handed to a person). Readings and checks are blue, a grasp's outcome green or red, a person burgundy (§3).
+- **Store lanes.** One per order, in plan order: name, cut-off, a bar filling with the units in totes (slate, goods at rest), the current tote and its weight, and the state in words: *projected 01:54*, *at risk · 2 min to spare*, *packed · truck 02:30*, *✓ truck 02:40*, *late · done by 02:41*. The left edge and the fill take the state's colour: green on its truck, amber at risk, red late; slate while being packed. The express order joins as a lane of its own when it arrives.
+- **The world-model panel** (`js/world_panel.js`, `css/world.css`). The SKU in focus with *expected* against *observed*: the latest reading, or a correction, which stays in focus for two simulated minutes in blue with *written back 22:17*. Below, the corrections log (time, sensor, SKU, old and new weight). The Synthetic chip stays in the card's head.
+- **Legend.** On a full board where it fits: the four lane colours, the person's burgundy and the blue of a reading. Every state also has its words in the lane, so the legend explains and never carries the meaning.
+- **Popovers.** Every station, lane and the world model is a button of at least 44 px with its full name; Enter or a click opens its popover (a store's totes, a station's figures and rules, an item's master data against the sensors, the world model's overview), Escape or a click elsewhere closes it, and the focus goes back to what opened it. An open popover follows the night.
+- **Sizes.** The board takes its size from the free height and steps down when its content still does not fit (`TECH_NOTES.md` D19): **full** (the cell line with two lines per station, the lanes with their tote line, the world-model card with its log, the legend where there is room), **compact** (one line per station, lanes without the tote line, the world-model card in one row), **short** (the lanes alone, the world model as a chip in the head row) and **strip**, with the drawer open on a small laptop: one or two rows of store chips (id, cut-off, state, the fill as the chip's bottom edge) and the world-model chip. *Hide* on the drawer brings the bigger board back.
+- **Motion.** The cell's grasp pulse and a new lane sliding in. Nothing moves under `prefers-reduced-motion` (tested).
+
+## 7a. Header tiles, the KPI board and the Assumptions tab
+
+- **Header tiles** (`js/kpi.js`). *Labour per 1,000 units*: the manual baseline at 22:00 (2.5 h · €89.50, the brief's hook), the hybrid plan (0.91 h · €32.49) once the night's plan stands, with the manual figure beneath. *Store orders on time*: on their truck plus projected to make it, green, amber with a store at risk, red once one is late. *Night clock*: the simulated time, *paused: the agent's turn* at a wake-up, the speed beneath. *Session cost*: €0.00 until the agent calls a model (M3). A tile's fill takes its state, its figure flips in when it changes (the clock only ticks).
+- **The KPI board** (`js/kpi_board.js`, `css/kpiboard.css`). Plan (the engine, expected values) and Tonight (the night simulation, seeded, "so far" while it runs) in labelled columns, never mixed, each row with its basis as source keys (mono), *Assumption* (italic) or *Synthetic* (dashed). Below, the annual figure with its qualifier, "illustrative, per reference site, gross, before cell costs", the cell hours and cells it needs, the break-even cost per cell hour, and the demo cell's own share. A closing note says why there is no payback claim, and that the simulated cell is not a safety system.
+- **The Assumptions tab** (`js/assumptions.js`). Every engine input with its value, unit, basis and a line of context; a changed input carries a burgundy *changed* chip (a person's setting) and the KPI board names it. Below, the night's parameters and what the chosen scenario will make happen, which the warehouse system, the cell and the agent learn only when it happens.
+
+## 7b. The console during a night
+
+The time column is the night clock (`TECH_NOTES.md` D28). The night's lines (`js/console_night.js`): tonight's plan, a wave reaching the infeed, a new order, a world-model correction (blue mark), an escalation (burgundy mark and rule: the item goes to a person), a cut-off risk (amber), a wake-up (violet: the agent's turn), an hourly line for the cell and the manual station, a line per truck (green on time, red late) and the night report with tonight's figures. Single grasps, readings and totes stay on the board and in the audit (D20).
 
 ## 8. Built for the room
 
-- **Size.** The root font scales with the window, from 15 px up to about 17 px at 1920 px wide. Every HTML control is at least 40 × 40 px, well above the 24 px minimum of WCAG 2.5.8 (`tests/smoke.mjs`, case `viewports`, at five sizes with the drawer closed and open).
+- **Size.** The root font scales with the window, from 15 px up to about 17 px at 1920 px wide. Every HTML control is at least 40 × 40 px and every board button 44 × 44 px, well above the 24 px minimum of WCAG 2.5.8 (`tests/layout.mjs`, five sizes in five states of the night).
 - **Focus.** A 2 px burgundy ring outside a 2 px white gap: 10:1 against paper, meeting WCAG 2.4.13 Focus Appearance. Dialogs trap the focus and give it back when they close.
 - **Emphasis.** One emphasised action per moment: *Start agent* when idle, the recommended option's Approve when a decision waits.
 - **Words.** Labels name what a person understands: *Start agent*, *Night speed*, *Your decision*, *Forget key*. The same action keeps the same name through the flow.
-- **Motion.** In M1: a spinner while something loads, dialogs and console entries fading in, and the rail's pulse during a run. All of it stops under `prefers-reduced-motion` (`css/style.css`), and so will the board's motion (M2).
+- **Motion.** A spinner while something loads, dialogs and console entries fading in, the rail's pulse during a run, the cell's grasp pulse and a new lane sliding in. All of it stops under `prefers-reduced-motion` (`css/style.css`; `tests/smoke.mjs`, case `board`).
 
 ## 9. Testing the design
 
 | Command | What it does |
 |---|---|
 | `node tools/palette.mjs --check` | The 45 colour checks above (Node.js only) |
-| `node tests/smoke.mjs viewports contrast` | Five viewports from 1920×1080 to 1280×720, drawer closed and open: no overflow, one-row control bar, header badges clear of each other, the cell panel's caption, tag and card clear of each other and inside the panel, controls of at least 40 px; contrast in the running page in eleven states at two sizes |
+| `node tests/layout.mjs` | Five window sizes from 1920×1080 to 1280×720, each idle, idle with the drawer open, after the 22:17 correction, after the 02:00 express order, and that moment with the drawer open: no horizontal overflow, the header tiles in view and never covered, a one-row control bar, the header badges and the board's caption, chip and tag clear of each other, every store lane whole and in view, the board fitting its panel with its Synthetic label, targets of at least 40 px (44 px on the board) |
+| `node tests/smoke.mjs board contrast` | The board by keyboard and mouse, popovers and focus return, reduced motion; contrast in the running page in thirteen states at two sizes |
 
-The `layout` and `design` suites follow with the board (M2 to M5), as in Rebate Hunter: the board's states in the running app, the colour grammar of the dial and the rail, and projector-washout and colour-blind captures.
+The `design` suite follows (M4, M5), as in Rebate Hunter: the colour grammar of the dial and the rail in the running app, and projector-washout and colour-blind captures.
 
 ## 10. Changing things safely
 

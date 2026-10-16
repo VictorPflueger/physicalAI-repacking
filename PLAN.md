@@ -1,7 +1,7 @@
 # Repack Pilot: build plan
 
 **Status:** Phase 0 plan, approved by Victor on 16 October 2026 with the five default decisions (TECH_NOTES D1–D5). **Date:** 16 October 2026.
-**Changes after approval:** M1 corrected the region in b.1, because Essen and Gelsenkirchen are not in the eastern Ruhr.
+**Changes after approval:** M1 corrected the region in b.1, because Essen and Gelsenkirchen are not in the eastern Ruhr. M2 departs from §d.1, §g and §i where `TECH_NOTES.md` D17–D30 say so (the night preview without the agent, the escalation rules arriving with the night simulation, no Cell · Totes toggle, one console line per truck instead of one per tote, the header's height with its tiles); no number of this plan changed.
 
 This plan turns the build brief into milestones. The brief decides what to build; this file decides how, in which order, and how each step is proven. Where the plan departs from the brief or from a reference prototype, it says so and gives the reason. Numbers from the brief appear here unchanged.
 

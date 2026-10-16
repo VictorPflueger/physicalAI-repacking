@@ -145,6 +145,12 @@
 .chip[data-tone="muted"] { color: var(--text-faint); }
 /* Generated data says so: a quiet ink chip with a dashed edge, never a status colour. */
 .chip[data-tone="synthetic"] { color: var(--text-muted); border-style: dashed; background: var(--paper); }
+/* The night's states (green on time, amber at risk, red late), a person, and a neutral label. */
+.chip[data-tone="on-time"] { color: var(--success-text); border-color: var(--success-mid); background: var(--success-fill); }
+.chip[data-tone="at-risk"] { color: var(--warning-text); border-color: var(--warning-mid); background: var(--warning-fill); }
+.chip[data-tone="late"] { color: var(--danger-text); border-color: var(--danger-mid); background: var(--danger-fill); }
+.chip[data-tone="person"] { color: var(--brand-text); border-color: var(--brand-line); background: var(--brand-soft); }
+.chip[data-tone="neutral"] { color: var(--text); border-color: var(--line-strong); background: var(--paper); }
 
 /* Fields ----------------------------------------------------------------------------------- */
 .field { display: flex; flex-direction: column; gap: 6px; }

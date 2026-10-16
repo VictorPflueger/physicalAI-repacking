@@ -3,17 +3,19 @@
 
 import { h, clear, downloadText } from "./dom.js";
 import { icon } from "./icons.js";
-import { clock, timeOfDay, int, fixed } from "./format.js";
+import { clock, timeOfDay, int, fixed, upTo } from "./format.js";
 import { auditRows, onAuditEvent, buildAuditExport, auditFileName } from "./audit.js";
+import { clockOf, clockUp } from "./nightsim.js";
 
-const PHYSICAL = ["detection", "grasp_attempt", "scale_reading", "tote_update", "world_model_correction", "escalation", "cutoff_risk", "dispatch", "clock", "wake"];
+const PHYSICAL = ["night_plan", "wave_arrival", "order_new", "detection", "rehearsal", "grasp_attempt", "scale_reading", "manual_pick", "tote_update",
+  "world_model_correction", "escalation", "projection", "cutoff_risk", "wake", "dispatch", "late_complete", "night_end", "unit_log", "clock"];
 const GROUPS = {
   all: { label: "All", types: null },
   agent: { label: "Agent", types: ["narration", "reasoning", "options", "action_draft", "report"] },
   tools: { label: "Tools", types: ["tool_call", "tool_result"] },
   physical: { label: "Physical events", types: PHYSICAL },
   model: { label: "Model calls", types: ["model_call"] },
-  human: { label: "Human decisions", types: ["option_decision", "action_decision", "confirmation_decision", "autonomy_change"] },
+  human: { label: "Human decisions", types: ["option_decision", "action_decision", "confirmation_decision", "autonomy_change", "assumption_change"] },
   system: { label: "System", types: ["run_start", "run_end", "state_change", "notice", "cell_update", "kpi_update", "plan_update", "cost_update", "attempt_discarded"] }
 };
 
@@ -33,7 +35,7 @@ export function createAuditPanel(panel, { onCount } = {}) {
     h("div", { class: "audit-actions" },
       h("button", { class: "btn btn-sm btn-primary", type: "button", id: "btn-export-audit", on: { click: exportJson } }, icon("download", 16), "Export JSON")));
   const table = h("table", { class: "audit-table" },
-    h("thead", {}, h("tr", {}, h("th", {}, "Run time"), h("th", {}, "Clock"), h("th", {}, "Event"), h("th", {}, "Details"))),
+    h("thead", {}, h("tr", {}, h("th", {}, "Run time"), h("th", {}, "Night"), h("th", {}, "Clock"), h("th", {}, "Event"), h("th", {}, "Details"))),
     tbody);
   panel.append(head, empty, table);
 
@@ -43,8 +45,10 @@ export function createAuditPanel(panel, { onCount } = {}) {
   }
 
   function row(ev) {
+    const simT = ev.payload?.sim_t;
     return h("tr", { dataset: { type: ev.type } },
       h("td", { class: "t" }, ev.t !== null && ev.t !== undefined ? clock(ev.t) : "—"),
+      h("td", { class: "t" }, typeof simT === "number" ? clockOf(simT) : "—"),
       h("td", { class: "t" }, timeOfDay(ev.ts)),
       h("td", { class: "k" }, h("span", { class: "audit-kind" }, ev.type)),
       h("td", { class: "s" }, summarize(ev)));
@@ -91,6 +95,26 @@ function summarize(ev) {
     case "report": return trim(p.markdown, 200);
     case "notice": return `[${p.level}] ${p.text}`;
     case "attempt_discarded": return `response not kept (${(p.msg_ids || []).length} text, ${(p.call_ids || []).length} calls): ${p.reason || ""}`;
+    // The night (M2): the ordinary units are in the unit log; exceptions arrive one by one.
+    case "night_plan": return `${int(p.totals?.units)} units for ${int((p.orders || []).length)} orders, seed ${p.seed}, r_m ${int(p.r_m)}, r_c ${int(p.r_c)}, p ${fixed(p.p, 2)}`;
+    case "wave_arrival": return `${p.label}: ${int(p.units)} units`;
+    case "order_new": return `${p.order} for ${p.store}: ${int(p.units)} units, due ${p.due}`;
+    case "detection": return `${p.unit_id}: barcode ${p.barcode}${p.known ? "" : " not in the item master"}, confidence ${fixed(p.confidence, 2)}`;
+    case "rehearsal": return `${p.sku} rehearsed again at ${int(p.weight_g)} g, expected success ${fixed(p.expected_success, 2)}`;
+    case "grasp_attempt": return `${p.unit_id} ${p.grip}: ${p.ok ? "picked" : "failed, to the manual station"} (expected ${fixed(p.expected_success, 2)}, confidence ${fixed(p.grasp_confidence, 2)})`;
+    case "scale_reading": return `${p.unit_id}: ${int(p.observed_g)} g, expected ${int(p.expected_g)} g`;
+    case "world_model_correction": return `${p.sku} ${p.field} ${int(p.old)} → ${int(p.new)} (${p.sensor}), applies to the whole SKU`;
+    case "escalation": return `${p.rule} ${p.escalation_id}: ${p.reason} → ${p.to === "person" ? "a person" : "the manual station"}${p.needs_confirmation ? ", needs confirmation" : ""}`;
+    case "manual_pick": return `${p.unit_id} by ${p.picker}: ${p.set_aside ? "set aside, unknown item" : p.reason}`;
+    case "tote_update": return `${p.store} tote ${p.tote_no} ${p.status}: ${int(p.units)} units, ${upTo(p.weight_g / 1000, 2)} kg`;
+    case "projection": { const risk = (p.orders || []).filter((o) => o.at_risk).map((o) => o.id); return `${int((p.orders || []).length)} orders projected; ${risk.length ? `at risk: ${risk.join(", ")}` : "none at risk"}`; }
+    case "cutoff_risk": return (p.stores || []).map((x) => `${x.store} ${x.projected} for ${x.cutoff} (${x.slack_min} min)`).join("; ");
+    case "wake": return `${p.wake_id}: ${(p.kinds || [p.kind]).join(", ")}`;
+    case "dispatch": return `${p.store}: ${p.moved ? "moved to the next wave" : p.on_time ? "on time" : "late"}, ${int(p.units)} of ${int(p.of)} units on the truck`;
+    case "late_complete": return `${p.store}: last unit by ${clockUp(p.t)}`;
+    case "night_end": return `${int(p.figures?.orders_on_time)} of ${int(p.figures?.orders)} orders on time; ${int(p.figures?.units_repacked)} units; labour ${upTo(p.figures?.labour_hours, 2)} h; seed ${p.figures?.seed}`;
+    case "unit_log": return `${int((p.rows || []).length)} units${p.partial ? `, stopped at ${p.until}` : ""}; seed ${p.seed}, night hash ${p.hash}`;
+    case "assumption_change": return `${p.id}: ${p.from} → ${p.to}${p.reset ? " (reset)" : ""}${p.applies && p.applies !== "now" ? `, ${p.applies}` : ""}`;
     default: return trim(JSON.stringify(p), 200);
   }
 }

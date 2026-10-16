@@ -3,8 +3,11 @@
 // Not confirmed:, Revised:, Finding:, Recommendation:) get distinct styling; "Revised: old → new" is
 // rendered as an amended entry with the superseded part struck through.
 //
-// This build renders the run frame, narration, reasoning and notices. Tool calls, options, drafts,
-// corrections, escalations, per-tote summaries and the run facts join with the agent in M3.
+// The time column is the night clock (22:00 to 06:00): every run is one night, and the audience
+// follows the night, not a stopwatch. Its title gives the run time. The night's own lines (plan,
+// waves, corrections, escalations, cut-off risks, wake-ups, the hourly cell line, the trucks and the
+// night report) come from js/console_night.js. Tool calls, options, drafts and the run facts join
+// with the agent in M3.
 
 import { bus } from "./events.js";
 import { h, clear, prefersReducedMotion } from "./dom.js";
@@ -15,11 +18,14 @@ import { createProgressRail } from "./progress.js";
 import { runStateLabel } from "./handover.js";
 import { LABELS, splitParagraphs } from "./labels.js";
 import { STORAGE } from "./config.js";
+import { clockOf } from "./nightsim.js";
+import { attachNightLog } from "./console_night.js";
 
 const PHASES = new Set(["planning", "picking", "replanning", "options", "awaiting_approval", "executing"]);
 const TEXT_SIZE_KEY = STORAGE.consoleText;
 
-export function createConsole(panel) {
+/** opts: { getInputs() → the engine's inputs, for the night report's euros }. */
+export function createConsole(panel, { getInputs = () => null } = {}) {
   const count = h("span", { class: "count num" }, "");
   const jumpBtn = h("button", { class: "btn btn-sm", type: "button", hidden: true }, icon("chevronDown", 16), "Jump to latest");
   // Larger text for projectors, remembered per browser (a convenience; storage may be unavailable).
@@ -54,6 +60,8 @@ export function createConsole(panel) {
   const byMsg = new Map();
   let entries = 0;
   let lastPhase = null;
+  let runMode = null;     // the current run's mode: "simulation" | "live" | "preview"
+  let nightClock = null;  // "HH:MM" while a run is on; the time column shows it
   // Auto-follow: the log stays pinned to the newest entry until the presenter scrolls up. Only
   // user input (wheel, touch, keys, scrollbar drag) can unpin it, so programmatic scrolling and
   // layout changes (the drawer opening) never stop the follow.
@@ -99,9 +107,17 @@ export function createConsole(panel) {
     return el;
   }
 
-  function entry(type, t, mark, body, data = {}) {
+  /**
+   * One logbook line. `ev` is the run event: its simulated time (sim_t) or the night clock gives the
+   * time column, its run time the title.
+   */
+  function entry(type, ev, mark, body, data = {}) {
+    const simT = ev?.payload?.sim_t;
+    const night = typeof simT === "number" ? clockOf(simT) : nightClock;
+    const run = ev?.t !== null && ev?.t !== undefined ? clock(ev.t) : null;
+    const time = h("div", { class: "entry-time", ...(run ? { title: `Run time ${run}` } : {}) }, night || run || "");
     return h("div", { class: "entry", dataset: { type, ...data } },
-      h("div", { class: "entry-time" }, t !== null && t !== undefined ? clock(t) : ""),
+      time,
       h("div", { class: "entry-mark" }, mark ? icon(mark, 18) : null),
       h("div", { class: "entry-body" }, body));
   }
@@ -111,16 +127,20 @@ export function createConsole(panel) {
   bus.on("run_start", (ev) => {
     const p = ev.payload;
     reset(false);
+    runMode = p.mode;
+    nightClock = "22:00";
     const recorded = p.mode === "simulation" && p.sim_source === "recorded";
     watermark.hidden = p.mode !== "simulation";
     watermarkText.textContent = recorded
       ? `Replay of a live run recorded${p.recorded_on ? ` on ${p.recorded_on}` : ""}${p.recorded_model ? ` (${p.recorded_model})` : ""}. No model calls.`
       : SCRIPTED;
     log.dataset.sim = String(p.mode === "simulation");
-    const meta = p.mode === "simulation"
-      ? recorded ? "Simulation: replay of a recorded live run, no API key, no cost." : "Simulation: scripted replay, no API key, no cost."
-      : `Live agent on ${p.model_label || p.model || "Claude"}. Real model reasoning and real tool calls against the simulated cell.`;
-    add(entry("run", ev.t, "play", [
+    const meta = p.mode === "preview"
+      ? "Night preview: the engine and the simulated cell play tonight without the agent. No API key, no model calls, no cost."
+      : p.mode === "simulation"
+        ? recorded ? "Simulation: replay of a recorded live run, no API key, no cost." : "Simulation: scripted replay, no API key, no cost."
+        : `Live agent on ${p.model_label || p.model || "Claude"}. Real model reasoning and real tool calls against the simulated cell.`;
+    add(entry("run", ev, "play", [
       h("div", { class: "run-title" }, p.title || "Agent run"),
       h("div", {}, meta)
     ]));
@@ -131,14 +151,14 @@ export function createConsole(panel) {
     rail.update(s);
     if (!PHASES.has(s) || s === lastPhase) return;
     lastPhase = s;
-    add(entry("phase", ev.t, null, h("span", { class: "phase" }, `Phase: ${runStateLabel(s)}`)));
+    add(entry("phase", ev, null, h("span", { class: "phase" }, `Phase: ${runStateLabel(s)}`)));
   });
 
   bus.on("narration", (ev) => {
     const { msg_id: id, text, done } = ev.payload;
     let el = byMsg.get(id);
     if (!el) {
-      el = add(entry("narration", ev.t, "pulse", h("div", { class: "narration" })));
+      el = add(entry("narration", ev, "pulse", h("div", { class: "narration" })));
       byMsg.set(id, el);
     }
     const body = el.querySelector(".narration");
@@ -157,7 +177,7 @@ export function createConsole(panel) {
       const details = h("details", { class: "reasoning" },
         h("summary", {}, icon("chevronRight", 14), "Reasoning summary"),
         h("div", { class: "reasoning-text" }));
-      el = add(entry("reasoning", ev.t, null, details));
+      el = add(entry("reasoning", ev, null, details));
       byMsg.set(`r:${id}`, el);
     }
     el.querySelector(".reasoning-text").textContent = text || "";
@@ -165,27 +185,40 @@ export function createConsole(panel) {
 
   bus.on("notice", (ev) => {
     const { level = "info", text } = ev.payload;
-    add(entry("notice", ev.t, level === "info" ? "info" : "alert", renderInline(text, h("span")), { level }));
+    add(entry("notice", ev, level === "info" ? "info" : "alert", renderInline(text, h("span")), { level }));
   });
+
+  // The night clock follows the night; the night's own lines come from js/console_night.js.
+  bus.on("clock", (ev) => { if (runMode) nightClock = ev.payload.label; });
+  const nightLog = attachNightLog({ add, entry, mode: () => runMode, getInputs });
 
   bus.on("run_end", (ev) => {
     const { status, reason } = ev.payload;
     rail.finish(status);
-    const text = {
+    const text = (runMode === "preview" ? {
+      done: "Night preview complete.",
+      aborted: "Night preview stopped.",
+      error: "Night preview stopped because of an error."
+    } : {})[status] || {
       done: "Run complete.",
       aborted: "Run aborted.",
       error: "Run stopped because of an error.",
       incomplete: "Run stopped before the workflow was complete."
     }[status] || "Run ended.";
-    add(entry("notice", ev.t, status === "done" ? "check" : "stop", h("span", {}, h("strong", {}, text), reason ? ` ${reason}` : ""),
+    add(entry("notice", ev, status === "done" ? "check" : "stop", h("span", {}, h("strong", {}, text), reason ? ` ${reason}` : ""),
       { level: status === "error" ? "error" : "info" }));
     for (const el of byMsg.values()) { el.classList.remove("streaming"); el.removeAttribute("aria-busy"); }
+    runMode = null;
+    nightClock = null;
   });
 
   function reset(empty = true) {
     byMsg.clear();
     entries = 0;
     lastPhase = null;
+    runMode = null;
+    nightClock = null;
+    nightLog?.reset();
     follow = true;
     jumpBtn.hidden = true;
     watermark.hidden = true;

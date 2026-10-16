@@ -1,0 +1,54 @@
+/* Repack Pilot — the KPI board and the Assumptions tab in the drawer. Plan (engine) and Tonight
+ * (simulation) sit in labelled columns; every figure carries its basis: a source key from
+ * DATA_SOURCES.md (mono), the label Assumption, or Synthetic (dashed). A changed input is a person's
+ * setting, so its chip is burgundy. */
+
+.kpiboard, .assumptions { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 8px; }
+.kb-head h3, .as-head h3 { margin: 0 0 2px; font-family: var(--font-figures); font-size: var(--fs-lg); }
+.kb-head p, .as-head p { margin: 0; color: var(--text-muted); max-width: 90ch; }
+.kb-changed { margin: 0; color: var(--brand-text); font-weight: 600; }
+
+.kb-table, .as-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums lining-nums; }
+.kb-table th, .kb-table td, .as-table th, .as-table td { text-align: left; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.kb-table thead th, .as-table thead th { color: var(--text-muted); font-size: var(--fs-xs); font-weight: 600; text-transform: none; }
+.kb-table tbody th { font-weight: 600; }
+.kb-plan { font-family: var(--font-figures); font-weight: 600; }
+.kb-tonight { font-family: var(--font-figures); font-weight: 600; color: var(--info-text); }
+.kb-none { color: var(--text-muted); font-family: var(--font-ui); font-weight: 400; }
+.kb-basis { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.kb-key {
+  display: inline-flex; align-items: center; height: 22px; padding: 0 7px;
+  border-radius: 6px; border: 1px solid var(--line-strong); background: var(--paper);
+  font-family: var(--font-mono); font-size: 0.78rem; color: var(--text); white-space: nowrap;
+}
+.kb-key[data-kind="assumption"] { font-family: var(--font-ui); font-style: italic; color: var(--text-muted); }
+.kb-key[data-kind="synthetic"] { font-family: var(--font-ui); border-style: dashed; color: var(--text-muted); }
+.kb-key[data-kind="brief"] { font-family: var(--font-ui); color: var(--text-muted); }
+
+.kb-annual { padding: 12px 14px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--porcelain); }
+.kb-annual-main { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.kb-big { font-family: var(--font-figures); font-weight: 800; font-size: var(--fs-xl); color: var(--text); }
+.kb-qual { color: var(--text-muted); font-weight: 600; }
+.kb-annual ul { margin: 6px 0 0; padding-left: 18px; }
+.kb-annual li { margin: 2px 0; }
+.kb-inputs { margin: 8px 0 0; color: var(--text-muted); font-size: var(--fs-sm); }
+.kb-note { margin: 0; color: var(--text-muted); font-size: var(--fs-sm); max-width: 110ch; }
+
+.as-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.as-head .btn { flex: none; }
+.as-table th[scope="row"] { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-weight: 600; border-bottom: 0; }
+.as-table tr { border-bottom: 1px solid var(--line); }
+.as-table td, .as-table th { border-bottom: 0; }
+.as-id { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted); font-weight: 400; }
+.as-input { width: 9.5em; min-height: 40px; font-variant-numeric: tabular-nums; }
+.as-input[aria-invalid="true"] { border-color: var(--danger-line); }
+.as-msg { display: block; color: var(--danger-text); font-size: var(--fs-xs); min-height: 1em; }
+.as-unit { color: var(--text-muted); white-space: nowrap; }
+.as-note { display: block; margin-top: 3px; color: var(--text-muted); font-size: var(--fs-xs); max-width: 60ch; }
+.as-table tr[data-changed="true"] .as-input { border-color: var(--brand-line); background: var(--brand-wash); }
+.as-night h4 { margin: 12px 0 6px; font-family: var(--font-figures); }
+.as-night h4:first-child { margin-top: 4px; }
+.as-scenario-note { margin: 0 0 6px; color: var(--text-muted); font-size: var(--fs-sm); }
+.as-night dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 16px; margin: 0; }
+.as-night dt { color: var(--text-muted); font-weight: 600; }
+.as-night dd { margin: 0; }
