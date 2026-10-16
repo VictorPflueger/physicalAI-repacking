@@ -33,11 +33,16 @@ export function createKpiBoard(panel, { getInputs, getNightState = () => null } 
     const tLabel = !night ? "Tonight (simulation)" : `Tonight (simulation, seed ${night.seed}${fin ? "" : ", so far"})`;
     const dash = h("span", { class: "kb-none" }, "—");
     const tonightOr = (fn) => (tonight ? fn(tonight) : night ? dash.cloneNode(true) : h("span", { class: "kb-none" }, "after the night starts"));
+    // Facts only: while the night runs, the trucks gone so far (on time of gone) and the orders still
+    // open; the projection is the header tile's. At the night's end every truck is gone.
     const ordersOnTime = () => {
       if (!st || !night) return null;
-      const list = visibleOrders(st);
-      const late = list.filter((o) => laneState(o) === "late").length;
-      return `${int(list.length - late)} of ${int(list.length)}${fin ? "" : " so far"}`;
+      const states = visibleOrders(st).map(laneState);
+      const late = states.filter((s) => s === "late").length;
+      if (fin) return `${int(states.length - late)} of ${int(states.length)}`;
+      const onTruck = states.filter((s) => s === "dispatched").length;
+      const open = states.length - onTruck - late;
+      return onTruck + late ? `${int(onTruck)} of ${int(onTruck + late)} so far · ${int(open)} still open` : `no truck yet · ${int(open)} still open`;
     };
 
     clear(root);

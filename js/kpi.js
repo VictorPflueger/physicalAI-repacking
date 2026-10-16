@@ -2,7 +2,8 @@
 // session cost. Labour shows the manual baseline at 22:00 (the brief's hook: 2.5 h · €89.50) and the
 // hybrid plan once the night's plan stands, with the manual figure beneath; both come from the engine
 // with the presenter's assumptions. Store orders on time counts orders on their truck plus orders
-// projected to make it, amber with a store at risk, red once one is late.
+// projected to make it with more than the risk band (15 minutes) to spare; an order inside the band is
+// named beneath as at risk and not counted (amber), one whose truck left without it as late (red).
 
 import { bus } from "./events.js";
 import { h } from "./dom.js";
