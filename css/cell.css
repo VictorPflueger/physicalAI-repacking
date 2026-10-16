@@ -27,7 +27,7 @@
   background: var(--paper);
   box-shadow: var(--shadow-soft);
 }
-.cell-title { font-family: var(--font-figures); font-weight: 700; font-size: var(--fs-lg); line-height: 1.15; color: var(--text); }
+.cell-title { font-family: var(--font-figures); font-weight: 700; font-size: var(--fs-lg); line-height: 1.15; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cell-sub { color: var(--text-muted); font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .cell-head-right { flex: none; display: flex; align-items: center; gap: 10px; }
@@ -36,7 +36,13 @@
   font-variant-numeric: tabular-nums lining-nums; color: var(--text);
   padding: 0 4px;
 }
-.cell-clock:empty { display: none; }
+.cell-clock { white-space: nowrap; }
+/* Short and strip sizes: a pause mark (two bars) instead of "· paused". */
+.cell-board[data-size="short"] .cell-clock-paused, .cell-board[data-size="strip"] .cell-clock-paused { display: none; }
+.cell-board[data-size="short"] .cell-clock[data-paused="true"]::after, .cell-board[data-size="strip"] .cell-clock[data-paused="true"]::after {
+  content: ""; display: inline-block; box-sizing: border-box; width: 11px; height: 14px; margin-left: 8px; vertical-align: -1px;
+  border-left: 4px solid var(--text-muted); border-right: 4px solid var(--text-muted);
+}
 
 /* The neutral tag, top right, in both modes. */
 .sim-cell-tag {

@@ -2,18 +2,18 @@
 // (1920×1080, 1600×900, 1536×864, 1366×768, 1280×720), each in five states of scenario 1: idle; idle
 // with the drawer open; the glass jar's correction (22:17); the express order (02:00, thirteen lanes,
 // two stores at risk); and that moment with the drawer open on the KPI board (the board's smallest
-// sizes, strip mode at 1280×720). The last three are taken while the night pauses for the agent's turn
-// there, so the clock carries its longest text ("· paused"). In every state: no horizontal overflow, the
-// header tiles in view and never covered, the header at most 14 % of the window's height, a one-row
-// control bar, the header badges clear of each other,
-// the board's caption, Simulated cell tag and world-model chip inside the panel and clear of each other,
-// every store lane whole and in view, the board fitting its panel, its Synthetic label in view, and
-// every target at least 40 px (44 px on the board). At 02:00 the store-order figures must equal the
-// night simulation computed here in Node: the header tile (on their truck or safely projected, the
-// stores at risk beneath) and the KPI board's Tonight row (trucks gone so far, orders still open). The
-// night runs on Playwright's clock, paused after boot: it moves only when the suite advances it, so it
-// stands still while a state is measured and every size meets the same moments. Options and drafts
-// join the states with the agent (M3).
+// sizes, strip mode at 1280×720). The last three are taken while the night pauses for the agent's turn,
+// so the clock carries its pause ("· paused", or a pause mark in the short and strip sizes).
+// In every state: no horizontal overflow, the header tiles in view and never covered, the header at
+// most 14 % of the window's height, a one-row control bar, the header badges clear of each other, the
+// board's caption (its title on one line), world-model chip, clock and Simulated cell tag inside the
+// panel and clear of each other, every store lane whole and in view, the board fitting its panel, its
+// Synthetic label in view, and every target at least 40 px (44 px on the board). At 02:00 the
+// store-order figures must equal the night simulation computed here in Node: the header tile (on their
+// truck or safely projected, the stores at risk beneath) and the KPI board's Tonight row (trucks gone
+// so far, orders still open). The night runs on Playwright's clock, paused after boot: it moves only
+// when the suite advances it, so it stands still while a state is measured and every size meets the
+// same moments. Options and drafts join the states with the agent (M3).
 // Usage: node tests/layout.mjs [case…]   (cases: the sizes, for example 1280x720)
 import path from "node:path";
 import vm from "node:vm";
@@ -85,7 +85,8 @@ const measure = () => {
   const body = board.querySelector(".cell-body");
   const lanesEl = board.querySelector(".cell-lanes");
   const bodyBox = r(body);
-  const head = [board.querySelector(".cell-caption"), board.querySelector(".wm-chip"), board.querySelector(".sim-cell-tag")].filter(shown);
+  const head = [board.querySelector(".cell-caption"), board.querySelector(".wm-chip"), board.querySelector(".cell-clock"), board.querySelector(".sim-cell-tag")].filter(shown);
+  const lines = (el) => { if (!el) return 0; const range = document.createRange(); range.selectNodeContents(el); return new Set([...range.getClientRects()].filter((x) => x.width > 0).map((x) => Math.round(x.top))).size; };
   const headBoxes = head.map(r);
   const lanes = [...board.querySelectorAll(".lane")].map((l) => ({ id: l.dataset.order, whole: inside(r(l), bodyBox) && inside(r(l), panel), shown: shown(l) }));
   const synthetic = [...board.querySelectorAll('.chip[data-tone="synthetic"]')].some((c) => shown(c) && inside(r(c), panel));
@@ -102,6 +103,7 @@ const measure = () => {
     tiles,
     headInside: headBoxes.every((b) => inside(b, panel)),
     headClear: headBoxes.every((a, i) => headBoxes.every((b, j) => i === j || !overlap(a, b))),
+    titleLines: lines(board.querySelector(".cell-title")),
     lanes, laneCount: lanes.length,
     fits: body.scrollHeight <= body.clientHeight + 1 && lanesEl.scrollHeight <= lanesEl.clientHeight + 1,
     synthetic, tagShown: shown(tag) && inside(r(tag), panel),
@@ -121,7 +123,8 @@ function verdict(m, state) {
     // The header holds the four tiles: at most 14 % of the window's height (about 100 px at 720 px).
     [m.badgesClear && m.headerHeight <= Math.round(0.14 * m.viewH), `header badges clear of each other, header ${m.headerHeight} px of ${m.viewH}`],
     [(m.tiles || []).length === 4 && tileProblems.length === 0, `four header tiles in view, never covered, values whole${bad(tileProblems)}`],
-    [m.headInside && m.headClear, "the board's caption, chip and Simulated cell tag inside the panel and clear of each other"],
+    [m.headInside && m.headClear, "the board's caption, chip, clock and Simulated cell tag inside the panel and clear of each other"],
+    [m.titleLines === 1, `the caption's title on one line (${m.titleLines})`],
     [m.laneCount === lanesWanted && laneProblems.length === 0, `${lanesWanted} store lanes, each whole and in view (${m.laneCount})${bad(laneProblems)}`],
     [m.fits, `the board fits its panel (size ${m.size})`],
     [m.synthetic && m.tagShown, "the Synthetic label and the Simulated cell tag in view"],

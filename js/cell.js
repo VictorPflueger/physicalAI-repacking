@@ -57,7 +57,11 @@ export function createCellBoard(root, { scenarios = [], getParams = () => ({}), 
   const title = h("span", { class: "cell-title" });
   const sub = h("span", { class: "cell-sub" });
   const caption = h("div", { class: "cell-caption" }, title, sub);
-  const clockEl = h("span", { class: "cell-clock", "aria-hidden": "true" });
+  // The board's clock (the header tile carries the accessible one). At a wake-up it says "· paused"; in
+  // the short and strip sizes a pause mark stands in for the words, so the head row keeps its room.
+  const clockTime = h("span", { class: "cell-clock-time" }, "22:00");
+  const clockPaused = h("span", { class: "cell-clock-paused" });
+  const clockEl = h("span", { class: "cell-clock", "aria-hidden": "true", dataset: { paused: "false" } }, clockTime, clockPaused);
   const tag = h("span", {
     class: "sim-cell-tag", role: "note",
     title: "The robot cell, its camera, scale and gripper, and the warehouse system are simulated, in Live and in Simulation mode."
@@ -184,8 +188,13 @@ export function createCellBoard(root, { scenarios = [], getParams = () => ({}), 
   }
 
   function renderClock() {
-    const text = running || st.t > 0 ? `${clockOf(st.t)}${st.paused ? " · paused" : ""}` : "22:00";
-    if (clockEl.textContent !== text) clockEl.textContent = text;
+    const started = running || st.t > 0;
+    const time = started ? clockOf(st.t) : "22:00";
+    const paused = started && st.paused ? " · paused" : "";
+    if (clockTime.textContent !== time) clockTime.textContent = time;
+    if (clockPaused.textContent !== paused) clockPaused.textContent = paused;
+    const flag = paused ? "true" : "false";
+    if (clockEl.dataset.paused !== flag) clockEl.dataset.paused = flag;
     board.dataset.state = st.ended ? "ended" : running ? "running" : "idle";
   }
 
