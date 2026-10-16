@@ -131,7 +131,11 @@ async function startNight(page, { scenario = null, speed = 4, mode = "simulation
   await page.waitForSelector('.cell-board[data-state="running"]', { timeout: 5000 });
 }
 const statusText = (page) => page.textContent(".status-pill .text").then((t) => t.trim());
-const waitStatus = (page, text, timeout = 240000) => page.waitForFunction((t) => document.querySelector(".status-pill .text")?.textContent.trim() === t, text, { timeout });
+/** Waits for a run state in the status pill, then two frames: the pill changes at once, the board on its next frame. */
+const waitStatus = async (page, text, timeout = 240000) => {
+  await page.waitForFunction((t) => document.querySelector(".status-pill .text")?.textContent.trim() === t, text, { timeout });
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+};
 const dismissBanners = (page) => page.$$eval(".banner", (els) => els.forEach((e) => e.remove()));
 /** The KPI board's rows as { figure: [plan, tonight, "KEY KEY"] } (the basis as its source keys). */
 const kpiRows = (page) => page.$$eval(".kb-table tbody tr", (rows) => Object.fromEntries(rows.map((r) => {

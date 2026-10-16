@@ -3,6 +3,8 @@
 //        node tests/run-all.mjs unit smoke  (only the named suites)
 // The suites grow with the milestones: sims and layout start in M2 (the night in Chromium, the five
 // window sizes); live (M3), accept and design (M4 and M5) join the list as they land.
+// On GitHub Actions a failing suite's FAIL lines also become error annotations on the check run, so a
+// failure can be read through the API without the log.
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { APP_ROOT } from "./lib/harness.mjs";
@@ -28,7 +30,23 @@ const summary = [];
 for (const s of chosen) {
   console.log(`\n=== ${s.id}: ${s.what} ===`);
   const started = Date.now();
-  const r = spawnSync(process.execPath, [path.join(APP_ROOT, s.file), ...(s.args || [])], { cwd: APP_ROOT, stdio: "inherit", env: process.env });
+  // Locally the suite writes straight to the terminal; on GitHub Actions its output is captured too.
+  const ci = process.env.GITHUB_ACTIONS === "true";
+  const r = spawnSync(process.execPath, [path.join(APP_ROOT, s.file), ...(s.args || [])], { cwd: APP_ROOT, stdio: ci ? ["inherit", "pipe", "inherit"] : "inherit", env: process.env, maxBuffer: 64 * 1024 * 1024 });
+  const text = String(r.stdout || "");
+  if (ci) process.stdout.write(text);
+  if (r.status !== 0 && ci) {
+    // A FAIL line and the problem lines under it, as one annotation (newlines encoded for the command).
+    const lines = text.split("\n");
+    const blocks = [];
+    lines.forEach((line, i) => {
+      if (!/^FAIL\b/.test(line)) return;
+      const rest = [];
+      for (let j = i + 1; j < lines.length && /^\s{2,}/.test(lines[j]); j++) rest.push(lines[j].trim());
+      blocks.push([line, ...rest].join("\n").slice(0, 3000));
+    });
+    for (const b of blocks.slice(0, 10)) console.log(`::error title=${s.id}::${b.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A")}`);
+  }
   summary.push({ ...s, ok: r.status === 0, code: r.status, seconds: Math.round((Date.now() - started) / 1000) });
   if (r.status === 2) {
     console.log("Playwright is missing; browser suites are skipped. See tests/README.md.");
