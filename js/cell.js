@@ -204,7 +204,7 @@ export function createCellBoard(root, { scenarios = [], getParams = () => ({}), 
     let l1 = "", l2 = "", flag = "", label = "";
     if (id === "inbound") {
       const next = st.inbound.find((w) => !w.arrived);
-      l1 = next ? `next: ${next.label.split(" ")[0].toLowerCase()} ${next.arrives}` : "all waves in ✓";
+      l1 = next ? `next ${next.arrives} · ${next.label.split(" ")[0].toLowerCase()}` : "all waves in ✓"; // time first: a cut line keeps it
       l2 = `${int(unitsToRepack(st))} units to repack`;
       label = `Inbound pallet: ${st.inbound.map((w) => `${w.label} ${w.arrived ? "arrived" : `due at ${w.arrives}`}`).join(", ")}; ${l2}`;
     } else if (id === "camera") {

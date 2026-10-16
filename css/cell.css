@@ -170,8 +170,9 @@
 .cell-board[data-size="short"] .cell-body { gap: 8px; padding-top: 8px; }
 .cell-board[data-size="short"] .cell-line, .cell-board[data-size="short"] .world-card { display: none; }
 .cell-board[data-size="short"] .cell-head, .cell-board[data-size="strip"] .cell-head { align-items: center; }
-/* In the head row the caption gives way first; the world-model chip keeps its title and Synthetic label. */
-.cell-board[data-size="short"] .cell-caption, .cell-board[data-size="strip"] .cell-caption { flex: 0 3 auto; }
+/* In the head row the caption keeps its one line (the DC's name, whole); the world-model chip's text
+   gives way, its title and Synthetic label stay. */
+.cell-board[data-size="short"] .cell-caption, .cell-board[data-size="strip"] .cell-caption { flex: none; }
 .cell-board[data-size="short"] .wm-chip, .cell-board[data-size="strip"] .wm-chip { min-width: 210px; }
 .cell-board[data-size="short"] .cell-lanes { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 6px; }
 .cell-board[data-size="short"] .lane { padding: 5px 9px 6px; gap: 3px; }
@@ -183,7 +184,7 @@
 /* Strip: the store chips wrap into as many rows as the width needs (two at 1280 px with the express
    order), so every store and its state stays in view; the body scrolls only as a last resort. */
 .cell-board[data-size="strip"] .cell-head { padding-top: 8px; }
-.cell-board[data-size="strip"] .cell-sub { display: none; }
+.cell-board[data-size="short"] .cell-sub, .cell-board[data-size="strip"] .cell-sub { display: none; }
 .cell-board[data-size="strip"] .cell-caption { padding: 4px 12px; flex: none; }
 .cell-board[data-size="strip"] .cell-body { gap: 6px; padding: 6px 14px 8px; overflow-y: auto; }
 .cell-board[data-size="strip"] .cell-line, .cell-board[data-size="strip"] .world-card { display: none; }
