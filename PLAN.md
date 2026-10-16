@@ -1,7 +1,7 @@
 # Repack Pilot: build plan
 
-**Status:** Phase 0 plan, waiting for Victor's approval before M1. **Date:** 16 October 2026.
-**Scope of this commit:** this plan, a README stub and `.nojekyll`. No app code.
+**Status:** Phase 0 plan, approved by Victor on 16 October 2026 with the five default decisions (TECH_NOTES D1–D5). **Date:** 16 October 2026.
+**Changes after approval:** M1 corrected the region in b.1, because Essen and Gelsenkirchen are not in the eastern Ruhr.
 
 This plan turns the build brief into milestones. The brief decides what to build; this file decides how, in which order, and how each step is proven. Where the plan departs from the brief or from a reference prototype, it says so and gives the reason. Numbers from the brief appear here unchanged.
 
@@ -312,7 +312,7 @@ All of it is **Synthetic** unless a row names a source. Every invented name was 
 |---|---|---|
 | Retailer | **Ruhrkorb** (fictional grocery chain) | Web searches for "Ruhrkorb" alone and with GmbH, Supermarkt, Lebensmittel or Markt returned no company (16 Oct 2026) |
 | DC | **Ruhrkorb DC Unna** (fictional) | Unna, east of Dortmund, by the Kamener Kreuz (A1/A2): a real logistics cluster with several large distribution parks (Prologis Park Unna, P3 Kamen, Dachser Unna-Ost) |
-| Region | Eastern Ruhr and Hellweg, North Rhine-Westphalia | Real towns; the stores are invented |
+| Region | The Ruhr area and its eastern neighbours (Hellweg, Iserlohn), North Rhine-Westphalia | Real towns; the stores are invented |
 | Robot cell | "Repack cell 1": 3D camera, scale under the gripper, suction and two-finger gripper | No vendor named; vendors appear only as cited precedents |
 | People | Roles only: shift lead, picker at the manual station, on-call picker pool | No personal names or data |
 

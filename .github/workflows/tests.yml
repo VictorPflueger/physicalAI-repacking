@@ -1,0 +1,54 @@
+# Runs the test suites on every push and pull request. The app itself has no build step and no
+# dependencies; Playwright is installed here only for the browser suites (tests/README.md).
+# The suite list grows with the milestones (tests/run-all.mjs).
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch or pull request cancels the run still in progress.
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    name: Colour system, world, client and formatting (Node.js only)
+    # Pinned image: Playwright 1.56's system dependencies are known to install on Ubuntu 24.04.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node tests/run-all.mjs tokens world unit
+
+  browser:
+    name: Browser suites (Playwright, Chromium)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    needs: node
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Cache the Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-1.56.0-chromium-${{ runner.os }}
+      - run: npm install -g playwright@1.56.0 && npx playwright install --with-deps chromium
+      - run: NODE_PATH="$(npm root -g)" node tests/run-all.mjs smoke
+        env:
+          RP_TEST_OUT: ${{ runner.temp }}/repack-pilot-tests
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-screenshots
+          path: ${{ runner.temp }}/repack-pilot-tests

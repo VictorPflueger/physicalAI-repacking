@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- The browser enforces where this page may connect: the API key can only ever reach
+       api.anthropic.com (TECH_NOTES §6). Scripts, styles, fonts and images come from this site only:
+       the app loads nothing from a third party. js/diagnostics.js checks that connect-src equals
+       the origins in js/config.js. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src https://api.anthropic.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="Repack Pilot shows one night shift in a retail distribution centre: a simulated robot cell, planned by an AI agent, repacks mixed pallets into store orders, and a deterministic engine prices every 1,000 units in labour hours and euros.">
+  <title>Repack Pilot — Physical AI repacking showcase</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+
+  <link rel="stylesheet" href="css/fonts.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/cell.css">
+  <link rel="stylesheet" href="css/console.css">
+  <link rel="stylesheet" href="css/drawer.css">
+  <link rel="stylesheet" href="css/modals.css">
+
+  <!-- Synthetic world, scenarios, shadow record and the Open Food Facts snapshot: plain scripts that
+       set window globals (no fetch needed). -->
+  <script src="data/world.js" defer></script>
+  <script src="data/scenarios.js" defer></script>
+  <script src="data/shadow_record.js" defer></script>
+  <script src="data/off_snapshot.js" defer></script>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#console">Skip to the agent console</a>
+
+  <header class="app-header">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+        <rect class="mark-tile" x="1" y="1" width="30" height="30" rx="8"/>
+        <path class="mark-scan" d="M9 8.5h14"/>
+        <rect class="mark-item" x="12.5" y="5" width="7" height="7" rx="1.5"/>
+        <path class="mark-line" d="M13.4 14.4 16 17l2.6-2.6"/>
+        <path class="mark-line" d="M7.5 19.5h17l-1.9 5.9a1.5 1.5 0 0 1-1.43 1.04H10.83a1.5 1.5 0 0 1-1.43-1.04z"/>
+      </svg>
+      <div class="brand-text">
+        <span class="brand-name">Repack Pilot</span>
+        <span class="brand-sub">Repack agent for Ruhrkorb DC Unna (fictional)</span>
+      </div>
+    </div>
+
+    <div class="header-badges">
+      <span id="mode-badge" class="mode-badge" data-mode="none" role="status" aria-live="polite" title="Choose a mode with Start agent">No run active</span>
+      <span class="ai-disclosure" title="Repack Pilot is an AI system. Its plans can be wrong. Every action is a draft that waits for your approval, and nothing is ever sent to a real company. The robot cell is simulated.">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3.5l1.8 5.2 5.2 1.8-5.2 1.8L12 17.5l-1.8-5.2L5 10.5l5.2-1.8z"/><path d="M18.5 15.5l.8 2 2 .7-2 .8-.8 2-.7-2-2-.8 2-.7z"/></svg>
+        <span><span class="long">You are interacting with an </span>AI system</span>
+      </span>
+    </div>
+
+    <div id="kpis" class="kpis" role="group" aria-label="Key figures for the current run"></div>
+  </header>
+
+  <nav id="controls" class="controls" aria-label="Run controls"></nav>
+
+  <main class="workspace">
+    <!-- The workspace's first panel holds the cell board: the inbound pallet, the simulated cell with
+         its camera, scale and gripper, the manual station and the store totes. -->
+    <section class="cell-panel" aria-label="Cell board: the simulated robot cell, the manual station and the store totes">
+      <div id="cell"></div>
+    </section>
+    <section id="console" class="console-panel" aria-label="Agent console" tabindex="-1"></section>
+  </main>
+
+  <section id="drawer" class="drawer" aria-label="Options, outbox, KPI board, assumptions and audit log"></section>
+
+  <div id="banners" class="banner-stack"></div>
+
+  <!-- Boot screen: removed by js/main.js once the workspace is running. Without JavaScript modules
+       (for example when opened from disk via file://) it stays and explains what to do. -->
+  <div id="boot" class="boot" data-state="loading">
+    <div class="boot-card">
+      <div class="boot-brand">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+          <rect class="mark-tile" x="1" y="1" width="30" height="30" rx="8"/>
+          <path class="mark-scan" d="M9 8.5h14"/>
+          <rect class="mark-item" x="12.5" y="5" width="7" height="7" rx="1.5"/>
+          <path class="mark-line" d="M13.4 14.4 16 17l2.6-2.6"/>
+          <path class="mark-line" d="M7.5 19.5h17l-1.9 5.9a1.5 1.5 0 0 1-1.43 1.04H10.83a1.5 1.5 0 0 1-1.43-1.04z"/>
+        </svg>
+        <span class="brand-name">Repack Pilot</span>
+      </div>
+      <p class="boot-status" role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><span id="boot-status">Starting Repack Pilot…</span></p>
+      <p id="boot-detail" class="boot-detail" hidden></p>
+      <div class="boot-help">
+        <p>Still on this screen? Repack Pilot has to be served over http or https. Browsers block its program modules when <code>index.html</code> is opened straight from disk, at an address starting with <code>file://</code>.</p>
+        <p>To run it on your computer, open a terminal in this folder, run <code>python -m http.server 8000</code>, then open <code>http://localhost:8000</code>. Published on GitHub Pages, it works as is. Use a current Chrome or Edge.</p>
+      </div>
+      <noscript><p class="boot-detail">Repack Pilot needs JavaScript. Allow it for this site and reload the page.</p></noscript>
+    </div>
+  </div>
+</body>
+</html>
