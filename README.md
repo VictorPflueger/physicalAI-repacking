@@ -2,13 +2,13 @@
 
 A browser-only showcase of Physical AI in logistics. Repack Pilot shows one night shift in a retail distribution centre: a simulated robot cell, planned by an AI agent, repacks mixed pallets into 12 store orders, and a deterministic engine prices every 1,000 units in labour hours and euros, manual baseline against a hybrid cell. In eight minutes the audience sees the robot meet a surprise, the world model learn from it, the agent replan, a person decide and the euro figure move.
 
-**Version 0.1.0: the shell (milestone M1).** Static website, no backend, no build step. Live at **https://victorpflueger.github.io/physicalAI-repacking/** (GitHub Pages from `main`).
+**Version 0.2.0: the physical layer (milestone M2).** Static website, no backend, no build step. Live at **https://victorpflueger.github.io/physicalAI-repacking/** (GitHub Pages from `main`).
 
 | Milestone | What it adds | Status |
 |---|---|---|
-| M1 Shell (0.1.0) | The screen, the two modes and the key handling, Diagnostics, the intro with "what is real", the synthetic world with its checks, CI | This version |
-| M2 Physical layer (0.2.0) | The engine with the brief's golden cases, the seeded night simulation, the cell board, the world-model panel, the KPI board and the assumptions | Next |
-| M3 Agent (0.3.0) | The live agent and its tools, guardrails and escalations in code, options, outbox, summary, Open Food Facts lookup, Simulation replays; scenario 1 end to end | Planned |
+| M1 Shell (0.1.0) | The screen, the two modes and the key handling, Diagnostics, the intro with "what is real", the synthetic world with its checks, CI | Done |
+| M2 Physical layer (0.2.0) | The engine with the brief's golden cases, the seeded night simulation, the cell board, the world-model panel, the header tiles, the KPI board and the assumptions; a night that plays without the agent | This version |
+| M3 Agent (0.3.0) | The live agent and its tools, guardrails in code, options, outbox, summary, Open Food Facts lookup, Simulation replays; scenario 1 end to end | Next |
 | M4 Scenarios (0.4.0) | Scenarios 2 to 6, the recorder, the autonomy dial with its gate, the eight-minute demo script | Planned |
 | M5 Hardening (1.0.0) | Layout and design suites, complete documents, an independent review, release | Planned |
 
@@ -20,7 +20,7 @@ A browser-only showcase of Physical AI in logistics. Repack Pilot shows one nigh
 
 Repacking stays manual because fixed automation breaks on variety. Goods arrive in bulk, sorted by type, and must be reassembled per store: "sometimes it's ten items for a small city store, sometimes several hundred for a flagship location" (Detecon, *Two AI Worlds, One Robot*, p. 9). Items differ in shape, weight and fragility, orders change by the hour, and an express order reshuffles priorities. At about 400 picks per hour (IML) and €35.80 per labour hour (EUROSTAT_LC), every 1,000 units cost about €90 in labour.
 
-Robots that perceive and decide now handle most items, but not all of them. The money sits in the split between what the cell does and what people still do, and that split is what Repack Pilot makes visible. At the brief's default inputs, labour falls from €89.50 to €32.49 per 1,000 units: the engine's figure (from M2), with every input sourced or labelled Assumption (`DATA_SOURCES.md`).
+Robots that perceive and decide now handle most items, but not all of them. The money sits in the split between what the cell does and what people still do, and that split is what Repack Pilot makes visible. At the brief's default inputs, labour falls from €89.50 to €32.49 per 1,000 units: the engine's figure, with every input sourced or labelled Assumption (`DATA_SOURCES.md`).
 
 | Aspect | Repack Pilot |
 |---|---|
@@ -62,7 +62,8 @@ Robots that perceive and decide now handle most items, but not all of them. The 
 
 - **Two producers, one screen.** The live agent and the simulation player emit the same run events, so the screen behaves the same in both modes.
 - **Synthetic world.** `data/world.js` holds the retailer, its twelve stores with their truck cut-offs, the item master, the inbound waves, the cell and the manual station. It ships as a script, so nothing is fetched, and `js/world_check.js` checks it in CI and in Diagnostics.
-- **Numbers from code, not from the model.** A deterministic engine (M2) computes every hour and euro; guardrails (M3) reject any amount in the agent's text that the engine did not produce. Escalation rules and the autonomy gate live in code.
+- **Numbers from code, not from the model.** A deterministic engine computes every hour and euro; guardrails (M3) reject any amount in the agent's text that the engine did not produce. Escalation rules and the autonomy gate live in code.
+- **A seeded night.** `js/nightsim.js` simulates the night unit by unit: the camera, the world model, every grasp, the scale, the manual station, the totes against the truck cut-offs. The same scenario and seed give the same night in every browser, to the millisecond; `js/night.js` plays it at the chosen speed (`TECH_NOTES.md` §7).
 - **Browser-enforced boundaries.** The page's content security policy lets it connect to api.anthropic.com only and loads nothing else from outside: scripts, styles and fonts ship with the page. The key lives in this tab's session storage only, under the app's own name.
 
 ## Run it
@@ -83,7 +84,7 @@ On Windows, use `py -m http.server 8000`. Then open `http://localhost:8000`. Liv
 
 On a first visit, a short window explains what Repack Pilot does, how it works (perceive, plan, pick, replan, prepare), why it pays off and **what is real**. **How it works** in the header opens it again at any time.
 
-**Start agent** asks how the agent should run: **Simulation** (no key) or **Live** (your own key). In this version that is as far as it goes: the console and a banner say which mode you chose and that runs arrive with M3. Nothing runs, no model is called and nothing is sent.
+**Start agent** asks how the agent should run: **Simulation** (no key) or **Live** (your own key). In this version either choice plays tonight's night **without the agent**, a *night preview* with its own badge: the cell board, the header tiles, the console and the KPI board follow the night at the chosen speed, and at each moment the agent will take its turn (a correction, an escalation, the express order) the night pauses briefly. A night takes about 60 s at ×1, 30 s at ×2 and 15 s at ×4. No model is called and nothing is sent; the agent arrives with M3.
 
 ## Reading the screen
 
@@ -91,15 +92,16 @@ On a first visit, a short window explains what Repack Pilot does, how it works (
 - **Burgundy is you.** Primary and Approve buttons are burgundy, and so is the step of the progress rail that waits for you.
 - **Violet is the AI.** What the agent wrote will carry an **AI** label (M3).
 - **Red, amber and green are the store orders against their trucks:** late, at risk, on time. A word or an icon always says the same thing.
-- **The cell panel** carries a neutral **Simulated cell** tag in both modes. The hazard-style **SIMULATION** badge is kept for scripted replays (M3). Generated data carries a dashed **Synthetic** chip. In this version the panel shows the night the board will draw: the stores and their cut-offs, tonight's units, the inbound waves and the two stations.
-- **The progress rail** above the console shows the agent's plan in five steps: Perceive, Plan, Pick, Replan, Prepare.
-- **The drawer** has five tabs: Options, Outbox, KPI board, Assumptions and Audit. In this version only the audit log has content, and it exports as JSON.
+- **The cell board** carries a neutral **Simulated cell** tag in both modes. The hazard-style **SIMULATION** badge is kept for scripted replays (M3). Generated data carries a dashed **Synthetic** chip. Along the top, the cell line: the inbound pallet, the camera, the robot cell, the scale and the manual station. Below, a lane per store order filling against its truck cut-off, and the world-model card: expected against observed, and the corrections log. Every station, lane and the world model opens its details with a click or Enter. With the drawer open the board folds down to a strip of store chips.
+- **The header tiles:** labour per 1,000 units (the manual baseline, then the hybrid plan), store orders on time, the night clock and the session cost.
+- **The progress rail** above the console shows the agent's plan in five steps: Perceive, Plan, Pick, Replan, Prepare. The console logs the night's moments by the night clock.
+- **The drawer** has five tabs: Options and Outbox (with the agent, M3), the **KPI board** (Plan against Tonight, the annual figure with the cells it needs, every figure with its source), **Assumptions** (every input, editable, every change in the audit) and **Audit**, which exports as JSON.
 
 Every colour is generated from the one burgundy and checked for contrast and colour blindness. `DESIGN.md` explains the system, which Repack Pilot shares with Rebate Hunter and the Navigator.
 
 ## The two modes
 
-Runs arrive with M3. This is how the two modes will differ:
+The agent's runs arrive with M3; until then both choices play the night preview. This is how the two modes will differ:
 
 | | **Simulation** | **Live agent** |
 |---|---|---|
@@ -125,7 +127,7 @@ Replay speed ×1, ×2 or ×4 is set with **Night speed** in the control bar.
 | Row | What it checks |
 |---|---|
 | Anthropic API | Without a key: one keyless request that the API answers with 401, which proves the browser can reach it (nothing billed). With a key: the free Models list |
-| World data integrity | The synthetic world, the scenarios, the shadow record and the Open Food Facts file (11 checks, `js/world_check.js`) |
+| World data integrity | The synthetic world, the scenarios and their nights, the night calibration on 14 seeds, the shadow record and the Open Food Facts file (14 checks, `js/world_check.js`) |
 | Key and privacy | The page's security policy allows exactly the hosts in `js/config.js`; no key in local storage; key redaction works and the audit export carries no key |
 
 Run it on the presentation laptop before a demo. The version is shown at the bottom.
@@ -149,16 +151,16 @@ Repack Pilot is Detecon's flagship use case made clickable, run under T-Systems'
 | File | What it holds |
 |---|---|
 | `PLAN.md` | The approved build plan: architecture, world, engine, events and tools, guardrails, scenarios, screen, tests, milestones |
-| `TECH_NOTES.md` | Verified facts with dates (models and prices, CORS probes, Open Food Facts, the world, the security policy), the decision log (D-numbers), verification log and acceptance checklist |
+| `TECH_NOTES.md` | Verified facts with dates (models and prices, CORS probes, Open Food Facts, the world, the security policy), the engine and the night simulation, the decision log (D-numbers), verification log and acceptance checklist |
 | `DATA_SOURCES.md` | Every source key, the engine's parameters, what is synthetic and what is real, the Open Food Facts licence |
-| `DESIGN.md` | The design system: colour grammar, palette, checks, agentic patterns |
+| `DESIGN.md` | The design system: colour grammar, palette, checks, agentic patterns, the cell board, the KPI board |
 | `tests/README.md` | The test suites and how to run them |
 
 `DEMO_SCRIPT.md`, the eight-minute script, follows with the scenarios (M4).
 
 ## Tests
 
-`node tests/run-all.mjs` runs the suites of this version: the colour system (`tokens`), the synthetic world (`world`), the client, formatting and checks (`unit`), and the browser smoke tests (`smoke`, Playwright with Chromium). GitHub Actions runs them on every push and pull request. No test calls a real API or spends money. Setup and details: `tests/README.md`.
+`node tests/run-all.mjs` runs the seven suites of this version: the colour system (`tokens`), the synthetic world and the night calibration (`world`), the client, formatting and checks (`unit`), the engine and the night simulation (`engine`), and, in Chromium through Playwright, the workspace and the night (`smoke`), the six nights in the browser against Node (`sims`) and the layout at five window sizes (`layout`). GitHub Actions runs them on every push and pull request. No test calls a real API or spends money. Setup and details: `tests/README.md`.
 
 ## Sister prototypes
 

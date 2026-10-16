@@ -42,6 +42,11 @@
 .drawer-tab .count[data-tone="attention"] { background: var(--brand); color: var(--on-brand); }
 .drawer-note { color: var(--text-muted); font-size: var(--fs-sm); display: inline-flex; align-items: center; gap: 6px; margin-right: 8px; }
 .drawer-note .icon { color: var(--success-line); }
+.drawer-note .note-short { display: none; }
+@media (max-width: 1400px) {
+  .drawer-note .note-long { display: none; }
+  .drawer-note .note-short { display: inline; }
+}
 
 /* The author's credit: quiet ink like the tabs, so it never competes with a decision; the photo's
    thin burgundy ring is the colour of the person, as on the author's website. Both links are 44 px. */

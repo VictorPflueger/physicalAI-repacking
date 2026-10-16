@@ -15,7 +15,8 @@ const state = {
   autonomy: DEFAULT_LEVEL, // "advise" | "approve" | "bounded" (the dial arrives with M4)
   keyPresent: false,
   simSource: null,         // "authored" | "recorded" while a simulation runs
-  drawerOpen: false
+  drawerOpen: false,
+  assumptions: readJson(STORAGE.assumptions) || {} // changed engine inputs { id: value } (js/engine.js)
 };
 
 export function getState() {
@@ -33,6 +34,7 @@ export function setState(patch) {
   if (patch.model) writeSession(STORAGE.model, patch.model);
   if (patch.speed) writeSession(STORAGE.speed, String(patch.speed));
   if (patch.scenarioId) writeSession(STORAGE.scenario, patch.scenarioId);
+  if (patch.assumptions) writeSession(STORAGE.assumptions, JSON.stringify(patch.assumptions));
   if (changed) for (const fn of listeners) fn(getState());
 }
 
@@ -51,6 +53,13 @@ export function isRunning(s = state) {
 /** True once a run has ended, whatever the outcome. */
 export function isFinished(s = state) {
   return TERMINAL.includes(s.runState);
+}
+
+function readJson(key) {
+  try {
+    const v = JSON.parse(readSession(key) || "null");
+    return v && typeof v === "object" && !Array.isArray(v) ? v : null;
+  } catch { return null; }
 }
 
 function readSession(key) {

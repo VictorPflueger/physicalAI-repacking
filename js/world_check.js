@@ -1,18 +1,22 @@
 // Integrity checks for the synthetic world, the scenarios, the shadow record and the Open Food Facts
-// snapshot (PLAN.md §b.7). Runs in the browser (Diagnostics) and in Node (tools/check_world.mjs).
-// The night calibration targets (§b.8) join these checks with the night simulation in M2, and the
-// simulation scripts with M3.
+// snapshot (PLAN.md §b.7), the night calibration (§b.8, js/calibration.js) and the reproducibility of
+// every scenario's night. Runs in the browser (Diagnostics) and in Node (tools/check_world.mjs). The
+// simulation scripts join with M3.
 
 import { buildModel, ean13Valid, nightMinutes, NIGHTS } from "./world.js";
 import { evaluateGate } from "./autonomy.js";
 import { int, fixed } from "./format.js";
+import { buildNight, simulate, nightHash, NOMINAL_P } from "./nightsim.js";
+import { calibrate } from "./calibration.js";
 
 const SHIFT_MINUTES = 480; // 22:00 to 06:00
 
 /**
+ * opts.night: false skips the night calibration and the reproducibility runs (about a second of
+ * simulation), for tests that break the world's structure on purpose.
  * @returns {{ok: boolean, checks: Array<{name: string, ok: boolean, detail: string}>, stats: object}}
  */
-export function checkWorld(world, scenarios = [], shadowRecord = null, offSnapshot = null) {
+export function checkWorld(world, scenarios = [], shadowRecord = null, offSnapshot = null, { night: runNights = true } = {}) {
   const checks = [];
   const add = (name, ok, detail = "") => checks.push({ name, ok: !!ok, detail });
   const model = buildModel(world);
@@ -125,6 +129,47 @@ export function checkWorld(world, scenarios = [], shadowRecord = null, offSnapsh
   add("Six scenarios, one main run (scenario 1), scenario 5 on the night into Thursday 24 Dec 2026", scenOk,
     `${scenarios.length} scenarios (${nums}); main run ${mains.map((s) => s.number).join(",") || "none"}; scenario 5 starts ${sc5?.night_start_date || "?"}`);
 
+  // ---- each scenario's night ----------------------------------------------------------------------------
+  const nightIssues = [];
+  const flag = world.stores.find((st) => st.flagship);
+  const nights = [];
+  for (const sc of scenarios) {
+    const spec = sc.night;
+    if (!spec) { nightIssues.push(`scenario ${sc.number} has no night`); continue; }
+    if (!NIGHTS.includes(spec.volume) || !Number.isInteger(spec.seed)) nightIssues.push(`scenario ${sc.number}: volume ${spec.volume}, seed ${spec.seed}`);
+    if (spec.express && !(spec.express.store === flag?.id && spec.express.due === flag?.express_truck && spec.express.units > 0)) nightIssues.push(`scenario ${sc.number}: the express order is not for the flagship's express truck`);
+    for (const x of spec.unsafe || []) {
+      const it = world.items.find((i) => i.sku === String(x.unit).split(":")[1]);
+      if (!it || !["high", "very high"].includes(it.fragility) || !(x.grasp_confidence < 0.8) || !x.reason) nightIssues.push(`scenario ${sc.number}: unsafe unit ${x.unit}`);
+    }
+    if (spec.unknown && (spec.unknown.barcode !== sc.barcode || model.byBarcode.has(spec.unknown.barcode))) nightIssues.push(`scenario ${sc.number}: the unknown item is not the scenario's barcode outside the item master`);
+    if (spec.wear && !(nightMinutes(spec.wear.from) > 0 && nightMinutes(spec.wear.from) < SHIFT_MINUTES && spec.wear.success < NOMINAL_P)) nightIssues.push(`scenario ${sc.number}: wear ${JSON.stringify(spec.wear)}`);
+    for (const [id, cut] of Object.entries(spec.cutoffs || {})) {
+      const st = world.stores.find((x) => x.id === id);
+      if (!st || !(nightMinutes(cut) < nightMinutes(st.cutoff))) nightIssues.push(`scenario ${sc.number}: cut-off ${id} ${cut} is not earlier than ${st?.cutoff}`);
+    }
+    try { nights.push({ sc, night: buildNight(world, spec) }); } catch (err) { nightIssues.push(`scenario ${sc.number}: ${err.message}`); }
+  }
+  add("Every scenario's night builds: volume and seed, an express order for the flagship's express truck, unsafe units on fragile items, the unknown item, wear and earlier cut-offs",
+    scenarios.length > 0 && nightIssues.length === 0, nightIssues.slice(0, 4).join(" | ") || scenarios.map((sc) => `${sc.number}: ${sc.night.volume}, seed ${sc.night.seed}`).join("; "));
+
+  // ---- the night calibration (PLAN.md §b.8) ----------------------------------------------------------------
+  let cal = null;
+  if (runNights) {
+    try { cal = calibrate(world, scenarios); } catch (err) { cal = { ok: false, error: err.message }; }
+    add("Night calibration: on all 14 seeds the hybrid night meets every cut-off, the manual baseline misses several, the peak night misses Hamm and Soest, and scenario 1 endangers exactly Hamm and Soest",
+      !!cal?.ok, cal?.error || (cal ? `${cal.passed}/${cal.total} seeds meet every target${cal.ok ? "" : `; failing seeds ${cal.seeds.filter((x) => !x.ok).map((x) => x.seed).join(", ")}`}` : ""));
+
+    // ---- reproducibility -------------------------------------------------------------------------------------
+    const repro = nights.map(({ sc, night }) => {
+      const a = nightHash(simulate(night, { seed: sc.night.seed, events: false }));
+      const b = nightHash(simulate(night, { seed: sc.night.seed, events: false }));
+      return { n: sc.number, same: a === b, hash: a };
+    });
+    add("Every scenario's night is reproducible: two runs give the same unit-log hash", repro.length === scenarios.length && repro.every((r) => r.same),
+      repro.map((r) => `${r.n}: ${r.same ? r.hash : "DIFFERS"}`).join("; "));
+  }
+
   // ---- Open Food Facts snapshot -------------------------------------------------------------------------
   const meta = offSnapshot?.meta || {};
   const products = Object.keys(offSnapshot?.products || {});
@@ -135,6 +180,6 @@ export function checkWorld(world, scenarios = [], shadowRecord = null, offSnapsh
   return {
     ok: checks.every((c) => c.ok),
     checks,
-    stats: { stores: world.stores.length, items: world.items.length, n1: t1, n2: t2, shadow: gate?.summary || null }
+    stats: { stores: world.stores.length, items: world.items.length, n1: t1, n2: t2, shadow: gate?.summary || null, calibration: cal }
   };
 }
