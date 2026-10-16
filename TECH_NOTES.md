@@ -180,7 +180,7 @@ As the plan foresaw, re-sequencing is almost free here, so M3 tunes the express 
 
 ### 7.6 Playback and the screen (`js/night.js`, `js/cell_data.js`)
 
-- **Speeds.** ×1 plays about 6 simulated minutes per real second; ×2 and ×4 double and quadruple it; a stretch with no event for more than 4 simulated minutes passes 12 times faster. Measured in Chromium for scenario 1 (`tests/smoke.mjs`, case `night`): the whole night in 60 s at ×1, 30 s at ×2 and 15 s at ×4, at 5.0, 12.4 and 24.9 simulated minutes per second between 22:50 and 01:50.
+- **Speeds.** ×1 plays about 6 simulated minutes per real second; ×2 and ×4 double and quadruple it; a stretch with no event for more than 4 simulated minutes passes 12 times faster. Measured in Chromium for scenario 1 on 16 Oct 2026 (`tests/smoke.mjs`, case `night`): the whole night, start-up included, in 60 s at ×1, 30 s at ×2 and 15 to 16 s at ×4, at 6.0, 12.0 and 24.0 simulated minutes per second between 22:50 and 01:50 (the slope from the first to the last clock sample in that stretch).
 - **Wake-ups.** At each one the night stands still until the agent's turn is over. In this build (no agent) the turn is a pause of 1.2 s at ×1 (D17).
 - **The same night everywhere.** `tests/sims.mjs` computes the six nights in Chromium and compares them with the snapshot frozen in Node: identical hashes (scenario 1 `f290631f7ffc76be`, 2 `6678ce4c349b3ce5`, 3 `b14ed2e514824ae8`, 4 `d94016e222f2f11b`, 5 `72ec0c1f3d8744e6`, 6 `048400445b8cd68d`), order completions and wake-ups.
 - **What the screen knows.** The night plan the board starts from holds only what the warehouse system knows at 22:00; the express order, an unknown item, gripper wear and every outcome arrive as events (D21). The board, the header tiles and the KPI board are a pure reducer over those events (`js/cell_data.js`).
@@ -245,7 +245,7 @@ Arrive with M3 and M4 (`PLAN.md` §f).
 **16 Oct 2026, M2 (v0.2.0)**, on branch `m2-physical`, Node 22.22.0, Playwright 1.56.0 with Chromium 141.0.7390.37:
 - `node tests/run-all.mjs`: tokens (45 colour checks), world (15/15), unit (16 tests), engine (26 tests), smoke (14 cases, 247 s), sims (1 case), layout (30 cases, 118 s): all seven suites pass.
 - The engine's figures against `PLAN.md` §c.3–c.4 (§7.1), the calibration on 14 of 14 seeds (§7.3), the six nights identical in Node and Chromium (§7.6), option costing over 20 replications with O1 €134.25 (§7.5).
-- Scenario 1 played in Chromium to night end at ×4 (15 s), ×2 (30 s) and ×1 (60 s): every lane's dispatch state, the orders-on-time tile, the KPI board's Tonight column and the night report equal the simulation computed in Node (smoke `night`).
+- Scenario 1 played in Chromium to night end at ×4 (15 to 16 s), ×2 (30 s) and ×1 (60 s): every lane's dispatch state, the orders-on-time tile, the KPI board's Tonight column and the night report equal the simulation computed in Node (smoke `night`).
 - Controls that must fail did: the engine suite's wake-up tests with the old wake-up order (D22); the contrast case on the header tiles' faint figures at 1280 px, before the fix (D27); the layout suite on the squeezed lanes and the 13 px overflow at 1280 px, before the fixes (D19, D27).
 - MACHREG read on EU-OSHA's pages on the Regulation and on Directive 2006/42/EC, 16 Oct 2026 (D29).
 - Screenshots at 1920×1080 and 1280×720 reviewed: idle, the night after the correction, the express order with two stores at risk, strip mode with the drawer open, the night's end with the KPI board, the Assumptions tab, a board popover, the world model's correction.

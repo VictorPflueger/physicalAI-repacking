@@ -699,7 +699,7 @@ if (wanted("world")) {
   await finish("world: scenario 2 writes the glass jar back once", t, checks, [
     [/^World model, corrected: S07 Apricot jam 200 g, glass jar, expected 200 g, observed 400 g, written back for the whole SKU at 22:17$/.test(checks.focus || ""), `the panel shows the correction (${checks.focus})`],
     [checks.pop?.label === "World model: S07" && /Item master 200 g World model now 400 g Last scale reading 400 g/.test(checks.pop?.grid || "") && JSON.stringify(checks.pop?.table) === JSON.stringify(["22:17 | scale | weight | 200 g | 400 g"]), `the item's popover (${JSON.stringify(checks.pop)})`],
-    [JSON.stringify(checks.log) === JSON.stringify(["22:17scale: S07 weight 200 g → 400 g, for the whole SKU"]), `one row in the corrections log (${JSON.stringify(checks.log)})`],
+    [JSON.stringify(checks.log) === JSON.stringify(["22:17 scale: S07 weight 200 g → 400 g, for the whole SKU"]), `one row in the corrections log (${JSON.stringify(checks.log)})`],
     [checks.consoleLines?.length === 1 && /^22:17 World model corrected: S07/.test(checks.consoleLines[0]), `one console line (${JSON.stringify(checks.consoleLines)})`],
     [checks.corrections?.length === 1 && c.sku === "S07" && c.old === 200 && c.new === 400 && c.sensor === "scale" && c.applies_to === "sku" && NS.clockOf(c.at) === "22:17", `one correction in the audit (${JSON.stringify(checks.corrections)})`],
     [JSON.stringify(checks.readings) === JSON.stringify(["S07 200→400"]), `the one reading outside the tolerance is in the audit (${JSON.stringify(checks.readings)})`],

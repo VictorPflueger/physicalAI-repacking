@@ -18,12 +18,13 @@ export function createWorldPanel({ onOpen = () => {} } = {}) {
   const card = h("section", { class: "world-card", "aria-label": "World model: expected against observed, and the corrections log" },
     h("div", { class: "wm-head" }, h("strong", {}, "World model"), h("span", { class: "chip", dataset: { tone: "synthetic" } }, "Synthetic")),
     focus, log);
-  let current = null;
-  focus.addEventListener("click", () => { if (current) onOpen(current.focus?.sku || null, focus); });
-  chip.addEventListener("click", () => { if (current) onOpen(current.corrections.at(-1)?.sku || current.focus?.sku || null, chip); });
+  // What each button shows: a click opens that, even when the night has moved on since the last frame.
+  let shown = { focus: null, chip: null, ready: false };
+  focus.addEventListener("click", () => { if (shown.ready) onOpen(shown.focus, focus); });
+  chip.addEventListener("click", () => { if (shown.ready) onOpen(shown.chip, chip); });
 
   function render(st) {
-    current = st;
+    shown = { focus: st.focus?.sku || null, chip: st.corrections.at(-1)?.sku || st.focus?.sku || null, ready: true };
     const f = st.focus;
     const w = f ? st.world.item(f.sku) : null;
     clear(focus);
@@ -46,7 +47,7 @@ export function createWorldPanel({ onOpen = () => {} } = {}) {
     clear(log);
     if (st.corrections.length) {
       for (const c of st.corrections.slice(-3)) {
-        log.append(h("li", {}, h("span", { class: "wm-time" }, clockOf(c.at)), `${c.sensor}: ${c.sku} weight ${int(c.old)} g → ${int(c.new)} g, for the whole SKU`));
+        log.append(h("li", {}, h("span", { class: "wm-time" }, clockOf(c.at)), " ", `${c.sensor}: ${c.sku} weight ${int(c.old)} g → ${int(c.new)} g, for the whole SKU`));
       }
     } else {
       log.append(h("li", { class: "wm-none" }, "Corrections log: none yet"));

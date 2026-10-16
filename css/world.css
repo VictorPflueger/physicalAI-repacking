@@ -35,7 +35,7 @@
 .wm-fix { display: inline-flex; align-items: center; gap: 4px; color: var(--info-text); font-weight: 600; }
 .wm-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-sm); color: var(--text-muted); }
 .wm-log li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wm-time { font-family: var(--font-mono); font-size: 0.86em; color: var(--text); margin-right: 8px; }
+.wm-time { font-family: var(--font-mono); font-size: 0.86em; color: var(--text); margin-right: 4px; }
 .wm-chip {
   display: none; align-items: center; gap: 10px; min-height: 44px;
   padding: 6px 12px;
