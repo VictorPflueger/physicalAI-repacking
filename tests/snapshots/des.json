@@ -1,0 +1,148 @@
+{
+  "note": "Frozen by `node tests/engine.mjs --update-snapshots`. Times are milliseconds after 22:00.",
+  "scenarios": {
+    "SC1-EXPRESS": {
+      "seed": 7,
+      "hash": "f290631f7ffc76be",
+      "orders": {
+        "ESS": 11286000,
+        "GEL": 11619000,
+        "BOC": 12096000,
+        "HER": 12348000,
+        "HAG": 12699000,
+        "WIT": 13059000,
+        "DOR": 14031000,
+        "ISE": 14328000,
+        "HAM": 16587000,
+        "SOE": 16830000,
+        "LUN": 17127000,
+        "SCH": 18129600,
+        "XPR": 17433000
+      },
+      "wakeups": [
+        "22:00 night_start",
+        "22:17 correction",
+        "22:41 escalation",
+        "02:00 new_order+cutoff_risk",
+        "06:00 night_end"
+      ]
+    },
+    "SC2-GLASS": {
+      "seed": 7,
+      "hash": "6678ce4c349b3ce5",
+      "orders": {
+        "ESS": 11286000,
+        "GEL": 11619000,
+        "BOC": 12096000,
+        "HER": 12348000,
+        "HAG": 12699000,
+        "WIT": 13059000,
+        "DOR": 14031000,
+        "ISE": 14328000,
+        "HAM": 14778000,
+        "SOE": 15012000,
+        "LUN": 15273000,
+        "SCH": 15696000
+      },
+      "wakeups": [
+        "22:00 night_start",
+        "22:17 correction",
+        "06:00 night_end"
+      ]
+    },
+    "SC3-UNKNOWN": {
+      "seed": 7,
+      "hash": "b14ed2e514824ae8",
+      "orders": {
+        "ESS": 11286000,
+        "GEL": 11619000,
+        "BOC": 12096000,
+        "HER": 12348000,
+        "HAG": 12699000,
+        "WIT": 13059000,
+        "DOR": 14031000,
+        "ISE": 14328000,
+        "HAM": 14778000,
+        "SOE": 15012000,
+        "LUN": 15273000,
+        "SCH": 15696000
+      },
+      "wakeups": [
+        "22:00 night_start",
+        "22:17 correction",
+        "23:10 escalation",
+        "06:00 night_end"
+      ]
+    },
+    "SC4-WEAR": {
+      "seed": 7,
+      "hash": "d94016e222f2f11b",
+      "orders": {
+        "ESS": 11358000,
+        "GEL": 11727000,
+        "BOC": 12330000,
+        "HER": 12591000,
+        "HAG": 13041000,
+        "WIT": 13455000,
+        "DOR": 14580000,
+        "ISE": 14922000,
+        "HAM": 15408000,
+        "SOE": 15714000,
+        "LUN": 16191000,
+        "SCH": 16812000
+      },
+      "wakeups": [
+        "22:00 night_start",
+        "22:17 correction",
+        "23:43 escalation",
+        "06:00 night_end"
+      ]
+    },
+    "SC5-EARLY": {
+      "seed": 7,
+      "hash": "72ec0c1f3d8744e6",
+      "orders": {
+        "SOE": 11016000,
+        "ESS": 11502000,
+        "GEL": 11835000,
+        "BOC": 12312000,
+        "HER": 12564000,
+        "HAG": 12915000,
+        "WIT": 13275000,
+        "DOR": 14247000,
+        "ISE": 14544000,
+        "HAM": 14994000,
+        "LUN": 15255000,
+        "SCH": 15678000
+      },
+      "wakeups": [
+        "22:00 night_start",
+        "22:08 correction",
+        "06:00 night_end"
+      ]
+    },
+    "SC6-PEAK": {
+      "seed": 7,
+      "hash": "048400445b8cd68d",
+      "orders": {
+        "ESS": 11493000,
+        "GEL": 11952000,
+        "BOC": 12600000,
+        "HER": 12942000,
+        "HAG": 13437000,
+        "WIT": 13923000,
+        "DOR": 15426000,
+        "ISE": 15948000,
+        "HAM": 17726400,
+        "SOE": 18777600,
+        "LUN": 19756800,
+        "SCH": 21168000
+      },
+      "wakeups": [
+        "22:00 night_start+cutoff_risk",
+        "22:24 correction",
+        "06:00 night_end"
+      ]
+    }
+  }
+}

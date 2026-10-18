@@ -162,9 +162,10 @@ for (const file of ["data/world.js", "data/scenarios.js", "data/shadow_record.js
 }
 const { WORLD, SCENARIOS, SHADOW_RECORD, OFF_SNAPSHOT } = sandbox.window;
 const clone = (x) => JSON.parse(JSON.stringify(x));
-const run = (w = WORLD, s = SCENARIOS, sh = SHADOW_RECORD, off = OFF_SNAPSHOT) => checkWorld(w, s, sh, off);
+// Broken copies skip the night runs (calibration, reproducibility): the engine suite covers those.
+const run = (w = WORLD, s = SCENARIOS, sh = SHADOW_RECORD, off = OFF_SNAPSHOT) => checkWorld(w, s, sh, off, { night: false });
 const failing = (r) => r.checks.filter((c) => !c.ok).map((c) => c.name);
-const base = run();
+const base = checkWorld(WORLD, SCENARIOS, SHADOW_RECORD, OFF_SNAPSHOT);
 assert.ok(base.ok, failing(base).join(" | "));
 const breakers = [
   ["a store cut-off after the shift", (w) => { w.stores[3].cutoff = "07:00"; }, /cut-offs inside the shift/],

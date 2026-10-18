@@ -37,6 +37,14 @@
 }
 .run-summary .label { color: var(--text-muted); }
 .run-summary strong { font-weight: 700; color: var(--text); }
+/* The build's stage (M2: no agent yet), between the run and the two modes. */
+.stage-note {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 0 0 12px; padding: 8px 12px;
+  border-radius: var(--r-md); border: 1px solid var(--info-mid); background: var(--info-fill);
+  color: var(--text); font-size: var(--fs-sm);
+}
+.stage-note .icon { flex: none; color: var(--info-text); margin-top: 1px; }
 
 .mode-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .mode-card {

@@ -4,10 +4,12 @@ export const APP = {
   id: "rp",
   name: "Repack Pilot",
   fullName: "Repack Pilot, a Physical AI repacking showcase",
-  version: "0.1.0",
-  // What this build can do yet (shown when a run is started). Removed once the night simulation
-  // (M2) and the agent with its scripted replays (M3) are in.
-  stage: "Shell preview (v0.1.0): the screen, the two modes, key handling and Diagnostics. The night simulation arrives with M2 and the agent with M3."
+  version: "0.2.0",
+  // What this build can do yet (shown when a night starts). Removed once the agent with its scripted
+  // replays (M3) is in.
+  stage: "Night preview (v0.2.0): the cell, the world model and the engine run tonight without the agent. The agent, its options and the scripted replays arrive with M3.",
+  // Shown in the mode choice while the build has no agent (removed in M3).
+  stageNote: "This build plays the night without the agent in either mode: a night preview with no model calls. The agent arrives with M3."
 };
 
 export const ANTHROPIC = {
@@ -80,6 +82,7 @@ export const STORAGE = {
   speed: `${P}speed`,                   // sessionStorage
   scenario: `${P}scenario`,             // sessionStorage
   sessionCost: `${P}sessionCostEur`,    // sessionStorage: live spend in this tab (M3)
+  assumptions: `${P}assumptions`,       // sessionStorage: the presenter's changed engine inputs
   introSeen: `${P}introSeen`,           // localStorage: the intro opens by itself only on a first visit
   consoleText: `${P}consoleText`        // localStorage: larger console text for projectors
 };

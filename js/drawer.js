@@ -62,7 +62,10 @@ export function createDrawer(root, { onToggle } = {}) {
     tabList,
     credit,
     h("div", { class: "drawer-end" },
-      h("span", { class: "drawer-note" }, icon("shield", 16), "Actions stay drafts until you approve them and are never sent to anyone."),
+      // The note in full where the bar has room, in short on small laptops (with the tab counts of a night).
+      h("span", { class: "drawer-note", title: "Actions stay drafts until you approve them and are never sent to anyone." }, icon("shield", 16),
+        h("span", { class: "note-long" }, "Actions stay drafts until you approve them and are never sent to anyone."),
+        h("span", { class: "note-short" }, "Drafts only, never sent.")),
       toggleBtn)
   );
 

@@ -8,7 +8,7 @@ import { isRunning, isFinished } from "./state.js";
 import { runStateLabel, onAwaitedChange } from "./handover.js";
 
 const STATE_TONE = {
-  idle: "", perceiving: "active", planning: "active", picking: "active", replanning: "active",
+  idle: "", previewing: "active", perceiving: "active", planning: "active", picking: "active", replanning: "active",
   options: "waiting", awaiting_approval: "waiting", executing: "active", done: "done", stopped: "stopped", aborted: "stopped", error: "stopped"
 };
 

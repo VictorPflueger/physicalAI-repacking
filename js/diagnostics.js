@@ -13,7 +13,7 @@ import { remember, memory as sourceMemory } from "./source_health.js";
 
 export const TESTS = [
   { id: "anthropic", label: "Anthropic API", host: "api.anthropic.com", purpose: "Live agent (Claude)" },
-  { id: "world", label: "World data integrity", host: "local", purpose: "Synthetic world, scenarios, shadow record, Open Food Facts snapshot" },
+  { id: "world", label: "World data integrity", host: "local", purpose: "Synthetic world, scenarios and their nights, night calibration, shadow record, Open Food Facts snapshot" },
   { id: "privacy", label: "Key and privacy", host: "local", purpose: "Key kept in this tab only, under this app's own name, never exported; connections limited by the page's security policy" }
 ];
 
@@ -78,6 +78,9 @@ const RUNNERS = {
     return { status: issues.length ? "fail" : "pass", ms: null, detail: text.charAt(0).toUpperCase() + text.slice(1) };
   },
   async world() {
+    // The night checks simulate every scenario and the 14 calibration seeds (about a second): let the
+    // "running" state paint first.
+    await new Promise((r) => setTimeout(r, 30));
     const started = performance.now();
     const res = checkWorld(globalThis.WORLD, globalThis.SCENARIOS || [], globalThis.SHADOW_RECORD || null, globalThis.OFF_SNAPSHOT || null);
     const passed = res.checks.filter((c) => c.ok).length;

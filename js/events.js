@@ -6,7 +6,7 @@
 // Envelope: { id, seq, type, ts (ISO), t (ms since run start or null), run_id, mode, payload }
 //
 // Event types and payloads (PLAN.md §d.1). Inherited from Rebate Hunter with the same envelope and role:
-//   run_start         { run_id, mode: "live"|"simulation", scenario_id, title, seed?, night_date?, model?, model_label?,
+//   run_start         { run_id, mode: "live"|"simulation"|"preview", scenario_id, title, seed?, chosen_mode?, model?, model_label?,
 //                       sim_source?: "authored"|"recorded", recorded_on?, recorded_model? }
 //   state_change      { state, note? }              states: see RUN_STATES
 //   narration         { msg_id, text, done }        streamed upsert: same msg_id replaces text
@@ -27,9 +27,35 @@
 // escalation, autonomy_change, then clock, scale_reading, tote_update, wake, cutoff_risk, dispatch,
 // plan_update, confirmation_request and confirmation_decision. Their payloads are specified in
 // PLAN.md §d.1 and documented here as the milestones that emit them land.
+//
+// From the night simulation (js/nightsim.js, played by js/night.js; M2). Every one carries `sim_t`, its
+// simulated time in ms after 22:00:
+//   night_plan        { seed, volume, scenario_id, orders, waves, items, totals, r_m, r_c, p, express?, unknown?, wear? }
+//   clock             { t, label: "02:00", paused, reason? }        once per simulated minute and at every pause
+//   wave_arrival      { wave, label, units }
+//   order_new         { order: "XPR", store, units, due }
+//   detection         { unit_id, sku, store, barcode, confidence, known }
+//   rehearsal         { sku, grip, weight_g, expected_success, reason }
+//   grasp_attempt     { unit_id, sku, store, grip, expected_success, grasp_confidence, ok, reason? }
+//   scale_reading     { unit_id, sku, expected_g, observed_g }
+//   world_model_correction { sku, field: "weight_g", old, new, sensor: "scale", at, applies_to: "sku", unit_id }
+//   escalation        { escalation_id, rule: "E1"…"E4", unit_id?, sku?, store?, reason, to, needs_confirmation, t }
+//   manual_pick       { unit_id, sku, store, picker, reason, set_aside? }
+//   tote_update       { store, tote_no, units, weight_g, status: "filling"|"closed" }
+//   projection        { t, orders: [{ id, projected_ms, cutoff_ms, slack_min, at_risk }] }
+//   cutoff_risk       { t, stores: [{ store, projected, cutoff, slack_min, new }] }
+//   wake              { wake_id, kind, kinds, t, clock, items }        the night stands still until its turn is over
+//   dispatch          { store, order, t, on_time, units, of, moved }   at the store's cut-off
+//   late_complete     { store, order, t, units }                       the last unit of a late order
+//   night_end         { figures, orders }                              tonight's figures (PLAN.md §c.5)
+//   unit_log          { columns, rows, seed, hash, partial?, until? }  one row per unit: the audit keeps the
+//                     ordinary units here instead of thousands of envelopes (js/night.js, isFineEvent)
+// The M2 build plays the night without the agent ("night preview": run_start mode "preview", run state
+// "previewing"); the agent and the scripted replays take over the same events in M3.
 
 export const RUN_STATES = {
   idle: "Idle",
+  previewing: "Night preview",
   perceiving: "Perceiving",
   planning: "Planning",
   picking: "Picking",

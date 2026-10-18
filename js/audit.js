@@ -1,13 +1,19 @@
 // Audit trail: every run event plus every model request/response, exportable as JSON.
 // Secrets never enter it: API keys are not part of any event, and the export is redacted again.
 //
-// Two lists are kept: `events` (the run-event stream exactly as the UI saw it) and
-// `apiExchanges` (one record per model call: what was sent, what came back, usage and timing; from
-// M3). The Audit tab shows both in one chronological view; each model call appears as a "model_call" row.
+// Two lists are kept: `events` (the run-event stream as the UI saw it) and `apiExchanges` (one record
+// per model call: what was sent, what came back, usage and timing; from M3). The Audit tab shows both
+// in one chronological view; each model call appears as a "model_call" row.
+//
+// The night's ordinary units are not kept one envelope per detection, grasp, reading, pick and tote:
+// the event "unit_log" holds them as one row per unit (PLAN.md §d.1 "Audit volume"). Exceptions stay
+// full events: an unknown barcode, a failed grasp, a reading outside the tolerance, an item set aside,
+// a closed tote, every correction, escalation, projection, cut-off risk, wake-up and dispatch.
 
 import { bus } from "./events.js";
 import { APP } from "./config.js";
 import { redactSecrets } from "./keystore.js";
+import { isFineEvent } from "./night.js";
 
 const events = [];
 const apiExchanges = [];
@@ -18,6 +24,7 @@ let run = null;
 bus.onAny((ev) => {
   // Streaming narration arrives as many partial updates; the audit keeps only final texts.
   if ((ev.type === "narration" || ev.type === "reasoning") && !ev.payload?.done) return;
+  if (isFineEvent(ev.type, ev.payload)) return;
   const copy = safeClone(ev);
   events.push(copy);
   if (ev.type === "run_start") {
@@ -25,9 +32,12 @@ bus.onAny((ev) => {
       run_id: ev.payload.run_id, mode: ev.payload.mode,
       scenario_id: ev.payload.scenario_id || null, title: ev.payload.title, model: ev.payload.model || null,
       seed: ev.payload.seed ?? null, sim_source: ev.payload.sim_source || null,
+      ...(ev.payload.chosen_mode ? { chosen_mode: ev.payload.chosen_mode } : {}),
       started_at: ev.ts, ended_at: null, status: "running"
     };
   }
+  // The night's fingerprint: the same scenario, seed and inputs give the same hash in every browser.
+  if (ev.type === "unit_log" && run) run.night_hash = ev.payload.hash;
   if (ev.type === "run_end" && run) {
     run.ended_at = ev.ts;
     run.status = ev.payload.status;
@@ -113,7 +123,9 @@ export function buildAuditExport() {
         : "SIMULATION: scripted replay of a representative night. No model was called."
       : mode === "live"
         ? "LIVE: real model reasoning and real tool calls made from the presenter's browser, against the simulated cell."
-        : "No run recorded.",
+        : mode === "preview"
+          ? "NIGHT PREVIEW: the engine and the night simulation played tonight without the agent. No model was called and nothing was drafted."
+          : "No run recorded.",
     ai_disclosure: "This log documents an AI system. All outbound actions are drafts in an in-app outbox; nothing was sent to any external party.",
     world_note: world.retailer_note || "The world is synthetic.",
     simulated_cell: "The robot cell, camera, scale, gripper and warehouse system are simulated in both modes.",
@@ -129,7 +141,8 @@ export function buildAuditExport() {
 
 export function auditFileName() {
   const id = run?.run_id || `repack-pilot-${Date.now()}`;
-  return `${id}${run?.mode === "simulation" ? "-SIMULATION" : run?.mode === "live" ? "-LIVE" : ""}-audit.json`;
+  const suffix = { simulation: "-SIMULATION", live: "-LIVE", preview: "-PREVIEW" }[run?.mode] || "";
+  return `${id}${suffix}-audit.json`;
 }
 
 function countBy(list) {

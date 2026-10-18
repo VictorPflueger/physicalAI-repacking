@@ -7,7 +7,7 @@ Repack Pilot uses **no data from the user or any client, and no personal data.**
 3. **Open data.** One real product from Open Food Facts, kept apart from the synthetic world under its own licence (§4).
 4. **Reference texts.** The two whitepapers for the framing, two shop-hours laws for scenario 5, and the GS1 rule that keeps the synthetic barcodes out of open trade.
 
-**Version 0.1.0** (milestone M1, the shell), 16 October 2026. The engine and its figures arrive with M2 and the Open Food Facts lookup with M3, so on screen today are the synthetic world and the intro's "what is real" panel. The model prices and the exchange rate behind the cost meter are operating data, recorded in `TECH_NOTES.md` §1.
+**Version 0.2.0** (milestone M2, the physical layer), 16 October 2026. On screen: the synthetic world, the night simulation of the simulated cell, and the engine's figures with their sources on the KPI board and in the Assumptions tab. The Open Food Facts lookup arrives with M3. The model prices and the exchange rate behind the cost meter are operating data, recorded in `TECH_NOTES.md` §1.
 
 > **Fictional retailer.** Ruhrkorb, Ruhrkorb DC Unna, its stores, orders, items, robot cell and shadow record are invented. The towns are real places in North Rhine-Westphalia; no real store, company or person in them is described. No robot vendor is named as the simulated robot.
 
@@ -15,7 +15,7 @@ Repack Pilot uses **no data from the user or any client, and no personal data.**
 
 ## 1. Source keys
 
-The keys carry over from the build brief, whose author opened and checked every page on 15 October 2026. Three keys are new; they and the rows marked *re-read* were checked in this build on 16 October 2026 (times UTC).
+The keys carry over from the build brief, whose author opened and checked every page on 15 October 2026. Four keys are new; they and the rows marked *re-read* were checked in this build on 16 October 2026 (times UTC).
 
 | Key | Source | Publisher, year | Type | Used for |
 |---|---|---|---|---|
@@ -32,14 +32,15 @@ The keys carry over from the build brief, whose author opened and checked every 
 | **LOEG_NRW** (new) | [§ 4 Ladenöffnungsgesetz NRW](https://lexmea.de/de/gesetz/loeg-nrw/4) (mirror of the text in the Justizportal NRW) | Land North Rhine-Westphalia | Law | Scenario 5: § 4 (1) no. 2, shops "dürfen … am 24. Dezember an Werktagen bis 14 Uhr geöffnet sein". Read 16 Oct 2026, 09:58. The stores are in North Rhine-Westphalia, where the Land law applies (`PLAN.md` B3) |
 | **GS1_RCN** (new) | [GSCN 23-006, "RCN updates"](https://www.gs1.org/docs/barcodes/GSCN-23-006-RCN.pdf) | GS1, ratified March 2023 | Standard | Synthetic barcodes: prefixes 02 and 20–29 are restricted circulation numbers, and "RCNs are not GTINs". Read 16 Oct 2026, 09:57 |
 | **ECB_FX** (new) | [ECB euro reference rates, daily XML](https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml) | European Central Bank | Public statistics | The cost meter's fixed 1 USD = 0.892 EUR (reference date 15 Oct 2026, €1 = $1.1208). Read 16 Oct 2026, 09:54 (`TECH_NOTES.md` §1) |
+| **MACHREG** (new) | [Regulation (EU) 2023/1230 on machinery](https://osha.europa.eu/en/legislation/directive/regulation-20231230eu-machinery) (EU-OSHA's page on the Regulation; official text: [EUR-Lex](https://eur-lex.europa.eu/eli/reg/2023/1230/oj)) | European Union, 2023 | Law | The KPI board's safety note. EU-OSHA: "The Regulation applies from 20 January 2027" and it "replaces Directive 2006/42/EC"; Article 51 repeals the Directive with effect from 20 January 2027 (read in a summary of Article 51, [presencis.com](https://cdn.presencis.com/regulations/machinery-regulation/article-51/); the EUR-Lex text was too long for the page fetcher to reach Article 51). Read 16 Oct 2026 |
 | WP_DETECON | *Two AI Worlds, One Robot* | Detecon, 2026 | Whitepaper, project file | Framing: the repacking process (p. 9), the cup example (p. 7), the feedback loop (p. 8), peaks (p. 10) |
 | WP_TSI | *From industrial data to Physical AI*, v5 of 15 September 2026 | T-Systems, 2026 | Whitepaper, project file | Framing: controlled autonomy (p. 5), Simulate and the gate between stages (pp. 8–9), the control record (p. 11) |
 
-The brief's safety note (a real cell needs conformity assessment and CE marking under the EU Machinery Regulation (EU) 2023/1230, which applies from 20 January 2027, and under Directive 2006/42/EC until then) ships with the KPI board and the demo script; its dates are re-read when it ships.
+The brief's safety note (a real cell needs conformity assessment and CE marking under the EU Machinery Regulation (EU) 2023/1230, which applies from 20 January 2027, and under Directive 2006/42/EC until then) ships on the KPI board with its dates checked (MACHREG, `TECH_NOTES.md` D29); the demo script carries it from M4.
 
-## 2. Engine parameters (from M2)
+## 2. Engine parameters
 
-The engine (M2) computes every hour and euro on screen from these inputs. The values are the brief's, unchanged; the assumptions drawer shows each with its key or the label Assumption, and lets the presenter change it.
+The engine (`js/engine.js`) computes every hour and euro on screen from these inputs. The values are the brief's, unchanged; the Assumptions tab shows each with its key or the label Assumption and lets the presenter change it for this tab, every change in the audit (`TECH_NOTES.md` D30).
 
 | Symbol | Parameter | Default | Unit | Key |
 |---|---|---|---|---|
@@ -56,6 +57,27 @@ The engine (M2) computes every hour and euro on screen from these inputs. The va
 | — | Nights per year; shift length | 250; 8 | nights; hours | Brief |
 
 Robot rates appear as ranges with their type tag ("manufacturer data, optimal conditions", "trial"), never as guarantees.
+
+### 2.1 The night simulation's own assumptions
+
+The night simulation (`js/nightsim.js`, `TECH_NOTES.md` §7.2) needs a few values the brief does not give. Each is an Assumption, shown in the Assumptions tab or on the board where it acts; the escalation thresholds are example values a client sets.
+
+| Value | Default | Where it acts | Basis |
+|---|---|---|---|
+| Grasp attempt; manual pick | 7.2 s; 9 s | From `r_c` = 500 and `r_m` = 400 | Brief (`r_c`, `r_m`) |
+| Scale tolerance before a write-back | 25 % from the world model's weight | The world model corrects the whole SKU | Assumption |
+| Cut-off risk band (E4) | 15 minutes | A store projected inside it is at risk | Assumption (brief) |
+| Fragile item, low confidence (E2) | grasp confidence below 0.80 on a high or very high fragility item | To a person at the manual station | Assumption |
+| Repeated failures (E3) | success over the last 100 attempts below 75 % | A person is called to the cell | Assumption (`TECH_NOTES.md` D2) |
+| Camera confidence | 0.93 to 0.99, drawn per unit | Shown on detections | Assumption |
+| Grasp confidence | 0.95 (low fragility), 0.92 (medium), 0.89 (high), 0.86 (very high), ± 0.04 per unit | The rehearsal and E2 | Assumption |
+| Projection refresh | every 15 minutes while work remains, and at every correction, escalation and new order | Cut-off risk | Assumption |
+| Option costing | 20 replications per option, common random numbers | Expected late orders and their cost | Assumption (`TECH_NOTES.md` D1) |
+| Scenario 1 | 600 express units for Dortmund at 02:00, due 03:30; an olive-oil bottle lying on its side (grasp confidence 0.62) and a passata bottle with a chipped neck (0.71) | The night's events | Assumption, Synthetic |
+| Scenario 3 | 6 units of barcode 4037848020859 at 23:10 | E1 | Synthetic (the product is real, §4) |
+| Scenario 4 | grasp success falls to 70 % from 23:30 | E3 | Assumption |
+| Scenario 5 | Soest's cut-off 01:30 instead of 02:40 | The plan | Assumption (§3.6) |
+| Playback | ×1 about 6 simulated minutes per second; a stretch without events faster | The screen only, never a figure | Presentation |
 
 ## 3. The synthetic world: what is invented and what is real
 
@@ -148,8 +170,8 @@ The fonts Barlow, Barlow Semi Condensed and IBM Plex Mono (Fontsource 5.3.0, SIL
 
 1. **The cell is simulated.** No robot, camera or scale is connected; the "Simulated cell" tag stays on the cell in both modes, and the intro's "what is real" panel says what is simulated.
 2. **The world is synthetic.** Ruhrkorb, its stores, orders and items are invented; the towns are real.
-3. **Robot rates are ranges and proxies,** from manufacturer data under optimal conditions, a vendor case and a trial, not guarantees (from M2, with type tags).
-4. **The annual figure is gross**, before cell costs, and always shown with the number of cells it needs (from M2). There is no payback claim.
+3. **Robot rates are ranges and proxies,** from manufacturer data under optimal conditions, a vendor case and a trial, not guarantees (the Assumptions tab says which).
+4. **The annual figure is gross**, before cell costs, and always shown with the number of cells it needs and the break-even cost per cell hour. There is no payback claim.
 5. **The simulated cell is not a safety system** (the brief's safety note, §1).
 
 ## 7. What Repack Pilot does **not** use
