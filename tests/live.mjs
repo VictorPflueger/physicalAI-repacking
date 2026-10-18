@@ -76,7 +76,9 @@ async function startLive(page) {
   await page.fill("#api-key-input", MOCK_KEY);
   await page.click('button:has-text("Check key and continue")');
   await page.waitForSelector("#api-key-input", { state: "detached", timeout: 8000 });
-  await page.waitForSelector('.cell-board[data-state="running"]', { timeout: 5000 });
+  // The run's line in the console: it stays, while the board's running state can be over within
+  // milliseconds when the first answer ends the run (the cost cap, a rejected key).
+  await page.waitForFunction(() => /Live agent on/.test(document.querySelector('#console .entry[data-type="run"]')?.textContent || ""), null, { timeout: 10000 });
 }
 const statusText = (page) => page.textContent(".status-pill .text").then((t) => t.trim());
 const waitEnded = (page, timeout = 300000) => page.waitForFunction(() => ["Done", "Error", "Stopped", "Aborted"].includes(document.querySelector(".status-pill .text")?.textContent.trim()), null, { timeout });
