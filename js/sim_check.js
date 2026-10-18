@@ -11,7 +11,9 @@
 // then (as in live mode, option cards, drafts and the summary are audited by the tools themselves); no
 // text shows "undefined" or "NaN"; the summary is marked as a simulated run, never as a live one; and
 // the night ends with the summary published. Paths: each option approved, doing nothing, and the
-// recommended option rejected before another is approved.
+// recommended option rejected before another is approved. Before any replay it reads the script itself:
+// a euro amount, number of hours or rate typed into a text, even a right one, is an error, because the
+// figure would not follow a changed input at playback (the browser does not audit the narration).
 
 import { createNightSession, createSessionCache } from "./night_session.js";
 import { createToolbox, TOOL_NAMES } from "./tools.js";
@@ -19,6 +21,7 @@ import { interpretScript, replayInputs, REPLAY_PARAMS } from "./script.js";
 import { unresolvedKeys, stringsIn } from "./sim_vars.js";
 import { createOffLookup } from "./openfoodfacts.js";
 import { defaults as engineDefaults } from "./engine.js";
+import { extractFigures } from "./figures.js";
 
 const BROKEN = /\b(undefined|NaN)\b|\[object Object\]/;
 /** Scenarios whose script must exist in this build (the others arrive with M4). */
@@ -172,12 +175,33 @@ function decisionPoints(script) {
   return out;
 }
 
+/**
+ * Euro amounts, numbers of hours and rates typed into a script's texts (narration, option texts, drafts,
+ * the summary) instead of taken from a {{placeholder}}: [{ where, raw }]. Clock times, counts, minutes
+ * and shares are not figures here.
+ */
+export function typedFigures(script) {
+  const out = [];
+  const visit = (v, where) => {
+    if (typeof v === "string") {
+      for (const f of extractFigures(v.replace(/\{\{[^}]*\}\}/g, " § "))) out.push({ where, raw: f.raw });
+    } else if (Array.isArray(v)) {
+      v.forEach((x, i) => visit(x, `${where}[${i}]`));
+    } else if (v && typeof v === "object") {
+      for (const [k, x] of Object.entries(v)) visit(x, `${where}.${k}`);
+    }
+  };
+  (script?.wakes || []).forEach((w, i) => visit(w.steps, `wake ${i + 1}`));
+  return out;
+}
+
 /** Checks one scenario's script on every decision path. Returns { errors, summary, paths }. */
 export async function checkScript(world, scenario, script, refs = {}, { cache = createSessionCache(), inputs = null } = {}) {
   const errors = [];
   if (!script || !Array.isArray(script.wakes) || !script.wakes.length) return { errors: ["the script has no wake-ups"], summary: "", paths: {} };
   if (script.scenario && script.scenario !== scenario.id) errors.push(`the script is for ${script.scenario}, not ${scenario.id}`);
   if (script.world_version && world.meta?.world_version && script.world_version !== world.meta.world_version) errors.push(`written for world ${script.world_version}, this app has world ${world.meta.world_version}`);
+  for (const f of typedFigures(script)) errors.push(`${f.where}: "${f.raw}" is typed; take it from a {{placeholder}}`);
   const points = decisionPoints(script);
   if (points.length > 1) errors.push("more than one decision per script is not supported yet");
   const plans = [];
@@ -194,20 +218,26 @@ export async function checkScript(world, scenario, script, refs = {}, { cache = 
   }
   const paths = {};
   let first = null;
+  // Tool calls as the console lists them (and the run facts count them): ui_* tools show as their
+  // effects and sim_advance as the wake-up.
+  const visibleOf = (r) => r.calls.filter((n) => !n.startsWith("ui_") && n !== "sim_advance").length;
+  const visible = [];
   for (const { name, plan } of plans) {
     const r = await replayScript(script, { world, scenario, refs, plan, cache, inputs });
     for (const e of r.errors) errors.push(`${name}: ${e}`);
     const res = r.session?.run;
-    paths[name] = r.ok ? { hash: res.hash, on_time: res.orders.filter((o) => o.on_time).length, orders: res.orders.length, late: res.orders.filter((o) => !o.on_time).map((o) => o.id), calls: r.calls.length, outcome: r.toolbox.state().outcome } : { failed: true };
+    paths[name] = r.ok ? { hash: res.hash, on_time: res.orders.filter((o) => o.on_time).length, orders: res.orders.length, late: res.orders.filter((o) => !o.on_time).map((o) => o.id), calls: r.calls.length, visible_calls: visibleOf(r), outcome: r.toolbox.state().outcome } : { failed: true };
+    if (r.ok) visible.push(visibleOf(r));
     if (!first) first = r;
   }
   const stats = first?.ok ? {
-    visible: first.calls.filter((n) => !n.startsWith("ui_")).length,
     revised: first.texts.some((t) => /(^|\n)\s*Revised:/.test(t.text)),
     recommendation: first.texts.some((t) => /(^|\n)\s*Recommendation:/.test(t.text))
   } : null;
   if (stats && points.length && !stats.recommendation) errors.push("no \"Recommendation:\" narration before the decision");
-  const summary = `${script.wakes.length} wake-ups, ${stats ? `${stats.visible} visible tool calls` : "replay failed"}, ${plans.length} decision path${plans.length === 1 ? "" : "s"}`;
+  const lo = Math.min(...visible), hi = Math.max(...visible);
+  const calls = visible.length === plans.length ? `${lo === hi ? lo : `${lo} to ${hi}`} tool calls on screen` : "replay failed";
+  const summary = `${script.wakes.length} wake-ups, ${calls}, ${plans.length} decision path${plans.length === 1 ? "" : "s"}`;
   return { errors: [...new Set(errors)], summary, paths };
 }
 

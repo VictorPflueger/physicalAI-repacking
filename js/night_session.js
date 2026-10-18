@@ -101,7 +101,12 @@ export function createNightSession({ world, scenario, params = {}, seed, cache =
       levers = next;
       run = nextRun;
       projection = null;
-      const update = { ...planUpdate({ source: meta.source || "decision", option_id: meta.option_id || null, levers: added, clock: clockOf(wake.t) }), sim_t: wake.t };
+      // The projection the night makes right after the decision (runNight adds one at every lever's
+      // decided_ms): it travels with the plan update, so the board shows what the decision changes at
+      // once, while the night still stands at the wake-up; the same event plays again when the night
+      // moves on, unchanged.
+      const after = run.events.find((e) => e.type === "projection" && e.t === at)?.payload || null;
+      const update = { ...planUpdate({ source: meta.source || "decision", option_id: meta.option_id || null, levers: added, clock: clockOf(wake.t) }), sim_t: wake.t, ...(after ? { projection: after } : {}) };
       applyEvent(state, "plan_update", update, wake.t);
       const d = { at, clock: clockOf(wake.t), source: meta.source || "decision", option_id: meta.option_id || null, levers: added };
       decisions.push(d);

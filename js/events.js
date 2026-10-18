@@ -26,7 +26,8 @@
 // expected_late_orders, late_orders_eur, expected_total_eur, late_by_order, tonight, recommended }],
 // baseline: { expected_late_orders, late_orders_eur, expected_total_eur, late_by_order, tonight, description } };
 // plan_update { source: "decision"|"safety", option_id?, clock, sim_t, reason?, levers: [{ type, …, from, from_ms,
-// until?, until_ms? }] } (a decision or a safety action, from the next millisecond, js/night_session.js);
+// until?, until_ms? }], projection? } (a decision or a safety action, from the next millisecond, with the
+// night's projection right after it, so the board shows its effect at once; js/night_session.js);
 // provisional_entry { barcode, name, net_content, source, status: "unverified", created };
 // confirmation_request { request_id, subject, reason, entry_barcode?, choices } and confirmation_decision
 // { request_id, choice: "confirm"|"reject", subject?, by: "user" }.

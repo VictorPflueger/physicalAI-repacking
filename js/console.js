@@ -347,9 +347,10 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
       error: "Run stopped because of an error.",
       incomplete: "Run stopped before the night was complete."
     }[status] || "Run ended.";
-    // Facts for finished agent runs (the audit has every event up to this one).
+    // Facts for every agent run that ends, a stop at a cap or by Abort included (the audit has every
+    // event up to this one): they say how far the run got and what it cost.
     let facts = null;
-    if (runMode !== "preview" && ["done", "incomplete"].includes(status)) {
+    if (runMode && runMode !== "preview") {
       try { facts = describeRunFacts(computeRunFacts(auditRows(), ev)); } catch (e) { console.error("[Repack Pilot] run facts failed:", e); }
     }
     add(entry("notice", ev, status === "done" ? "check" : "stop", h("div", {},

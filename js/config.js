@@ -96,7 +96,7 @@ export const STORAGE = {
   model: `${P}model`,                   // sessionStorage
   speed: `${P}speed`,                   // sessionStorage
   scenario: `${P}scenario`,             // sessionStorage
-  sessionCost: `${P}sessionCostEur`,    // sessionStorage: live spend in this tab (M3)
+  sessionCost: `${P}sessionCostEur`,    // sessionStorage: live spend in this tab
   assumptions: `${P}assumptions`,       // sessionStorage: the presenter's changed engine inputs
   introSeen: `${P}introSeen`,           // localStorage: the intro opens by itself only on a first visit
   consoleText: `${P}consoleText`        // localStorage: larger console text for projectors

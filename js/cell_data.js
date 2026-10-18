@@ -271,6 +271,17 @@ export function applyEvent(st, type, p, t) {
         st.levers.push({ ...l, source: p.source, option_id: p.option_id ?? null });
         if (l.type === "call_in_picker" && typeof l.from_ms === "number" && typeof l.until_ms === "number") st.call_ins.push({ from_ms: l.from_ms, until_ms: l.until_ms });
       }
+      // The projection right after the decision, so the lanes show its effect while the night stands
+      // still. An order the decision moves to tomorrow's wave keeps its lane until order_moved.
+      if (p.projection) {
+        const moving = new Set((p.levers || []).filter((l) => l.type === "move_to_next_wave").flatMap((l) => l.store_ids || []));
+        for (const x of p.projection.orders || []) {
+          const o = st.orders.get(x.id);
+          if (!o || o.status !== "open" || moving.has(x.id)) continue;
+          o.projected_ms = x.projected_ms; o.slack_min = x.slack_min; o.at_risk = !!x.at_risk;
+        }
+        st.projection_t = p.projection.t;
+      }
       dirty.add("orders"); dirty.add("manual");
       break;
     }

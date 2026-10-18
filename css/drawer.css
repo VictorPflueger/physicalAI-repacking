@@ -1,6 +1,6 @@
 /* Repack Pilot — bottom drawer: Options, Outbox, KPI board, Assumptions, Audit (shared with Rebate Hunter).
-   The option cards and the outbox are used from M3; the KPI board and assumptions get their own
-   layouts in css/kpiboard.css with the engine in M2. */
+   The option cards and the outbox are Rebate Hunter's; the KPI board and the assumptions have their
+   own layouts in css/kpiboard.css. */
 
 .drawer {
   border-top: 1px solid var(--line);
@@ -211,6 +211,22 @@
 }
 @media (max-width: 1400px) {
   .options-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* Below a 1080p window the drawer is under 400 px high, and four narrow cards grow taller than that:
+   two columns keep every card whole in the drawer, A and B side by side above C and doing nothing
+   (tests/layout.mjs, the options state). */
+@media (max-height: 1000px) {
+  .options-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* A small laptop (720 px high) leaves the drawer about 290 px for a card: the card drops its
+   description, which the title and the console's narration carry, and keeps its figures, its total, its
+   residual risk and its buttons. */
+@media (max-height: 760px) {
+  .option-card .option-desc { display: none; }
+  .option-card { padding-block: 10px; }
+  .option-top { margin-bottom: 4px; }
+  .option-total .value { font-size: 1.4rem; }
+  .option-risk { margin: 6px 0 8px; }
 }
 /* Narrower screens keep the credit in full on a second row of the bar, centred under the tabs. The
    label goes first, where the bar is one row but tight. */

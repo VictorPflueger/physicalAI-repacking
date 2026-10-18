@@ -15,6 +15,9 @@ export function openDiagnostics() {
   const rows = new Map();
   const remembered = memory();
   const tbody = h("tbody");
+  // Declared before the rows: setRow fills these lists as soon as a row is set.
+  const worldList = h("ul", { class: "world-checks" });
+  const scriptList = h("ul", { class: "world-checks script-checks" });
   for (const t of TESTS) {
     const statusCell = h("td", { class: "status" });
     const msCell = h("td", { class: "ms num" }, "");
@@ -26,9 +29,6 @@ export function openDiagnostics() {
     const prev = remembered[t.id];
     setRow(t.id, prev ? { status: prev.status, detail: `${prev.detail} (earlier this session)` } : { status: "idle" });
   }
-
-  const worldList = h("ul", { class: "world-checks" });
-  const scriptList = h("ul", { class: "world-checks script-checks" });
 
   function setRow(id, r) {
     const row = rows.get(id);

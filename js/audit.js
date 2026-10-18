@@ -74,7 +74,7 @@ export function auditRunInfo() {
   return run ? { ...run } : null;
 }
 
-/** Record one model request/response (from the live agent, M3). Never pass headers. */
+/** Record one model request/response (from the live agent). Never pass headers. */
 export function recordApiExchange(entry) {
   const ts = new Date().toISOString();
   const record = safeClone({ ts, ...entry });

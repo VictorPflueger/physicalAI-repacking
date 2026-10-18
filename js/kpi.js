@@ -109,7 +109,7 @@ export function createKpis(container, { getInputs, getNightState = () => null, g
   });
   let pending = 0;
   const later = () => { if (!pending) pending = setTimeout(() => { pending = 0; renderOnTime(); }, 120); };
-  for (const t of ["projection", "dispatch", "late_complete", "order_new", "cutoff_risk"]) bus.on(t, later);
+  for (const t of ["projection", "dispatch", "late_complete", "order_new", "cutoff_risk", "plan_update"]) bus.on(t, later);
   bus.on("night_end", () => { ended = true; paused = false; renderAll(); });
   bus.on("run_end", () => {
     running = false; paused = false;

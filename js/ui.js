@@ -234,7 +234,10 @@ export function initUI() {
       ...(mode === "live" ? { model: model.id, model_label: model.label } : {}),
       ...(mode === "simulation" ? { sim_source: "authored" } : {})
     });
-    if (kept.length) bus.emit("notice", { level: "info", text: `The scripted replay runs on the brief's night: ${kept.join(", ")} stay at their defaults; your other inputs apply.` });
+    if (kept.length) {
+      const names = kept.length === 1 ? kept[0] : `${kept.slice(0, -1).join(", ")} and ${kept.at(-1)}`;
+      bus.emit("notice", { level: "info", text: `The scripted replay runs on the brief's night: ${names} ${kept.length === 1 ? "stays at its default" : "stay at their defaults"}; your other inputs apply.` });
+    }
 
     if (mode === "preview") {
       bus.emit("state_change", { state: "previewing" });

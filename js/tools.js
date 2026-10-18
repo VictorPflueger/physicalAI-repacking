@@ -332,7 +332,7 @@ export function createToolbox(ctx) {
   async function execute(name, input = {}) {
     if (!run.wake && ses.wake()) run.wake = describeWakeRaw(ses.wake());
     const fn = handlers[name];
-    if (!fn) return done(name, { error: `Unknown tool "${name}". Tools: ${TOOL_NAMES.join(", ")}.` });
+    if (!fn) return done(name, { error: `Unknown tool "${name}". Tools: ${TOOL_NAMES.join(", ")}.` }, true);
     run.calls[name] = (run.calls[name] || 0) + 1;
     phaseFor(name);
     let result;
@@ -774,6 +774,9 @@ export function createToolbox(ctx) {
       };
     }
     run.rejected.add(id);
+    // The agent's turn again until it waits for the next decision: a decision the person takes in the
+    // meantime is queued, and the screen must not say it waits for an approval before anything is drafted.
+    setPhase("replanning");
     const remaining = run.options.filter((o) => !run.rejected.has(o.id)).map((o) => `Option ${o.letter} (${o.id})`);
     return {
       decision: "rejected", option_id: id, option: label, ...(opt ? { refer_to_it_as: `option ${opt.letter}` } : {}),

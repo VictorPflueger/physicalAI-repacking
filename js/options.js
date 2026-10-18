@@ -1,4 +1,4 @@
-// Option costing (PLAN.md §c.7; tool sim_cost_options from M3). Prices exactly three variants and
+// Option costing (PLAN.md §c.7; the agent's tool sim_cost_options). Prices exactly three variants and
 // "do nothing" on 20 seeded replications of tonight: replication 0 is tonight's seed, 1 to 19 derive
 // from it (js/rng.js), and every variant runs on the same draws (common random numbers), so the
 // comparison is fair and every replay identical. Pure module.
