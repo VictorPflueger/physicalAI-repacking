@@ -1,19 +1,22 @@
 // Self-tests run from the presenter's browser: the Anthropic API (a keyless probe, or a free key
-// check when a key is stored), the synthetic world's integrity and the key-and-privacy row, which
-// also checks that the page's content security policy allows exactly the hosts in js/config.js.
-// The Open Food Facts row joins with the lookup in M3. Network results feed the data-source memory
-// (js/source_health.js).
+// check when a key is stored), the synthetic world's integrity, the simulation scripts under the live
+// guardrails (js/sim_check.js), Open Food Facts (how the lookup answers in this build) and the
+// key-and-privacy row, which also checks that the page's content security policy allows exactly the
+// hosts in js/config.js. Network results feed the data-source memory (js/source_health.js).
 
-import { APP, STORAGE, CONNECT_ORIGINS } from "./config.js";
+import { APP, STORAGE, CONNECT_ORIGINS, OPEN_FOOD_FACTS } from "./config.js";
 import { checkKey, probeEndpoint } from "./anthropic.js";
 import { getKey, redactSecrets } from "./keystore.js";
 import { checkWorld } from "./world_check.js";
+import { checkSimRuns } from "./sim_check.js";
 import { buildAuditExport } from "./audit.js";
-import { remember, memory as sourceMemory } from "./source_health.js";
+import { remember, recentFailure, memory as sourceMemory } from "./source_health.js";
 
 export const TESTS = [
   { id: "anthropic", label: "Anthropic API", host: "api.anthropic.com", purpose: "Live agent (Claude)" },
   { id: "world", label: "World data integrity", host: "local", purpose: "Synthetic world, scenarios and their nights, night calibration, shadow record, Open Food Facts snapshot" },
+  { id: "scripts", label: "Simulation scripts", host: "local", purpose: "Each scripted replay played headless through the agent's tools on every decision path, under the live guardrails" },
+  { id: "openfoodfacts", label: "Open Food Facts", host: new URL(OPEN_FOOD_FACTS.origin).host, purpose: "Product data for an unknown barcode (scenario 3)" },
   { id: "privacy", label: "Key and privacy", host: "local", purpose: "Key kept in this tab only, under this app's own name, never exported; connections limited by the page's security policy" }
 ];
 
@@ -77,6 +80,28 @@ const RUNNERS = {
     const text = issues.length ? `${issues.join("; ")}.` : `${notes.join("; ")}.`;
     return { status: issues.length ? "fail" : "pass", ms: null, detail: text.charAt(0).toUpperCase() + text.slice(1) };
   },
+  async scripts() {
+    await new Promise((r) => setTimeout(r, 30));
+    const started = performance.now();
+    const checks = await checkSimRuns(globalThis.WORLD, globalThis.SIM_RUNS || {}, globalThis.SCENARIOS || [], globalThis.REFERENCE_CASES || {});
+    const failed = checks.filter((c) => !c.ok);
+    const valid = checks.filter((c) => c.ok && !c.pending).length;
+    const pending = checks.filter((c) => c.pending).length;
+    return {
+      status: failed.length ? "fail" : "pass", ms: Math.round(performance.now() - started), checks,
+      detail: failed.length ? `${failed.length} script${failed.length === 1 ? "" : "s"} failed: ${failed[0].detail}` : `${valid} script${valid === 1 ? "" : "s"} valid on every decision path${pending ? `; ${pending} scenario${pending === 1 ? "" : "s"} without a script yet (M4)` : ""}.`
+    };
+  },
+  async openfoodfacts() {
+    // This build does not read the API live (TECH_NOTES §4): say so, and how the lookup answers instead.
+    const snap = globalThis.OFF_SNAPSHOT;
+    const records = Object.keys(snap?.products || {}).length;
+    const failure = recentFailure(OPEN_FOOD_FACTS.id);
+    if (!OPEN_FOOD_FACTS.live) {
+      return { status: "skip", ms: null, detail: `Live reads are off in this build until a browser probe shows a page may read the API; lookups answer from the bundled snapshot (${records} record${records === 1 ? "" : "s"}${snap?.meta?.status === "pending" ? ", record pending" : ""}). No request is sent.` };
+    }
+    return { status: failure ? "warn" : "pass", ms: null, detail: failure ? `Failed earlier in this session (${failure.detail}); lookups use the snapshot for now.` : "Live reads enabled; at most 3 lookups per run, cached." };
+  },
   async world() {
     // The night checks simulate every scenario and the 14 calibration seeds (about a second): let the
     // "running" state paint first.
@@ -93,7 +118,7 @@ export async function runTest(id) {
   const fn = RUNNERS[id];
   if (!fn) return { status: "skip", detail: "Unknown test." };
   const r = await fn();
-  if (!["world", "privacy"].includes(id)) remember(id, r.status, r.detail, "diagnostics");
+  if (id === "anthropic") remember(id, r.status, r.detail, "diagnostics");
   return r;
 }
 

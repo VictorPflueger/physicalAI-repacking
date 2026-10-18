@@ -104,7 +104,7 @@ export function attachNightLog(ctx) {
     if (p.kind === "night_end") return; // the night report follows
     const kinds = listJoin((p.kinds || [p.kind]).map((k) => WAKE_WORDS[k] || k));
     const preview = ctx.mode() === "preview";
-    add("wake", ev, "spark", [strong(`Wake-up ${p.wake_id}: `), `${kinds}.`, preview ? " The agent takes its turn here from M3; in this preview the night only pauses." : ""]);
+    add("wake", ev, "spark", [strong(`Wake-up ${p.wake_id}: `), `${kinds}.`, preview ? " No agent in this preview: the night only pauses." : " The night stands still while the agent takes its turn."]);
   });
 
   // ---- counters for the hourly line and the truck lines ----------------------------------------

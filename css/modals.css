@@ -113,6 +113,10 @@
 
 /* Report ------------------------------------------------------------------------------------- */
 .report-modal .modal-body { font-size: 1.05rem; }
+/* The summary's status line wraps before its two buttons do, so Copy and Download stay side by side. */
+.report-modal .modal-foot { flex-wrap: nowrap; }
+.report-modal .modal-foot .left { flex: 1 1 0; min-width: 0; }
+.report-modal .modal-foot .btn { flex: none; }
 
 @media (max-width: 860px) {
   .mode-cards { grid-template-columns: 1fr; }

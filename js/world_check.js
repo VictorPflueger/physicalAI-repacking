@@ -1,7 +1,7 @@
 // Integrity checks for the synthetic world, the scenarios, the shadow record and the Open Food Facts
 // snapshot (PLAN.md §b.7), the night calibration (§b.8, js/calibration.js) and the reproducibility of
 // every scenario's night. Runs in the browser (Diagnostics) and in Node (tools/check_world.mjs). The
-// simulation scripts join with M3.
+// simulation scripts have their own checker (js/sim_check.js), which the same two places run.
 
 import { buildModel, ean13Valid, nightMinutes, NIGHTS } from "./world.js";
 import { evaluateGate } from "./autonomy.js";

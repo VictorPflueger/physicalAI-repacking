@@ -3,11 +3,13 @@
 // plays its events onto the run-event bus at ×1, ×2 or ×4: at ×1 about six simulated minutes pass per
 // real second, and stretches with nothing happening are fast-forwarded. At every wake-up (night
 // start, a world-model correction, an escalation, a new order, a cut-off risk, night end) the night
-// stands still until `onWake` resolves: the agent's turn from M3; in this build a short pause that
-// shows where the agent will come in. Every event carries its simulated time as `sim_t` (ms after 22:00).
+// stands still until `onWake` resolves: the agent's turn (the live agent or the scripted replay, which
+// may take decisions on the shared night session, js/night_session.js), or a short pause in a night
+// preview. Every event carries its simulated time as `sim_t` (ms after 22:00).
 
 import { bus } from "./events.js";
-import { buildNight, runNight, nightInfo, tonightFigures, clockOf, clockUp, MINUTE, WEIGHT_TOLERANCE } from "./nightsim.js";
+import { tonightFigures, clockOf, clockUp, MINUTE, WEIGHT_TOLERANCE } from "./nightsim.js";
+import { createNightSession } from "./night_session.js";
 
 export const SIM_MS_PER_REAL_MS = (6 * MINUTE) / 1000; // ×1: six simulated minutes per real second
 export const IDLE_GAP_MS = 4 * MINUTE;                  // a longer gap between events is fast-forwarded
@@ -53,8 +55,9 @@ export function unitLog(result, untilMs = Infinity) {
 }
 
 /**
- * Creates a player. hooks: { getSpeed() → 1 | 2 | 4, onWake(wake) → Promise (the night waits for it),
- * now() → ms (defaults to performance.now), schedule(fn) (defaults to requestAnimationFrame) }.
+ * Creates a player. hooks: { getSpeed() → 1 | 2 | 4, onWake(wake, session) → Promise (the night waits
+ * for it: the agent's turn), now() → ms (defaults to performance.now), schedule(fn) (defaults to
+ * requestAnimationFrame) }.
  */
 export function createNightPlayer(hooks = {}) {
   const getSpeed = hooks.getSpeed || (() => 1);
@@ -64,19 +67,18 @@ export function createNightPlayer(hooks = {}) {
   let current = null;
 
   /**
-   * Plays one night. opts: { world, scenario, params ({ r_m, r_c, p }), seed }. Resolves with
-   * { status: "done" | "aborted", night, result, figures } once the night has ended or was stopped.
+   * Plays one night. opts: { session } (js/night_session.js: the producers share it), or { world,
+   * scenario, params ({ r_m, r_c, p }), seed } for a session of its own. Resolves with { status: "done" |
+   * "aborted", session, night, result, figures } once the night has ended or was stopped. The night
+   * always plays the session's current events, so a decision taken at a wake-up changes what follows.
    */
-  function play({ world, scenario, params = {}, seed }) {
+  function play({ session = null, world, scenario, params = {}, seed } = {}) {
     stop();
-    const night = buildNight(world, { ...scenario.night, seed: seed ?? scenario.night.seed }, params);
-    const result = runNight(night, { seed: seed ?? scenario.night.seed });
-    const info = { ...nightInfo(night, result), scenario_id: scenario.id };
-    const events = result.events;
+    const ses = session || createNightSession({ world, scenario, params, seed: seed ?? scenario.night.seed });
     return new Promise((resolve) => {
-      const run = { night, result, info, i: 0, t: 0, last: now(), waiting: false, stopped: false, minute: -1, resolve };
+      const run = { ses, t: 0, last: now(), waiting: false, stopped: false, minute: -1, resolve };
       current = run;
-      bus.emit("night_plan", info);
+      bus.emit("night_plan", ses.info);
       emitClock(run, false);
       const tick = () => {
         if (run.stopped) return;
@@ -84,28 +86,32 @@ export function createNightPlayer(hooks = {}) {
         const n = now();
         const dt = Math.min(250, Math.max(0, n - run.last)); // a hidden tab or a slow frame never jumps the night
         run.last = n;
-        const next = events[run.i];
+        const next = ses.peek();
         const advance = dt * SIM_MS_PER_REAL_MS * (getSpeed() || 1);
         // A long quiet stretch passes faster, but never beyond the next event.
         const idle = next && next.t - run.t > IDLE_GAP_MS;
         const target = idle ? Math.min(run.t + advance * IDLE_FACTOR, next.t) : run.t + advance;
         // Emit everything due by the target; a wake-up stops the night until its turn is over.
-        while (run.i < events.length && events[run.i].t <= target) {
-          const ev = events[run.i++];
+        while (ses.peek() && ses.peek().t <= target) {
+          const ev = ses.take();
           run.t = Math.max(run.t, ev.t);
           emitClock(run, false);
           if (ev.type === "wake") {
+            const end = ev.payload.kind === "night_end";
             bus.emit("wake", { ...ev.payload, sim_t: ev.t });
             run.waiting = true;
             emitClock(run, true, "the agent's turn");
-            Promise.resolve(onWake(ev.payload)).catch(() => null).then(() => {
+            // At night end the night is over before the agent's last turn: its figures are final.
+            if (end) emitNightEnd(run);
+            Promise.resolve(onWake(ev.payload, ses)).catch(() => null).then(() => {
               if (run.stopped) return;
+              ses.resume();
               run.waiting = false;
               run.last = now();
               emitClock(run, false);
-              if (ev.payload.kind === "night_end") finish(run);
+              if (end) finish(run);
             });
-            if (ev.payload.kind === "night_end") return; // the night ends after its last wake-up
+            if (end) return;
             schedule(tick);
             return;
           }
@@ -113,7 +119,7 @@ export function createNightPlayer(hooks = {}) {
         }
         run.t = Math.max(run.t, target);
         emitClock(run, false);
-        if (run.i >= events.length && run.t >= result.end_ms) { finish(run); return; }
+        if (!ses.peek() && run.t >= ses.run.end_ms) { emitNightEnd(run); finish(run); return; }
         schedule(tick);
       };
       schedule(tick);
@@ -128,14 +134,21 @@ export function createNightPlayer(hooks = {}) {
     bus.emit("clock", { t: run.t, sim_t: run.t, label: clockOf(run.t), paused, ...(reason ? { reason } : {}) });
   }
 
+  function emitNightEnd(run) {
+    if (run.endEmitted) return;
+    run.endEmitted = true;
+    const res = run.ses.run;
+    bus.emit("night_end", { sim_t: res.end_ms, figures: tonightFigures(run.ses.night, res), orders: res.orders.map((o) => ({ id: o.id, name: o.name, on_time: o.on_time, moved: o.moved, done: clockUp(o.done_ms), cutoff: o.cutoff, slack_min: Math.floor(o.slack_ms / MINUTE), totes: o.totes, units: o.units })) });
+    bus.emit("unit_log", unitLog(res));
+  }
+
   function finish(run) {
     if (run.stopped || run.finished) return;
     run.finished = true;
-    const figures = tonightFigures(run.night, run.result);
-    bus.emit("night_end", { sim_t: run.result.end_ms, figures, orders: run.result.orders.map((o) => ({ id: o.id, name: o.name, on_time: o.on_time, done: clockUp(o.done_ms), cutoff: o.cutoff, slack_min: Math.floor(o.slack_ms / MINUTE), totes: o.totes, units: o.units })) });
-    bus.emit("unit_log", unitLog(run.result));
+    emitNightEnd(run);
     current = null;
-    run.resolve({ status: "done", night: run.night, result: run.result, figures });
+    const res = run.ses.run;
+    run.resolve({ status: "done", session: run.ses, night: run.ses.night, result: res, figures: tonightFigures(run.ses.night, res) });
   }
 
   /**
@@ -147,9 +160,9 @@ export function createNightPlayer(hooks = {}) {
     if (!run) return;
     run.stopped = true;
     current = null;
-    if (log) bus.emit("unit_log", unitLog(run.result, run.t));
-    run.resolve({ status: "aborted", night: run.night, result: run.result, figures: null });
+    if (log && !run.endEmitted) bus.emit("unit_log", unitLog(run.ses.run, run.t));
+    run.resolve({ status: "aborted", session: run.ses, night: run.ses.night, result: run.ses.run, figures: null });
   }
 
-  return { play, stop, isPlaying: () => !!current, currentNight: () => current };
+  return { play, stop, isPlaying: () => !!current, currentNight: () => current, currentSession: () => current?.ses || null };
 }

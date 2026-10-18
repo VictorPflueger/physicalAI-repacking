@@ -1,34 +1,36 @@
 // Layout suite (Chromium): the five window sizes from a 1080p projector down to a small laptop
-// (1920×1080, 1600×900, 1536×864, 1366×768, 1280×720), each in five states of scenario 1: idle; idle
-// with the drawer open; the glass jar's correction (22:17); the express order (02:00, thirteen lanes,
-// two stores at risk); and that moment with the drawer open on the KPI board (the board's smallest
-// sizes, strip mode at 1280×720). The last three are taken while the night pauses for the agent's turn,
-// so the clock carries its pause ("· paused", or a pause mark in the short and strip sizes).
+// (1920×1080, 1600×900, 1536×864, 1366×768, 1280×720), each in seven states of scenario 1's scripted
+// replay: idle; idle with the drawer open; the glass jar's correction (22:17); the express order (02:00,
+// thirteen lanes, two stores at risk); that moment with the drawer open on the KPI board (the board's
+// smallest sizes, strip mode at 1280×720); the three costed options in the drawer; and, option B
+// approved, its drafts in the Outbox. All but the idle ones are taken while the night stands still for
+// the agent's turn or the presenter's decision, so the clock carries its pause ("· paused", or a pause
+// mark in the short and strip sizes).
 // In every state: no horizontal overflow, the header tiles in view and never covered, the header at
 // most 14 % of the window's height, a one-row control bar, the header badges clear of each other, the
 // board's caption (its title on one line), world-model chip, clock and Simulated cell tag inside the
 // panel and clear of each other, every store lane whole and in view, the board fitting its panel, its
-// Synthetic label in view, and every target at least 40 px (44 px on the board). At 02:00 the
-// store-order figures must equal the night simulation computed here in Node: the header tile (on their
-// truck or safely projected, the stores at risk beneath) and the KPI board's Tonight row (trucks gone
-// so far, orders still open). The night runs on Playwright's clock, paused after boot: it moves only
-// when the suite advances it, so it stands still while a state is measured and every size meets the
-// same moments. Options and drafts join the states with the agent (M3).
+// Synthetic label in view, and every target at least 40 px (44 px on the board). With the options (three
+// and "Do nothing") or the drafts open: every card inside the drawer's panel and not clipping its
+// content, the cards clear of each other, and a card's buttons wholly in view once scrolled to. At 02:00 the store-order figures must equal
+// the scripted replay's night computed here in Node: the header tile (on their truck or safely
+// projected, the stores at risk beneath) and the KPI board's Tonight row (trucks gone so far, orders
+// still open). The night runs on Playwright's clock, paused after boot: it moves only when the suite
+// advances it, so it stands still while a state is measured and every size meets the same moments.
 // Usage: node tests/layout.mjs [case…]   (cases: the sizes, for example 1280x720)
 import path from "node:path";
-import vm from "node:vm";
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { APP_ROOT, outDir, ONLY, launchBrowser, serveStatic, NETWORK_NOISE, SKIP_INTRO, VIEWPORTS } from "./lib/harness.mjs";
 
-// Scenario 1 in Node, for the store-order figures at the 02:00 pause.
+// Scenario 1's scripted replay in Node (option B approved at 02:00), for the store-order figures at the
+// 02:00 pause: the night as played up to the decision is the same on every path (the agent closes
+// Essen's tote at 22:17 on all of them), and a decision changes only what follows it.
 const NS = await import(pathToFileURL(path.join(APP_ROOT, "js/nightsim.js")).href);
-const sandbox = { window: {} };
-vm.createContext(sandbox);
-for (const f of ["data/world.js", "data/scenarios.js"]) vm.runInContext(await readFile(path.join(APP_ROOT, f), "utf8"), sandbox, { filename: f });
-const SC1 = sandbox.window.SCENARIOS.find((x) => x.number === 1);
-const NIGHT1 = NS.buildNight(sandbox.window.WORLD, SC1.night);
-const RES1 = NS.runNight(NIGHT1, { seed: SC1.night.seed });
+const { replayScenario1 } = await import(pathToFileURL(path.join(APP_ROOT, "tests/lib/scenario1.mjs")).href);
+const SC1_B = await replayScenario1({ option: "B" });
+const NIGHT1 = SC1_B.replay.session.night;
+const RES1 = SC1_B.replay.session.run;
 const MINUTE = 60000;
 /**
  * What the screen must say at a wake-up's pause m minutes after 22:00, every event of that moment
@@ -96,7 +98,21 @@ const measure = () => {
     .map((e) => ({ e, b: r(e), min: e.closest(".cell-board") && !e.closest(".cell-pop") ? 44 : 40 }))
     .filter(({ b, min }) => b.width < min || b.height < min)
     .map(({ e, b }) => `${(e.textContent.trim() || e.getAttribute("aria-label") || "").slice(0, 24)} ${Math.round(b.width)}×${Math.round(b.height)}`);
+  // The drawer's cards (options or drafts) when its panel is open: inside the panel's width, clear of
+  // each other; scrolled into view one by one, every button of a card is wholly in view.
+  const openPanel = [...document.querySelectorAll(".drawer-panel")].find((p) => !p.hidden && document.getElementById("drawer")?.dataset.open === "true");
+  const cards = openPanel ? [...openPanel.querySelectorAll(".option-card, .action-card")].filter(shown) : [];
+  const cardBoxes = cards.map(r);
+  const panelBox = openPanel ? r(openPanel) : null;
+  const cardProblems = [];
+  cards.forEach((c, i) => {
+    const b = cardBoxes[i];
+    if (b.left < panelBox.left - 1 || b.right > panelBox.right + 1) cardProblems.push(`${c.dataset.id || i} wider than the panel`);
+    if (cardBoxes.some((o, j) => j !== i && overlap(b, o))) cardProblems.push(`${c.dataset.id || i} overlaps another card`);
+    if (c.scrollWidth > c.clientWidth + 1) cardProblems.push(`${c.dataset.id || i} clips its content`);
+  });
   return {
+    cards: cards.length, cardProblems, panelId: openPanel?.id || null,
     size: board.dataset.size, legend: board.dataset.legend, clock: board.querySelector(".cell-clock")?.textContent, viewH: innerHeight,
     hOverflow: document.documentElement.scrollWidth > innerWidth,
     oneRow, badgesClear, headerHeight: Math.round(r(document.querySelector(".app-header")).height),
@@ -128,9 +144,25 @@ function verdict(m, state) {
     [m.laneCount === lanesWanted && laneProblems.length === 0, `${lanesWanted} store lanes, each whole and in view (${m.laneCount})${bad(laneProblems)}`],
     [m.fits, `the board fits its panel (size ${m.size})`],
     [m.synthetic && m.tagShown, "the Synthetic label and the Simulated cell tag in view"],
-    [(m.smallTargets || []).length === 0, `targets at least 40 px, 44 px on the board${bad(m.smallTargets || [])}`]
+    [(m.smallTargets || []).length === 0, `targets at least 40 px, 44 px on the board${bad(m.smallTargets || [])}`],
+    ...(state.endsWith("options") ? [[m.panelId === "panel-options" && m.cards === 4 && m.cardProblems.length === 0 && (m.buttonsInView || []).length === 4 && m.buttonsInView.every(Boolean), `three option cards and "Do nothing" in the Options panel, whole, clear of each other, their buttons in view when scrolled to (${m.panelId}, ${m.cards}${bad(m.cardProblems)}; ${JSON.stringify(m.buttonsInView)})`]] : []),
+    ...(state.endsWith("drafts") ? [[m.panelId === "panel-outbox" && m.cards === 2 && m.cardProblems.length === 0 && (m.buttonsInView || []).length === 2 && m.buttonsInView.every(Boolean), `two drafts in the Outbox, whole, clear of each other, their buttons in view when scrolled to (${m.panelId}, ${m.cards}${bad(m.cardProblems)}; ${JSON.stringify(m.buttonsInView)})`]] : [])
   ];
 }
+
+/** Scrolls each card of the open drawer panel into view; true for each whose buttons are then wholly in view. */
+const cardButtonsInView = () => {
+  const p = [...document.querySelectorAll(".drawer-panel")].find((x) => !x.hidden);
+  const cards = p ? [...p.querySelectorAll(".option-card, .action-card")] : [];
+  const out = cards.map((c) => {
+    c.scrollIntoView({ block: "nearest" });
+    const btns = [...c.querySelectorAll("button")].filter((b) => b.offsetParent !== null);
+    const pb = p.getBoundingClientRect();
+    return btns.length > 0 && btns.every((b) => { const r = b.getBoundingClientRect(); return r.top >= Math.max(0, pb.top) - 1 && r.bottom <= Math.min(innerHeight, pb.bottom) + 1 && r.left >= 0 && r.right <= innerWidth; });
+  });
+  if (p) p.scrollTop = 0;
+  return out;
+};
 
 const until = async (page, test, limitMs = 120000) => {
   for (let spent = 0; spent < limitMs; spent += 250) {
@@ -168,6 +200,7 @@ for (const [w, hgt] of VIEWPORTS) {
     await settle();
     states[state] = await page.evaluate(measure);
     if (w === 1920 || w === 1280) await page.screenshot({ path: path.join(OUT, `${file}-${name}.png`) });
+    if (states[state].cards) states[state].buttonsInView = await page.evaluate(cardButtonsInView);
   };
   try {
     await page.clock.install();
@@ -191,14 +224,20 @@ for (const [w, hgt] of VIEWPORTS) {
     // (the clock's longest text, "22:17 · paused"). A short step, so the shot shows that moment.
     if (!await until(page, () => !!document.querySelector('.wm-focus[data-corrected="true"]'))) throw new Error("the night did not reach the jar correction");
     await snap("22:17, the jar correction", "03-correction", 100);
-    // The express order at 02:00: the night pauses 1.2 s (×1) for the agent's turn (W4); both states
-    // are taken inside that pause, the second after the drawer has opened on the KPI board.
+    // The express order at 02:00: the night stands still for the agent's turn (W4); both states are
+    // taken at its start, the second after the drawer has opened on the KPI board.
     if (!await until(page, () => /^02:00 · paused$/.test(document.querySelector(".cell-clock")?.textContent.trim() || ""))) throw new Error("the night did not pause at 02:00");
     await snap("02:00, the express order", "04-express", 100);
     figures.push(["02:00", await readStoreOrders()]);
     await page.click("#tab-kpiboard");
     await snap("02:00, drawer open", "05-drawer", 400);
     figures.push(["02:00, drawer open", await readStoreOrders()]);
+    // The turn ends with three costed options: the drawer turns to them, the night still stands.
+    if (!await until(page, () => !!document.querySelector('#panel-options:not([hidden]) .option-card[data-id="B"] .btn-approve'))) throw new Error("no options at 02:00");
+    await snap("02:00, options", "06-options", 400);
+    await page.click('.option-card[data-id="B"] .btn-approve');
+    if (!await until(page, () => document.querySelectorAll("#panel-outbox:not([hidden]) .action-card").length === 2 && !!document.querySelector("#btn-approve-all"))) throw new Error("no drafts after option B");
+    await snap("02:00, drafts", "07-outbox", 400);
     await page.click("#btn-abort");
   } catch (err) {
     failed = String(err.message).split("\n")[0];
@@ -211,7 +250,7 @@ for (const [w, hgt] of VIEWPORTS) {
   }
   const extra = [];
   if (failed) extra.push(`exception: ${failed}`);
-  if (Object.keys(states).length !== 5) extra.push(`${Object.keys(states).length} of 5 states measured`);
+  if (Object.keys(states).length !== 7) extra.push(`${Object.keys(states).length} of 7 states measured`);
   if (!dispatchAtCutoff) extra.push("the simulation does not dispatch every order at its cut-off on a whole minute");
   // The tile at both states; the KPI board's row once its panel is open (it renders 250 ms after a change).
   for (const [when, got] of figures) {
@@ -221,7 +260,7 @@ for (const [w, hgt] of VIEWPORTS) {
   if (figures.length !== 2 && !failed) extra.push(`${figures.length} of 2 store-order readings`);
   if (errors.length) extra.push(`page errors: ${errors.join(" | ")}`);
   if (external.length) extra.push(`external requests: ${external.join(", ")}`);
-  results.push({ name: `${name}: five states, store orders at 02:00 as simulated, no error, no external request`, ok: extra.length === 0, problems: extra, figures, expected: AT_0200 });
+  results.push({ name: `${name}: seven states, store orders at 02:00 as the replay's night, no error, no external request`, ok: extra.length === 0, problems: extra, figures, expected: AT_0200 });
   await context.close();
 }
 

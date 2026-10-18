@@ -27,7 +27,7 @@ export const SHIFT_MS = 8 * 60 * MINUTE;
 export const NOMINAL_P = 0.91;               // the success rate the item master's per-SKU rates average to
 export { WEIGHT_TOLERANCE };                  // Assumption: a scale reading further off writes back (js/world_model.js)
 export const RISK_CHECK_EVERY = 15 * MINUTE;  // how often the projection is refreshed between events
-export const NIGHT_DEFAULTS = Object.freeze({ r_m: 400, r_c: 500, p: NOMINAL_P });
+export const NIGHT_DEFAULTS = Object.freeze({ r_m: 400, r_c: 500, p: NOMINAL_P, callin_min_h: 3 });
 
 const FRAGILITY_CONFIDENCE = { low: 0.95, medium: 0.92, high: 0.89, "very high": 0.86 };
 
@@ -99,11 +99,12 @@ class Heap {
  * spec: { volume: "n1" | "n2", seed, express: { at, store, units, due }, unsafe: [{ unit, grasp_confidence,
  * reason }], unknown: { barcode, units, at }, wear: { from, success }, cutoffs: { STORE: "HH:MM" },
  * manual_only (every unit by hand: the manual baseline of the calibration) }
- * params: { r_m, r_c, p } (the presenter's assumptions; defaults NIGHT_DEFAULTS)
+ * params: { r_m, r_c, p, callin_min_h } (the presenter's assumptions; defaults NIGHT_DEFAULTS)
  */
 export function buildNight(world, spec = {}, params = {}) {
   const P = { ...NIGHT_DEFAULTS, ...params };
   if (!(P.r_c > 0) || !(P.r_m > 0) || !(P.p > 0) || P.p > 1) throw new Error("Rates must be positive and p at most 1.");
+  if (!(P.callin_min_h >= 0)) throw new Error("The call-in minimum must be zero or more hours.");
   const T_CELL = Math.round(3600000 / P.r_c);
   const T_MAN = Math.round(3600000 / P.r_m);
   const volume = spec.volume || "n1";
@@ -139,12 +140,15 @@ export function buildNight(world, spec = {}, params = {}) {
   }
   for (const o of orders) o.units = units.filter((u) => u.order === o.id).length;
 
-  // The express order: the flagship's mix, in proportion to its order tonight (Phase 0 model).
+  // The express order: the flagship's mix, in proportion to its order tonight (Phase 0 model), or with
+  // `mix: "<wave>"` the flagship's mix of that wave only (a chilled top-up, say).
   let express = null;
   if (spec.express) {
     const flag = world.stores.find((s) => s.id === spec.express.store);
     if (!flag) throw new Error(`Express order for an unknown store: ${spec.express.store}.`);
-    const row = alloc[flag.id];
+    const mixWave = spec.express.mix && spec.express.mix !== "all" ? spec.express.mix : null;
+    if (mixWave && !world.waves.some((w) => w.id === mixWave)) throw new Error(`Express mix for an unknown wave: ${mixWave}.`);
+    const row = Object.fromEntries(Object.entries(alloc[flag.id]).filter(([sku]) => !mixWave || itemsBySku.get(sku)?.wave === mixWave));
     const total = items.reduce((sum, it) => sum + (row[it.sku] || 0), 0);
     const per = items.map((it) => Math.floor(((row[it.sku] || 0) / total) * spec.express.units));
     let rem = spec.express.units - per.reduce((a, b) => a + b, 0);
@@ -177,15 +181,41 @@ export function buildNight(world, spec = {}, params = {}) {
   };
 }
 
-/** Normalises levers to milliseconds and validates them. */
+/**
+ * Every lever the night knows: the option levers of PLAN.md §c.7, and the agent's two safety actions,
+ * route_to_manual (the remaining units of some SKUs, or of every fragile SKU, go to the manual station)
+ * and close_tote (a store's current tote closes early and the next unit opens a new one).
+ */
+export const NIGHT_LEVERS = Object.freeze(["resequence", "call_in_picker", "split_order", "move_to_next_wave", "maintenance_stop", "manual_for_fragile", "route_to_manual", "close_tote"]);
+
+/**
+ * Until when a lever with a duration acts, from its start: a called-in picker stays at least the
+ * call-in minimum the costing bills (minMinutes; 3 hours by default, input callin_min_h), longer if its
+ * minutes say so; a maintenance stop lasts its minutes (30 by default). Other levers act until the
+ * night ends (null).
+ */
+export function leverUntil(l, fromMs, minMinutes = NIGHT_DEFAULTS.callin_min_h * 60) {
+  if (l.type === "call_in_picker") return fromMs + Math.round(Math.max(minMinutes, l.minutes || 0) * MINUTE);
+  if (l.type === "maintenance_stop") return fromMs + Math.max(1, l.minutes || 30) * MINUTE;
+  return null;
+}
+
+/**
+ * Normalises levers to milliseconds and validates them. A lever acts from `from_ms` (or its clock time
+ * `start`), but never before `decided_ms`, the moment it was decided: a decision taken at a wake-up
+ * acts from the next millisecond, so nothing the night has already shown can change (TECH_NOTES D33).
+ */
 function prepareLevers(night, levers = []) {
   return levers.map((l, i) => {
-    const from = l.from_ms ?? (l.start ? msOf(l.start) : 0);
-    const x = { ...l, i, from_ms: from };
-    if (l.type === "call_in_picker") x.until_ms = from + Math.max(180, l.minutes || 180) * MINUTE;
-    if (l.type === "maintenance_stop") x.until_ms = from + Math.max(1, l.minutes || 30) * MINUTE;
+    const decided = l.decided_ms ?? 0;
+    const from = Math.max(l.from_ms ?? (l.start ? msOf(l.start) : 0), decided);
+    const x = { ...l, i, from_ms: from, decided_ms: decided };
+    const until = leverUntil(l, from, (night.P?.callin_min_h ?? NIGHT_DEFAULTS.callin_min_h) * 60);
+    if (until !== null) x.until_ms = until;
     if (l.type === "split_order" && !(l.share > 0 && l.share <= 1)) throw new Error("split_order needs a share in (0, 1].");
-    if (!["resequence", "call_in_picker", "split_order", "move_to_next_wave", "maintenance_stop", "manual_for_fragile"].includes(l.type)) throw new Error(`Unknown lever: ${l.type}`);
+    if (l.type === "route_to_manual" && !(l.fragile_only || (Array.isArray(l.sku_ids) && l.sku_ids.length))) throw new Error("route_to_manual needs sku_ids or fragile_only.");
+    if (l.type === "close_tote" && !(Array.isArray(l.store_ids) && l.store_ids.length)) throw new Error("close_tote needs store_ids.");
+    if (!NIGHT_LEVERS.includes(l.type)) throw new Error(`Unknown lever: ${l.type}`);
     return x;
   }).sort((a, b) => a.from_ms - b.from_ms || a.i - b.i);
 }
@@ -242,7 +272,7 @@ export function simulate(night, opts = {}) {
   const packs = [];                        // { t, u, station, frac? }
 
   // ---- levers that act on the plan or the cell ----------------------------------------------------
-  const cellLevers = levers.filter((l) => ["resequence", "split_order", "move_to_next_wave", "maintenance_stop", "manual_for_fragile"].includes(l.type));
+  const cellLevers = levers.filter((l) => ["resequence", "split_order", "move_to_next_wave", "maintenance_stop", "manual_for_fragile", "route_to_manual"].includes(l.type));
   let wearActive = !!night.wear;
   let wearRestoredAt = Infinity;
 
@@ -267,10 +297,16 @@ export function simulate(night, opts = {}) {
 
   const removeFromCell = (pred, at, reason) => {
     const keep = [];
-    for (const u of heap.drain()) (pred(u) ? manualArrivals.push({ u, t: at, reason }) : keep.push(u));
+    let moved = 0;
+    const skus = new Set();
+    for (const u of heap.drain()) {
+      if (pred(u)) { manualArrivals.push({ u, t: at, reason }); moved += 1; skus.add(u.sku); } else keep.push(u);
+    }
     for (const u of keep) heap.push(u);
     // units not yet arrived
-    for (let k = wi; k < waiting.length; k++) if (waiting[k] && pred(waiting[k])) { manualArrivals.push({ u: waiting[k], t: Math.max(at, waiting[k].avail), reason }); waiting[k] = null; }
+    for (let k = wi; k < waiting.length; k++) if (waiting[k] && pred(waiting[k])) { manualArrivals.push({ u: waiting[k], t: Math.max(at, waiting[k].avail), reason }); skus.add(waiting[k].sku); moved += 1; waiting[k] = null; }
+    // The manual station's queue grows by the units the cell hands over (the board counts them).
+    if (moved) emit(at, "units_routed", { reason, units: moved, skus: [...skus].sort() });
   };
   const dropFromCell = (pred) => {
     const keep = [];
@@ -293,6 +329,9 @@ export function simulate(night, opts = {}) {
       removeFromCell((u) => pick.has(u.id), at, "split");
     } else if (l.type === "manual_for_fragile") {
       removeFromCell((u) => !u.unknown && u.fragile, at, "fragile");
+    } else if (l.type === "route_to_manual") {
+      const skus = new Set(l.sku_ids || []);
+      removeFromCell((u) => !u.unknown && (skus.has(u.sku) || (!!l.fragile_only && u.fragile)), at, "routed");
     } else if (l.type === "move_to_next_wave") {
       for (const id of l.store_ids || []) moved.add(id);
       dropFromCell((u) => moved.has(u.order));
@@ -429,8 +468,10 @@ export function simulate(night, opts = {}) {
       } else {
         // Work of an order moved to the next day's wave leaves tonight's queue.
         for (const id of l.store_ids || []) movedManual.add(id);
-        const keep = mheap.drain().filter((a) => !isMovedWork(a));
+        const all = mheap.drain();
+        const keep = all.filter((a) => !isMovedWork(a));
         for (const a of keep) mheap.push(a);
+        for (const id of l.store_ids || []) emit(l.from_ms, "order_moved", { order: id, store: id, manual_dropped: all.filter((a) => a.u.order === id && a.reason !== "expected").length });
       }
     }
     while (ai < arrivals.length && arrivals[ai].t <= when) { const a = arrivals[ai++]; if (!isMovedWork(a)) mheap.push(a); }
@@ -463,6 +504,10 @@ export function simulate(night, opts = {}) {
   // ---- totes and orders -------------------------------------------------------------------------------------
   packs.sort((a, b) => a.t - b.t || (a.station === b.station ? cmp(a.u, b.u) : a.station === "cell" ? -1 : 1));
   const totes = new Map(night.orders.map((o) => [o.id, { no: 1, units: 0, weight: 0, closed: 0 }]));
+  // close_tote: the store's tote in use when the lever acts closes before the next unit goes in.
+  const closeAt = new Map();
+  for (const l of levers.filter((x) => x.type === "close_tote")) for (const id of l.store_ids) if (totes.has(id)) (closeAt.get(id) || closeAt.set(id, []).get(id)).push(l.from_ms);
+  for (const list of closeAt.values()) list.sort((a, b) => a - b);
   const done = new Map(night.orders.map((o) => [o.id, 0]));
   const packedBy = new Map(night.orders.map((o) => [o.id, []]));
   let maxTote = 0;
@@ -471,6 +516,14 @@ export function simulate(night, opts = {}) {
     if (!o) continue;
     if (p.frac === undefined) {
       const tt = totes.get(o);
+      const due = closeAt.get(o);
+      if (due && due.length && due[0] <= p.t) {
+        while (due.length && due[0] <= p.t) due.shift();
+        if (tt.units > 0) {
+          emit(p.t, "tote_update", { store: o, tote_no: tt.no, units: tt.units, weight_g: tt.weight, status: "closed", reason: "rebalanced" });
+          tt.closed += 1; tt.no += 1; tt.units = 0; tt.weight = 0;
+        }
+      }
       if (tt.units > 0 && tt.weight + p.u.actual_g > night.toteLimit) {
         emit(p.t, "tote_update", { store: o, tote_no: tt.no, units: tt.units, weight_g: tt.weight, status: "closed" });
         tt.closed += 1; tt.no += 1; tt.units = 0; tt.weight = 0;
@@ -539,12 +592,14 @@ export function projectAt(night, atMs, { seed, levers } = {}) {
 /**
  * The full night: one simulation plus the wake-ups (night start, corrections, escalations, a new order,
  * cut-off risks, night end; wake-ups in the same simulated minute merge) and the cut-off-risk events,
- * from projections refreshed at night start, at every event that changes the night and every 15
- * minutes. Returns the simulation result with `wakeups`, `risks` and `hash`.
+ * from projections refreshed at night start, at every event that changes the night, right after every
+ * decision and every 15 minutes. Returns the simulation result with `wakeups`, `risks` and `hash`.
  */
-export function runNight(night, { seed, levers } = {}) {
+export function runNight(night, { seed, levers = [], closedAt = [] } = {}) {
   const s = seed ?? night.seed;
   const res = simulate(night, { seed: s, levers });
+  // A projection at time `at` knows only the decisions taken by then (D33).
+  const knownAt = (at) => levers.filter((l) => (l.decided_ms ?? 0) <= at);
   const orderIds = night.orders;
   // Projections while there is work left: at night start, every 15 minutes, and at every event that
   // changes the night (once every unit is in a tote there is nothing left to project).
@@ -554,11 +609,13 @@ export function runNight(night, { seed, levers } = {}) {
   for (const c of res.corrections) checks.add(c.at);
   for (const e of res.escalations) checks.add(e.t);
   if (night.express) checks.add(night.express.at_ms);
+  // Right after a decision the projection shows what it changes (the board need not wait 15 minutes).
+  for (const l of levers) if ((l.decided_ms ?? 0) > 0) checks.add(l.decided_ms);
   const flagged = new Set();
   const risks = [];
   const projections = [];
   for (const at of [...checks].sort((a, b) => a - b)) {
-    const proj = projectAt(night, at, { seed: s, levers });
+    const proj = projectAt(night, at, { seed: s, levers: knownAt(at) });
     const visible = orderIds.filter((o) => !(o.kind === "express" && night.express.at_ms > at));
     const atRisk = cutoffRisks(visible, proj, at);
     const riskIds = new Set(atRisk.map((r) => r.order));
@@ -574,7 +631,8 @@ export function runNight(night, { seed, levers } = {}) {
     }
   }
   // Wake-ups (PLAN.md §c.6): each with what it is about; the same simulated minute merges.
-  const raw = [{ t: 0, kind: "night_start", item: { orders: night.orders.length, units: night.units.length } }];
+  // Night start names only what the warehouse system knows at 22:00: no express order, no unknown item.
+  const raw = [{ t: 0, kind: "night_start", item: { orders: night.orders.filter((o) => !(o.arrives_ms > 0)).length, units: night.units.filter((u) => u.order && !u.express).length } }];
   const firstBySku = new Map();
   for (const c of res.corrections) if (!firstBySku.has(c.sku)) { firstBySku.set(c.sku, c); raw.push({ t: c.at, kind: "correction", item: { sku: c.sku, old: c.old, new: c.new } }); }
   for (const e of res.escalations) raw.push({ t: e.t, kind: "escalation", item: { escalation_id: e.escalation_id, rule: e.rule, unit_id: e.unit_id ?? null, sku: e.sku ?? null } });
@@ -584,10 +642,14 @@ export function runNight(night, { seed, levers } = {}) {
   raw.sort((a, b) => a.t - b.t);
   // A merged wake-up fires when its last item has happened (the agent never hears of an escalation
   // before it occurs), and after every event of that moment; the night-end wake-up comes last of all.
+  // A wake-up the agent has already answered (closedAt: the moments of its decisions) takes nothing
+  // that happens after it, even in the same minute.
+  const closed = [...closedAt].sort((a, b) => a - b);
+  const sealedBetween = (a, b) => closed.some((c) => c >= a && c < b);
   const wakeups = [];
   for (const w of raw) {
     const last = wakeups[wakeups.length - 1];
-    if (last && Math.floor(last.t / MINUTE) === Math.floor(w.t / MINUTE) && w.kind !== "night_end" && last.kinds[0] !== "night_end") {
+    if (last && Math.floor(last.t / MINUTE) === Math.floor(w.t / MINUTE) && w.kind !== "night_end" && last.kinds[0] !== "night_end" && !sealedBetween(last.t, w.t)) {
       if (!last.kinds.includes(w.kind)) last.kinds.push(w.kind);
       last.items.push({ kind: w.kind, ...w.item });
       last.t = Math.max(last.t, w.t);

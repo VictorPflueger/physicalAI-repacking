@@ -8,9 +8,10 @@
 import { bus } from "./events.js";
 import { h } from "./dom.js";
 import { perThousand } from "./engine.js";
-import { eur2, hours, int } from "./format.js";
+import { eur2, hours, int, eurCents } from "./format.js";
 import { STORAGE } from "./config.js";
 import { visibleOrders, laneState } from "./cell_data.js";
+import { awaitedStep, onAwaitedChange } from "./handover.js";
 
 export function createKpis(container, { getInputs, getNightState = () => null, getSpeed = () => 1, nightDate = () => null } = {}) {
   const make = (id, label, sub) => {
@@ -31,6 +32,12 @@ export function createKpis(container, { getInputs, getNightState = () => null, g
   let ended = false;
   let paused = false;
   let clockLabel = "22:00";
+  let runState = "idle";
+  // The session cost: live runs in this tab so far, plus the run in progress.
+  let sessionBase = readSessionCost();
+  let runCost = 0;
+  let lastRunCost = null;
+  let mode = null;
 
   // A changed figure flips in; the clock only ticks (it changes every simulated minute).
   const set = (tile, text, tone, sub, { flip = true } = {}) => {
@@ -68,13 +75,32 @@ export function createKpis(container, { getInputs, getNightState = () => null, g
     else set(ontime, value, "on-time", "projected · on its trucks");
   }
 
+  /** Why the night stands still: the person's step while one waits, else the agent's turn. */
+  function pauseReason() {
+    if (runState === "options") return "paused: your decision";
+    if (runState === "awaiting_approval") return `paused: your ${awaitedStep()}`;
+    return mode === "preview" ? "paused at a wake-up" : "paused: the agent's turn";
+  }
+
   function renderClock() {
     const date = nightDate();
-    const sub = ended ? "night over" : paused ? "paused: the agent's turn" : running ? `×${getSpeed()}${date ? ` · ${date}` : ""}` : (date || "22:00 to 06:00");
+    const sub = ended ? "night over" : paused ? pauseReason() : running ? `×${getSpeed()}${date ? ` · ${date}` : ""}` : (date || "22:00 to 06:00");
     set(clockTile, clockLabel, running || ended ? "" : "muted", sub, { flip: false });
   }
 
-  bus.on("run_start", () => { running = true; ended = false; paused = false; planStands = false; clockLabel = "22:00"; renderAll(); });
+  function renderCost() {
+    if (mode === "simulation" || mode === "preview") { set(cost, eurCents(sessionBase), sessionBase > 0 ? "" : "muted", "simulated: no model calls"); return; }
+    const total = sessionBase + runCost;
+    let sub;
+    if (mode === "live" && running) sub = `this run ${eurCents(runCost)}`;
+    else if (lastRunCost !== null) sub = `last run ${eurCents(lastRunCost)}`;
+    else sub = total > 0 ? "earlier live runs in this tab" : "no model calls";
+    set(cost, eurCents(total), total > 0 ? "" : "muted", sub);
+  }
+
+  bus.on("run_start", (ev) => { running = true; ended = false; paused = false; planStands = false; clockLabel = "22:00"; mode = ev.payload.mode; runCost = 0; runState = "idle"; renderAll(); renderCost(); });
+  bus.on("state_change", (ev) => { runState = ev.payload.state; if (paused) renderClock(); });
+  onAwaitedChange(() => { if (paused) renderClock(); });
   bus.on("night_plan", () => { planStands = true; renderAll(); });
   bus.on("clock", (ev) => {
     clockLabel = ev.payload.label;
@@ -83,17 +109,32 @@ export function createKpis(container, { getInputs, getNightState = () => null, g
   });
   let pending = 0;
   const later = () => { if (!pending) pending = setTimeout(() => { pending = 0; renderOnTime(); }, 120); };
-  for (const t of ["projection", "dispatch", "late_complete", "order_new", "cutoff_risk"]) bus.on(t, later);
-  bus.on("night_end", () => { ended = true; running = false; paused = false; renderAll(); });
-  bus.on("run_end", () => { running = false; paused = false; renderAll(); });
-  bus.on("cost_update", (ev) => { if (!ev.payload.simulated) set(cost, eur2(ev.payload.eur), "", "this run"); });
+  for (const t of ["projection", "dispatch", "late_complete", "order_new", "cutoff_risk", "plan_update"]) bus.on(t, later);
+  bus.on("night_end", () => { ended = true; paused = false; renderAll(); });
+  bus.on("run_end", () => {
+    running = false; paused = false;
+    if (mode === "live") {
+      sessionBase += runCost;
+      lastRunCost = runCost;
+      runCost = 0;
+      writeSessionCost(sessionBase);
+    }
+    renderAll();
+    renderCost();
+  });
+  bus.on("cost_update", (ev) => {
+    if (ev.payload.simulated) return;
+    runCost = Number(ev.payload.eur) || 0;
+    renderCost();
+  });
 
   function renderAll() { renderLabour(); renderOnTime(); renderClock(); }
 
   function reset() {
-    running = false; ended = false; paused = false; planStands = false; clockLabel = "22:00";
-    set(cost, readSessionCost() > 0 ? eur2(readSessionCost()) : "€0.00", "muted", "no model calls");
+    running = false; ended = false; paused = false; planStands = false; clockLabel = "22:00"; runState = "idle";
+    mode = null; runCost = 0;
     renderAll();
+    renderCost();
   }
 
   reset();
@@ -102,4 +143,8 @@ export function createKpis(container, { getInputs, getNightState = () => null, g
 
 function readSessionCost() {
   try { return Number(sessionStorage.getItem(STORAGE.sessionCost)) || 0; } catch { return 0; }
+}
+
+function writeSessionCost(v) {
+  try { sessionStorage.setItem(STORAGE.sessionCost, String(v)); } catch { /* storage unavailable */ }
 }

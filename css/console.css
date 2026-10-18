@@ -205,6 +205,22 @@
 .entry[data-type="notice"][data-level="error"] .entry-mark { color: var(--danger-text); }
 .entry[data-type="notice"][data-level="error"] .entry-body { color: var(--danger-text); }
 
+/* A Guardrail line: code refused something the agent tried, and said why (amber: a warning, not an
+   alarm). A discarded attempt stays in the log, dimmed, with a note. */
+.entry[data-guard] .entry-mark { color: var(--warning-text); }
+.entry[data-type="notice"][data-guard] .entry-body { color: var(--text); }
+.entry[data-type="notice"][data-guard] .entry-body strong { color: var(--warning-text); }
+.entry[data-discarded="true"] { opacity: 0.55; }
+.discarded-note { font-size: var(--fs-sm); color: var(--text-muted); margin-bottom: 2px; }
+
+/* What waits for the person is burgundy: the options, the drafts and a confirmation. */
+.entry[data-type="decision-request"] .entry-mark, .entry[data-type="draft"] .entry-mark, .entry[data-type="confirmation"] .entry-mark { color: var(--brand); }
+.entry[data-type="decision-request"] .btn, .entry[data-type="draft"] .btn { margin-top: 6px; }
+.confirm-card { border: 1px solid var(--brand-line); border-left: 4px solid var(--brand); border-radius: var(--r-md); background: var(--brand-wash); padding: 8px 12px; }
+.confirm-card strong { display: block; color: var(--brand-text); }
+.confirm-card p { margin: 4px 0 0; }
+.confirm-card .option-status { min-height: 40px; margin-top: 6px; }
+
 /* Your decisions are recorded in burgundy: the human in charge. */
 .entry[data-type="decision"] .entry-mark { color: var(--brand); }
 .entry[data-type="decision"][data-decision="rejected"] .entry-mark { color: var(--brand-mid); }

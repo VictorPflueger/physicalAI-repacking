@@ -85,7 +85,7 @@ export function createKpiBoard(panel, { getInputs, getNightState = () => null } 
 
   const later = () => { if (!pending) pending = setTimeout(render, 250); };
   bus.on("night_plan", (ev) => { night = { seed: ev.payload.seed, volume: ev.payload.volume, final: null }; render(); });
-  for (const t of ["grasp_attempt", "manual_pick", "dispatch", "late_complete", "escalation", "world_model_correction", "order_new"]) bus.on(t, () => { if (night && !night.final) later(); });
+  for (const t of ["grasp_attempt", "manual_pick", "dispatch", "late_complete", "escalation", "world_model_correction", "order_new", "plan_update"]) bus.on(t, () => { if (night && !night.final) later(); });
   bus.on("night_end", (ev) => { if (night) night.final = ev.payload.figures; render(); });
 
   function reset() { night = null; render(); }

@@ -2,8 +2,9 @@
 // Secrets never enter it: API keys are not part of any event, and the export is redacted again.
 //
 // Two lists are kept: `events` (the run-event stream as the UI saw it) and `apiExchanges` (one record
-// per model call: what was sent, what came back, usage and timing; from M3). The Audit tab shows both
-// in one chronological view; each model call appears as a "model_call" row.
+// per model call of a live run: what was sent, what came back, usage and timing). The Audit tab shows
+// both in one chronological view; each model call appears as a "model_call" row. The export adds the
+// run facts (js/run_facts.js) of a finished run.
 //
 // The night's ordinary units are not kept one envelope per detection, grasp, reading, pick and tote:
 // the event "unit_log" holds them as one row per unit (PLAN.md §d.1 "Audit volume"). Exceptions stay
@@ -14,6 +15,7 @@ import { bus } from "./events.js";
 import { APP } from "./config.js";
 import { redactSecrets } from "./keystore.js";
 import { isFineEvent } from "./night.js";
+import { computeRunFacts } from "./run_facts.js";
 
 const events = [];
 const apiExchanges = [];
@@ -33,6 +35,7 @@ bus.onAny((ev) => {
       scenario_id: ev.payload.scenario_id || null, title: ev.payload.title, model: ev.payload.model || null,
       seed: ev.payload.seed ?? null, sim_source: ev.payload.sim_source || null,
       ...(ev.payload.chosen_mode ? { chosen_mode: ev.payload.chosen_mode } : {}),
+      ...(ev.payload.night_inputs_kept ? { night_inputs_kept: ev.payload.night_inputs_kept } : {}),
       started_at: ev.ts, ended_at: null, status: "running"
     };
   }
@@ -71,7 +74,7 @@ export function auditRunInfo() {
   return run ? { ...run } : null;
 }
 
-/** Record one model request/response (from the live agent, M3). Never pass headers. */
+/** Record one model request/response (from the live agent). Never pass headers. */
 export function recordApiExchange(entry) {
   const ts = new Date().toISOString();
   const record = safeClone({ ts, ...entry });
@@ -120,7 +123,7 @@ export function buildAuditExport() {
     mode_statement: mode === "simulation"
       ? recorded
         ? "SIMULATION: replay of a recorded live run. No model was called during this replay; the evidence shown was recorded earlier and is not live."
-        : "SIMULATION: scripted replay of a representative night. No model was called."
+        : "SIMULATION: scripted replay of a representative night through the agent's own tools; every figure was computed by the engine and the night simulation. No model was called."
       : mode === "live"
         ? "LIVE: real model reasoning and real tool calls made from the presenter's browser, against the simulated cell."
         : mode === "preview"
@@ -131,6 +134,7 @@ export function buildAuditExport() {
     simulated_cell: "The robot cell, camera, scale, gripper and warehouse system are simulated in both modes.",
     world_version: world.world_version || null,
     run,
+    run_facts: run && run.status !== "running" ? safeFacts() : null,
     cost: lastCost,
     counts: { ...countBy(events.map((e) => e.type)), model_calls: apiExchanges.length },
     events,
@@ -143,6 +147,10 @@ export function auditFileName() {
   const id = run?.run_id || `repack-pilot-${Date.now()}`;
   const suffix = { simulation: "-SIMULATION", live: "-LIVE", preview: "-PREVIEW" }[run?.mode] || "";
   return `${id}${suffix}-audit.json`;
+}
+
+function safeFacts() {
+  try { return computeRunFacts(rows); } catch { return null; }
 }
 
 function countBy(list) {

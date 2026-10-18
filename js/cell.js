@@ -11,8 +11,8 @@
 // with the drawer open, "strip": rows of store chips. The free height picks the size, and the board
 // steps down while its content still does not fit (TECH_NOTES D19). Hide the drawer for more board.
 //
-// Both producers (the night player now, the agent from M3) emit the same events, so the board never
-// asks what runs it. Every figure comes from js/cell_data.js.
+// Both producers (the live agent and the scripted replay) and the night player emit the same events,
+// so the board never asks what runs it. Every figure comes from js/cell_data.js.
 
 import { bus } from "./events.js";
 import { h, clear } from "./dom.js";
@@ -304,7 +304,7 @@ export function createCellBoard(root, { scenarios = [], getParams = () => ({}), 
     sub.textContent = `${date ? `${date} · ` : ""}22:00–06:00${scenario ? ` · Scenario ${scenario.number}: ${scenario.short}` : ""}`;
   }
 
-  const FEED = ["detection", "grasp_attempt", "rehearsal", "scale_reading", "world_model_correction", "manual_pick", "tote_update", "projection", "cutoff_risk", "order_new", "dispatch", "late_complete", "escalation", "wave_arrival", "wake", "clock", "night_end"];
+  const FEED = ["detection", "grasp_attempt", "rehearsal", "scale_reading", "world_model_correction", "manual_pick", "tote_update", "projection", "cutoff_risk", "order_new", "dispatch", "late_complete", "escalation", "wave_arrival", "units_routed", "order_moved", "plan_update", "wake", "clock", "night_end"];
   for (const type of FEED) {
     bus.on(type, (ev) => {
       if (!st || !running) return;
@@ -314,7 +314,8 @@ export function createCellBoard(root, { scenarios = [], getParams = () => ({}), 
   }
   bus.on("night_plan", (ev) => { scenario = byId(ev.payload.scenario_id) || scenario; running = true; load(ev.payload); });
   bus.on("night_end", () => { running = false; dirty.add("clock"); request(); });
-  bus.on("run_end", () => { running = false; dirty.add("clock"); request(); });
+  // A run that ends stands still for good: no pause mark (the night may have stood at its last wake-up).
+  bus.on("run_end", () => { running = false; if (st) { st.paused = false; st.pause_reason = null; } dirty.add("clock"); request(); });
 
   /** Shows the selected scenario's night at 22:00 (no run). */
   function focusScenario(id) {

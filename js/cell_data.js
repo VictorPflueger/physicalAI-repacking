@@ -32,6 +32,9 @@ export function createNightState(info) {
     inbound: info.waves.map((w) => ({ ...w, arrived: w.at_ms <= 0 })),
     world, corrections: [], focus: null,
     escalations: [], handed: [], wakes: [], risks: [], projection_t: null, express_arrived: false,
+    // The levers in force (decisions and safety actions, from plan_update events) and the pickers
+    // called in, whose billed hours count as labour from the moment they start.
+    levers: [], call_ins: [],
     dispatched: 0, on_time: 0, late: 0, version: 0
   };
 }
@@ -83,11 +86,19 @@ export function laneState(o) {
   return "open";
 }
 
+/**
+ * Hours billed for called-in pickers by time `t` (ms after 22:00): a picker's billed hours (at least the
+ * call-in minimum) count in full from the moment the picker starts, as tonight's final figure does.
+ */
+export function callInHours(st, t = st.t) {
+  return st.call_ins.filter((c) => c.from_ms <= t).reduce((sum, c) => sum + (c.until_ms - c.from_ms) / 3600000, 0);
+}
+
 /** Tonight's figures so far (the KPI board's Tonight column while the night runs). */
 export function tonightSoFar(st) {
   const i = st.info;
   const picks = st.manual.picks;
-  const labourH = (st.manual.by_picker.P1 || 0) / i.r_m + (i.call_in_billed_h || 0);
+  const labourH = (st.manual.by_picker.P1 || 0) / i.r_m + callInHours(st);
   let packed = 0;
   for (const o of st.orders.values()) packed += o.packed;
   const cellH = (st.cell.attempts * i.t_cell_ms) / 3600000;
@@ -226,6 +237,21 @@ export function applyEvent(st, type, p, t) {
       dirty.add("escalations"); dirty.add("manual");
       break;
     }
+    case "units_routed": {
+      // The cell hands units to the manual station (a safety action or an approved option).
+      st.manual.arrived += p.units || 0;
+      st.routed = (st.routed || 0) + (p.units || 0);
+      dirty.add("manual");
+      break;
+    }
+    case "order_moved": {
+      // An order moved to the next day's wave: its queued manual work leaves tonight's station.
+      st.manual.arrived = Math.max(st.manual.picks, st.manual.arrived - (p.manual_dropped || 0));
+      const o = st.orders.get(p.order);
+      if (o) o.moving = true;
+      dirty.add("manual"); dirty.add("orders");
+      break;
+    }
     case "wave_arrival": {
       for (const w of st.inbound) {
         if (w.id !== p.wave || w.arrived) continue;
@@ -237,6 +263,26 @@ export function applyEvent(st, type, p, t) {
     }
     case "wake": {
       st.wakes.push({ ...p });
+      break;
+    }
+    case "plan_update": {
+      // A decision or a safety action changes the plan from the next millisecond (js/night_session.js).
+      for (const l of p.levers || []) {
+        st.levers.push({ ...l, source: p.source, option_id: p.option_id ?? null });
+        if (l.type === "call_in_picker" && typeof l.from_ms === "number" && typeof l.until_ms === "number") st.call_ins.push({ from_ms: l.from_ms, until_ms: l.until_ms });
+      }
+      // The projection right after the decision, so the lanes show its effect while the night stands
+      // still. An order the decision moves to tomorrow's wave keeps its lane until order_moved.
+      if (p.projection) {
+        const moving = new Set((p.levers || []).filter((l) => l.type === "move_to_next_wave").flatMap((l) => l.store_ids || []));
+        for (const x of p.projection.orders || []) {
+          const o = st.orders.get(x.id);
+          if (!o || o.status !== "open" || moving.has(x.id)) continue;
+          o.projected_ms = x.projected_ms; o.slack_min = x.slack_min; o.at_risk = !!x.at_risk;
+        }
+        st.projection_t = p.projection.t;
+      }
+      dirty.add("orders"); dirty.add("manual");
       break;
     }
     case "clock": {

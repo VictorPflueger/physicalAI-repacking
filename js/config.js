@@ -4,12 +4,7 @@ export const APP = {
   id: "rp",
   name: "Repack Pilot",
   fullName: "Repack Pilot, a Physical AI repacking showcase",
-  version: "0.2.0",
-  // What this build can do yet (shown when a night starts). Removed once the agent with its scripted
-  // replays (M3) is in.
-  stage: "Night preview (v0.2.0): the cell, the world model and the engine run tonight without the agent. The agent, its options and the scripted replays arrive with M3.",
-  // Shown in the mode choice while the build has no agent (removed in M3).
-  stageNote: "This build plays the night without the agent in either mode: a night preview with no model calls. The agent arrives with M3."
+  version: "0.3.0"
 };
 
 export const ANTHROPIC = {
@@ -49,11 +44,14 @@ export const MODELS = [
 ];
 export const DEFAULT_MODEL = "claude-sonnet-5-5";
 
-// Live-agent guardrails (TECH_NOTES §9 from M3). A run stops at whichever limit it reaches first.
+// Live-agent guardrails (TECH_NOTES §9). A run stops at whichever limit it reaches first.
 export const AGENT = {
-  maxSteps: 40,          // model calls per run
+  maxSteps: 40,          // model calls per run (a turn discarded by the max_tokens retry counts)
   budgetEur: 3.0,        // hard cost cap per run
   idleTimeoutMs: 90000,  // no streamed data for this long counts as a failed request
+  transportRetries: 2,   // retries of one model call after a 429, 5xx, overload or network failure
+  figureRetries: 2,      // a text with an unchecked amount is refused this often, then shown marked
+  maxNudges: 2,          // times the agent is asked to carry on when it ends its turn early
   maxOutputTokens: 128000
 };
 
@@ -61,11 +59,28 @@ export const AGENT = {
 // cost meter (TECH_NOTES §1).
 export const FX_USD_EUR = 0.892;
 
-// Open data the app reads without a key (TECH_NOTES §4). None in this build: Open Food Facts joins
-// with the lookup in M3, once a browser probe has shown that it may be read (PLAN.md decision 3). The
-// CSP in index.html allows exactly api.anthropic.com plus these origins; js/diagnostics.js checks
-// that the two lists match.
-export const OPEN_DATA = {};
+// Open Food Facts (TECH_NOTES §4, DATA_SOURCES §4): product data for a barcode the item master does not
+// know (tool open_lookup_barcode, js/openfoodfacts.js). Live reads stay off until a browser probe shows
+// that a page may read the API (PLAN.md Appendix A, decision D3); until then Live mode answers from the
+// bundled snapshot, as Simulation always does, and the host is in neither OPEN_DATA nor the page's
+// connection policy. Turning `live` on adds the origin to OPEN_DATA, and index.html must list it then.
+export const OPEN_FOOD_FACTS = {
+  id: "open_food_facts",
+  live: false,
+  origin: "https://world.openfoodfacts.org",
+  fields: ["code", "product_name", "brands", "quantity", "product_quantity", "product_quantity_unit", "packaging_text", "categories_tags"],
+  productUrl(barcode) { return `${this.origin}/api/v2/product/${encodeURIComponent(barcode)}.json?fields=${this.fields.join(",")}`; },
+  productPage(barcode) { return `${this.origin}/product/${encodeURIComponent(barcode)}`; },
+  maxLookupsPerRun: 3,
+  ratePerMinute: 15,      // documented limit: product reads per minute per IP address
+  timeoutMs: 8000,
+  attribution: "Product data: Open Food Facts, ODbL"
+};
+
+// Open data the app reads without a key: the live sources that are switched on. The CSP in index.html
+// allows exactly api.anthropic.com plus these origins; js/diagnostics.js checks that the two lists
+// match. Empty in this build (Open Food Facts answers from its snapshot, above).
+export const OPEN_DATA = OPEN_FOOD_FACTS.live ? { [OPEN_FOOD_FACTS.id]: { origin: OPEN_FOOD_FACTS.origin } } : {};
 
 /** Every origin the page may connect to: the Messages API and the open-data hosts above. */
 export const CONNECT_ORIGINS = [new URL(ANTHROPIC.messagesUrl).origin, ...Object.values(OPEN_DATA).map((d) => d.origin)];
@@ -81,7 +96,7 @@ export const STORAGE = {
   model: `${P}model`,                   // sessionStorage
   speed: `${P}speed`,                   // sessionStorage
   scenario: `${P}scenario`,             // sessionStorage
-  sessionCost: `${P}sessionCostEur`,    // sessionStorage: live spend in this tab (M3)
+  sessionCost: `${P}sessionCostEur`,    // sessionStorage: live spend in this tab
   assumptions: `${P}assumptions`,       // sessionStorage: the presenter's changed engine inputs
   introSeen: `${P}introSeen`,           // localStorage: the intro opens by itself only on a first visit
   consoleText: `${P}consoleText`        // localStorage: larger console text for projectors

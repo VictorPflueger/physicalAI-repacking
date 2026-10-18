@@ -4,16 +4,16 @@
 // night's own parameters from the synthetic world, and the scenario's settings: what the scenario
 // makes happen, which the warehouse system, the cell and the agent learn only when it happens.
 //
-// The engine's plan uses a change at once. The night simulation reads r_m, r_c and p when a night
-// starts, so a change during a night applies to the next one.
+// The engine's plan uses a change at once. The night simulation reads r_m, r_c, p and the call-in
+// minimum when a night starts, so a change during a night applies to the next one.
 
 import { bus } from "./events.js";
 import { h, clear } from "./dom.js";
-import { PARAMETERS, defaults } from "./engine.js";
+import { PARAMETERS, defaults, NIGHT_INPUTS } from "./engine.js";
 import { fixed, int } from "./format.js";
 import { WEIGHT_TOLERANCE } from "./nightsim.js";
 
-export const NIGHT_INPUTS = Object.freeze(["r_m", "r_c", "p"]);
+export { NIGHT_INPUTS };
 
 export function createAssumptions(panel, { getOverrides, setOverrides, getNightInfo = () => null, getScenario = () => null, isRunning = () => false } = {}) {
   const root = h("div", { class: "assumptions" });
@@ -36,7 +36,7 @@ export function createAssumptions(panel, { getOverrides, setOverrides, getNightI
     root.append(
       h("div", { class: "as-head" },
         h("div", {}, h("h3", {}, "Assumptions"),
-          h("p", {}, "Every input of the engine, with its source key or the label Assumption. Change one and the plan follows at once; the night simulation takes r_m, r_c and p from the next night on. Every change is in the audit.")),
+          h("p", {}, "Every input of the engine, with its source key or the label Assumption. Change one and the plan follows at once; the night simulation takes r_m, r_c, p and the call-in minimum from the next night on. Every change is in the audit.")),
         resetBtn),
       h("table", { class: "as-table" },
         h("thead", {}, h("tr", {}, h("th", { scope: "col" }, "Input"), h("th", { scope: "col" }, "Value"), h("th", { scope: "col" }, "Unit"), h("th", { scope: "col" }, "Basis"))),

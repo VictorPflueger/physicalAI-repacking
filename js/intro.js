@@ -28,7 +28,7 @@ const VALUE = [
 
 const REAL = [
   { tone: "simulated", title: "Simulated, and labelled so", text: "The robot cell with its camera, scale and gripper; the warehouse system; the retailer Ruhrkorb, its stores and orders (Synthetic)." },
-  { tone: "real", title: "Real", text: "The agent in Live mode (Claude on your key), the engine's arithmetic, sourced inputs such as Eurostat's labour cost, the optional Open Food Facts lookup." }
+  { tone: "real", title: "Real", text: "The agent in Live mode (Claude on your key), the engine's arithmetic, sourced inputs such as Eurostat's labour cost, and Open Food Facts product data where a lookup returns it." }
 ];
 
 /** True once this browser has seen the intro (closed it at least once). */

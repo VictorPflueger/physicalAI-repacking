@@ -6,7 +6,7 @@
 //
 // One rule, three users: the night simulation decides corrections with it (js/nightsim.js), the
 // board replays them from the night's events (js/cell_data.js, js/world_panel.js), and the agent's
-// world tools read it from M3. Pure: no DOM, no clock, no randomness.
+// world tools read it (js/wms.js). Pure: no DOM, no clock, no randomness.
 
 /** A reading further than this share away from the expected weight writes back (Assumption). */
 export const WEIGHT_TOLERANCE = 0.25;

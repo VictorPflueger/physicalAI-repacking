@@ -1,6 +1,8 @@
-// Dialogs: run-mode choice and the API key. (The management summary joins with the agent in M3.)
+// Dialogs: run-mode choice, the API key and the management summary.
 
-import { h } from "./dom.js";
+import { h, copyText, downloadText } from "./dom.js";
+import { renderMarkdown } from "./md.js";
+import { aiLabel } from "./ai_label.js";
 import { icon } from "./icons.js";
 import { openModal } from "./modal.js";
 import { ANTHROPIC, AGENT, APP, STORAGE } from "./config.js";
@@ -10,9 +12,10 @@ import { eur0 } from "./format.js";
 
 /**
  * Ask which mode to run in. Resolves "simulation" | "live" | "key" (change or forget the stored key) | null.
- * runLabel: what will run (the scenario).
+ * runLabel: what will run (the scenario); simNote: a note on the Simulation of this scenario (no scripted
+ * replay yet, or night inputs kept at the defaults), or null.
  */
-export function chooseMode({ runLabel }) {
+export function chooseMode({ runLabel, simNote = null }) {
   return new Promise((resolve) => {
     let modal;
     const pick = (mode) => modal.close(mode);
@@ -20,7 +23,7 @@ export function chooseMode({ runLabel }) {
       h("h3", {}, icon("play", 22), "Simulation"),
       h("span", { class: "badge-sim" }, "SIMULATION"),
       h("ul", {},
-        h("li", {}, "Scripted replay of a representative night, through the same interface."),
+        h("li", {}, "Scripted replay of a representative night through the agent's own tools and the same interface."),
         h("li", {}, "No API key, no cost, no model calls. Works fully offline."),
         h("li", {}, "Every hour and euro is still calculated by the engine."),
         h("li", {}, "Labelled SIMULATION throughout, including the audit export.")),
@@ -50,7 +53,7 @@ export function chooseMode({ runLabel }) {
       intro: "Live is the real thing. Simulation is for rehearsal, an offline fallback and exploring without a key.",
       body: [
         h("div", { class: "run-summary" }, h("span", { class: "label" }, "Will run:"), h("strong", {}, runLabel)),
-        APP.stageNote ? h("p", { class: "stage-note", role: "note" }, icon("info", 18), APP.stageNote) : null,
+        simNote ? h("p", { class: "stage-note", role: "note" }, icon("info", 18), simNote) : null,
         h("div", { class: "mode-cards" }, simCard, liveCard)
       ],
       footer,
@@ -164,5 +167,27 @@ export function askApiKey({ reason = "" } = {}) {
       footer: [forgetBtn, saveBtn],
       onClose: () => resolve(accepted)
     });
+  });
+}
+
+/** The management summary in a wide dialog, with copy and download. */
+export function showReport(markdown, { mode } = {}) {
+  const status = h("span", { class: "left", role: "status" }, mode === "simulation" ? "Simulated run: the words were scripted; every figure was computed by the engine and the night simulation." : "");
+  const copyBtn = h("button", { class: "btn", type: "button" }, icon("copy", 18), "Copy text");
+  copyBtn.addEventListener("click", async () => {
+    status.textContent = (await copyText(markdown)) ? "Copied to the clipboard." : "Copy failed; use Download instead.";
+  });
+  const dlBtn = h("button", { class: "btn btn-primary", type: "button", id: "btn-download-report" }, icon("download", 18), "Download .md");
+  dlBtn.addEventListener("click", () => {
+    const sim = mode === "simulation";
+    const text = sim ? `> SIMULATION: scripted replay on a simulated cell, not a live run.\n\n${markdown}` : markdown;
+    downloadText(`${sim ? "SIMULATION-" : ""}repack-pilot-management-summary.md`, text, "text/markdown");
+  });
+  return openModal({
+    title: "Management summary",
+    className: "report-modal",
+    size: "wide",
+    body: [renderMarkdown(markdown)],
+    footer: [aiLabel("report"), status, copyBtn, dlBtn]
   });
 }

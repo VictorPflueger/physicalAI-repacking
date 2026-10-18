@@ -1,0 +1,186 @@
+// Options tab (PLAN.md §g): three costed options plus doing nothing, a cost comparison, and the
+// approval gate. Every figure on a card comes from the engine's costing (the options event, filled by
+// variant_id in js/tools.js), never from the agent's text. Card state follows option_decision events,
+// so Live and Simulation behave alike. Lower expected total is better: the extra labour an option
+// spends plus the cost of the store orders that still miss their truck.
+
+import { bus } from "./events.js";
+import { h, clear } from "./dom.js";
+import { icon } from "./icons.js";
+import { eur2, int, upTo } from "./format.js";
+import { renderInline } from "./md.js";
+import { aiLabel } from "./ai_label.js";
+
+const lateText = (n) => (n === 0 ? "none" : `${upTo(n, 2)} expected`);
+
+export function createOptionsPanel(panel, { onDecision, onCount, orderName = (id) => id } = {}) {
+  let current = null;           // the last options payload
+  const status = new Map();     // option id → "approved" | "rejected" | "not_selected"
+  let locked = false;           // true once an option has been approved
+  let ended = false;            // the run ended (abort, error) before any approval
+  let refocus = false;          // a decision was made in the panel: keep the focus in it
+
+  function empty() {
+    clear(panel);
+    panel.appendChild(h("div", { class: "empty" },
+      h("strong", {}, "No options yet"),
+      h("span", {}, "When the night needs a decision, the agent prices three options against doing nothing, each in extra labour and late store orders, and they wait here for your decision. Nothing changes before.")));
+  }
+
+  function render() {
+    clear(panel);
+    if (!current) return empty();
+    const { baseline, options = [], replications = 20, late_cost_eur: lateCost } = current;
+    const pending = !locked && !ended && options.some((o) => !status.has(o.id));
+    const max = Math.max(1, baseline?.expected_total_eur || 0, ...options.map((o) => o.expected_total_eur || 0));
+
+    const rows = [
+      ...options.map((o) => ({ key: o.letter, name: `Option ${o.letter}: ${o.title}`, spend: o.extra_labour_eur || 0, late: o.late_orders_eur || 0, total: o.expected_total_eur || 0, recommended: !!o.recommended })),
+      { key: "–", name: "Do nothing", base: baseline?.expected_total_eur || 0, total: baseline?.expected_total_eur || 0 }
+    ];
+    const summary = h("div", { class: "options-summary" },
+      h("div", { class: "options-summary-head" },
+        h("h3", {}, pending ? "Decide how to respond" : locked ? "Decision taken" : ended ? "Run ended before a decision" : "Options"),
+        aiLabel("options")),
+      h("p", {}, `Expected total at ${current.at}: extra labour plus ${lateCost !== undefined ? eur2(lateCost) : "the cost"} for each store order that misses its truck, over ${int(replications)} seeded replications of tonight. Every figure comes from the engine and the night simulation.`),
+      h("div", { class: "compare", role: "img", "aria-label": `Expected total per option against doing nothing: ${rows.map((r) => `${r.name} ${eur2(r.total)}`).join("; ")}` },
+        rows.map((r) => h("div", { class: "compare-row", dataset: { recommended: String(!!r.recommended) }, title: r.name },
+          h("span", { class: "compare-key", "aria-hidden": "true" }, r.key),
+          h("span", { class: "compare-track" },
+            r.base !== undefined
+              ? h("span", { class: "compare-bar baseline", style: { width: `${(r.base / max) * 100}%` } })
+              : [h("span", { class: "compare-bar mitigation", style: { width: `${(r.spend / max) * 100}%` } }),
+                h("span", { class: "compare-bar residual", style: { left: `${(r.spend / max) * 100}%`, width: `${(r.late / max) * 100}%` } })]),
+          h("span", { class: "compare-value num" }, eur2(r.total))))),
+      h("div", { class: "compare-legend" },
+        h("span", { class: "k-mit" }, "Extra labour"),
+        h("span", { class: "k-res" }, "Late store orders"),
+        h("span", { class: "k-base" }, "Do nothing")));
+
+    const grid = h("div", { class: "options-grid" });
+    for (const o of options) grid.appendChild(optionCard(o, replications));
+    grid.appendChild(baselineCard(baseline, replications));
+    panel.appendChild(h("div", { class: "options-layout" }, summary, grid));
+    if (refocus) {
+      // The cards were rebuilt: put the focus on the next decision, or on the decided card.
+      refocus = false;
+      const next = panel.querySelector(".option-actions .btn");
+      const target = next || panel.querySelector(".option-status")?.closest(".option-card");
+      if (target) {
+        if (!next) target.setAttribute("tabindex", "-1");
+        target.focus({ preventScroll: false });
+      }
+    }
+  }
+
+  /** "Soest 20 of 20, Hamm 17 of 20" from the costing's late counts. */
+  function lateBy(m, reps) {
+    const list = Object.entries(m || {});
+    return list.length ? list.map(([id, n]) => `${orderName(id)} ${int(n)} of ${int(reps)}`).join(", ") : `none of ${int(reps)}`;
+  }
+
+  function tonight(t) {
+    if (!t) return "—";
+    return t.late.length ? `${t.late.map(orderName).join(", ")} late` : "every truck on time";
+  }
+
+  function optionCard(o, reps) {
+    const st = status.get(o.id) || (locked ? "not_selected" : ended ? "expired" : "");
+    return h("article", { class: "option-card", dataset: { recommended: String(!!o.recommended), status: st, kind: "option", id: o.id }, "aria-label": `Option ${o.letter}: ${o.title}` },
+      h("div", { class: "option-top" },
+        h("span", { class: "option-letter", "aria-hidden": "true" }, o.letter),
+        h("h4", { class: "option-title" }, o.title),
+        o.recommended ? h("span", { class: "chip", dataset: { tone: "recommended" } }, "Recommended") : null),
+      o.description ? renderInline(o.description, h("p", { class: "option-desc" })) : null,
+      h("dl", { class: "option-figures" },
+        h("dt", {}, "Extra labour"), h("dd", {}, eur2(o.extra_labour_eur)),
+        h("dt", {}, "Late store orders"), h("dd", { title: lateBy(o.late_by_order, reps) }, lateText(o.expected_late_orders)),
+        h("dt", {}, "Their cost"), h("dd", {}, eur2(o.late_orders_eur)),
+        h("dt", {}, "Tonight's seed"), h("dd", {}, tonight(o.tonight))),
+      h("div", { class: "option-total" }, h("span", { class: "label" }, "Expected total"), h("span", { class: "value num" }, eur2(o.expected_total_eur))),
+      o.residual_risk ? h("p", { class: "option-risk" }, h("strong", {}, "Residual risk: "), o.residual_risk) : null,
+      actionsFor(o, st));
+  }
+
+  function baselineCard(b, reps) {
+    const st = status.get("baseline") || (locked ? "not_selected" : ended ? "expired" : "");
+    return h("article", { class: "option-card", dataset: { kind: "baseline", status: st, id: "baseline" }, "aria-label": "Do nothing" },
+      h("div", { class: "option-top" },
+        h("span", { class: "option-letter", "aria-hidden": "true" }, "–"),
+        h("h4", { class: "option-title" }, "Do nothing")),
+      h("p", { class: "option-desc" }, b?.description || "Keep the plan as it is."),
+      h("dl", { class: "option-figures" },
+        h("dt", {}, "Extra labour"), h("dd", {}, eur2(0)),
+        h("dt", {}, "Late store orders"), h("dd", { title: lateBy(b?.late_by_order, reps) }, lateText(b?.expected_late_orders)),
+        h("dt", {}, "Their cost"), h("dd", {}, eur2(b?.late_orders_eur)),
+        h("dt", {}, "Tonight's seed"), h("dd", {}, tonight(b?.tonight))),
+      h("div", { class: "option-total" }, h("span", { class: "label" }, "Expected total"), h("span", { class: "value num" }, eur2(b?.expected_total_eur))),
+      actionsFor({ id: "baseline", letter: "–", title: "Do nothing" }, st, true));
+  }
+
+  function actionsFor(o, st, isBaseline = false) {
+    if (st === "approved") return h("div", { class: "option-status mark-pass" }, icon("check", 20), isBaseline ? "Plan kept" : "Approved");
+    if (st === "rejected") return h("div", { class: "option-status mark-fail" }, icon("x", 20), "Rejected");
+    if (st === "not_selected") return h("div", { class: "option-status mark-skip" }, "Not selected");
+    if (st === "expired") return h("div", { class: "option-status mark-skip" }, "No decision: the run ended");
+    if (isBaseline) {
+      return h("div", { class: "option-actions" },
+        h("button", { class: "btn", type: "button", on: { click: () => decide(o, "approved") } }, "Do nothing"));
+    }
+    return h("div", { class: "option-actions" },
+      // The recommended option's Approve is the one solid brand button; the others stay available as
+      // outlined brand buttons. Reject is a neutral decision, not an alarm.
+      h("button", { class: `btn btn-approve${o.recommended ? "" : " btn-brand-outline"}`, type: "button", on: { click: () => decide(o, "approved") } }, icon("check", 18), "Approve"),
+      h("button", { class: "btn btn-reject", type: "button", on: { click: () => decide(o, "rejected") } }, "Reject"));
+  }
+
+  function decide(o, decision) {
+    if (locked || !current) return;
+    refocus = panel.contains(document.activeElement);
+    // The decision names the set of options it was taken on, so a click on a set the agent has just
+    // replaced is ignored instead of counting for the new one.
+    onDecision?.({ option_id: o.id, option_label: o.id === "baseline" ? "Do nothing" : `Option ${o.letter}: ${o.title}`, options_seq: current.options_seq ?? null, decision });
+  }
+
+  bus.on("options", (ev) => {
+    current = ev.payload;
+    status.clear();
+    locked = false;
+    ended = false;
+    render();
+    onCount?.(current.options?.length || 0, true);
+  });
+
+  bus.on("option_decision", (ev) => {
+    const { option_id: id, decision, options_seq: seq } = ev.payload;
+    if (!current || (seq !== undefined && seq !== (current.options_seq ?? null))) return; // a decision on an older set
+    status.set(id, decision);
+    if (decision === "approved") {
+      locked = true;
+      for (const o of current.options || []) if (o.id !== id) status.set(o.id, "not_selected");
+      if (id !== "baseline") status.set("baseline", "not_selected");
+    }
+    render();
+    onCount?.(current.options?.length || 0, !locked);
+  });
+
+  // A run that ends (Abort, an error) cannot take a decision any more: say so instead of offering buttons.
+  bus.on("run_end", () => {
+    if (!current || locked) return;
+    ended = true;
+    render();
+    onCount?.(current.options?.length || 0, false);
+  });
+
+  function reset() {
+    current = null;
+    status.clear();
+    locked = false;
+    ended = false;
+    empty();
+    onCount?.(0, false);
+  }
+
+  empty();
+  return { reset };
+}

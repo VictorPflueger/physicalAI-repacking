@@ -1,7 +1,7 @@
 // World data access for Repack Pilot: indexes over the synthetic world (stores, items, the night's
 // allocation, waves, the cell, the manual station and the tote rule), the night-shift clock and the
 // barcode check. Pure module (no DOM), shared by the UI, Diagnostics and the integrity checks; the
-// engine and the night simulation (M2) and the agent tools (M3) read the world through it too.
+// engine, the night simulation and the agent's tools read the world through it too.
 //
 // Conventions (see data/world.js): times are clock times on the night shift, 22:00 to 06:00, and
 // are compared as minutes after the shift start ("01:35" → 215). N1 is the normal night (3,000

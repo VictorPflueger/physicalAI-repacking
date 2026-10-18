@@ -6,7 +6,9 @@
 //   T3  on the peak night (N2) the hybrid night misses exactly two stores, Hamm and Soest;
 //   T4  scenario 1 (the express order at 02:00, the warehouse system's default of express first)
 //       puts exactly two stores, Hamm and Soest, inside the 15-minute risk band (slack below 15
-//       minutes, late included), while the express order makes its truck with 15 minutes to spare.
+//       minutes, late included), while the express order makes its truck. (Until M3 the express order
+//       also needed 15 minutes to spare; M3 tuned it to a chilled top-up for the 02:45 truck so that
+//       re-sequencing carries a real late risk, PLAN.md §c.7, TECH_NOTES D32.)
 // The cut-offs and the chilled wave in the world were found on these 14 seeds by the Phase 0 model;
 // js/nightsim.js has to meet the targets on every one of them. Pure module, used by the world checks
 // (Node and Diagnostics) and by tools/calibrate_night.mjs.
@@ -35,7 +37,7 @@ export function calibrateSeed(world, scenario1Night, seed) {
   const t1 = stores(n1).every((o) => o.on_time) && minSlack >= RISK_BAND_MS;
   const t2 = manLate.length >= 3;
   const t3 = ids(n2Late) === [...N2_LATE].sort().join(",");
-  const t4 = ids(s1Risk) === [...S1_RISK].sort().join(",") && !!xpr && xpr.slack_ms >= RISK_BAND_MS;
+  const t4 = ids(s1Risk) === [...S1_RISK].sort().join(",") && !!xpr && xpr.on_time;
   return {
     seed, ok: t1 && t2 && t3 && t4, targets: { t1, t2, t3, t4 },
     n1_min_slack_min: minSlack / MINUTE,
