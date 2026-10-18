@@ -210,10 +210,13 @@ await test("E3 repeated failures: gripper wear fires it about 13 minutes after t
   assert.equal(roll.rate(), 0.74); assert.equal(roll.fires(), true);
 });
 
-await test("E4 cut-off risk: Hamm and Soest at 02:00 in scenario 1; no store on a normal night", () => {
+await test("E4 cut-off risk: Hamm and Soest at 02:00 in scenario 1, with the express order itself in the band; no store on a normal night", () => {
   const r1 = NS.runNight(nightOf(1));
   assert.equal(r1.risks.length, 1); assert.equal(NS.clockOf(r1.risks[0].t), "02:00");
-  assert.deepEqual(r1.risks[0].stores.map((s) => s.store).sort(), ["HAM", "SOE"]);
+  // The two stores at risk, and the express order with only 9 minutes to spare for its 02:45 truck (D32).
+  assert.deepEqual(r1.risks[0].stores.map((s) => s.store).sort(), ["HAM", "SOE", "XPR"]);
+  assert.deepEqual(r1.risks[0].stores.filter((s) => s.store !== "XPR").map((s) => s.store).sort(), ["HAM", "SOE"]);
+  assert.equal(r1.risks[0].stores.find((s) => s.store === "XPR").slack_min, 9);
   const w = r1.wakeups.find((x) => x.kinds.includes("cutoff_risk"));
   assert.deepEqual(w.kinds, ["new_order", "cutoff_risk"], "the risk wakes the agent in the same minute as the new order");
   assert.equal(NS.runNight(nightOf(2)).risks.length, 0);
@@ -302,7 +305,7 @@ await test("the night plan holds only what the warehouse system knows at 22:00",
   const res = NS.runNight(nightOf(1));
   const order = res.events.find((e) => e.type === "order_new");
   assert.equal(NS.clockOf(order.t), "02:00");
-  assert.deepEqual([order.payload.order, order.payload.units, order.payload.cell_units + order.payload.manual_units, order.payload.due], ["XPR", 600, 600, "03:30"]);
+  assert.deepEqual([order.payload.order, order.payload.units, order.payload.cell_units + order.payload.manual_units, order.payload.due], ["XPR", 400, 400, "02:45"]);
 });
 
 await test("wake-ups follow the events of their moment; the night-end wake-up is the last event", () => {
@@ -404,12 +407,15 @@ await test("the player emits every event once and in order, waits at each wake-u
     assert.deepEqual(got, want, `scenario ${n}: events out of order`);
     assert.equal(wakes.length, res.wakeups.length);
     assert.equal(seen.filter((e) => e.type === "dispatch").length, res.orders.length, `scenario ${n}: one truck per order`);
-    const tail = seen.slice(-2).map((e) => e.type);
-    assert.deepEqual(tail, ["night_end", "unit_log"]);
-    const end = seen.at(-2).payload;
+    // At the night-end wake-up the night is over: its figures and the unit log come before the agent's
+    // last turn (the clock then moves on from "paused").
+    const tailEvents = seen.filter((e) => e.type !== "clock").slice(-3);
+    assert.deepEqual(tailEvents.map((e) => e.type), ["wake", "night_end", "unit_log"]);
+    assert.equal(tailEvents[0].payload.kind, "night_end");
+    const end = tailEvents[1].payload;
     assert.equal(end.figures.orders_on_time, res.orders.filter((o) => o.on_time).length);
-    assert.equal(seen.at(-1).payload.rows.length, res.units.length);
-    assert.equal(seen.at(-1).payload.hash, res.hash);
+    assert.equal(tailEvents[2].payload.rows.length, res.units.length);
+    assert.equal(tailEvents[2].payload.hash, res.hash);
     // The clock passes every minute it shows in order and stands still at each wake-up.
     const clocks = seen.filter((e) => e.type === "clock").map((e) => e.payload.t);
     assert.ok(clocks.every((t, i) => i === 0 || t >= clocks[i - 1]), "the clock never runs backwards");

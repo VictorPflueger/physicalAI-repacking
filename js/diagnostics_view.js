@@ -1,5 +1,6 @@
-// Diagnostics dialog: self-tests the Anthropic API from this browser and shows the synthetic
-// world's integrity checks and the key-and-privacy row.
+// Diagnostics dialog: self-tests the Anthropic API from this browser and shows the synthetic world's
+// integrity checks, the simulation scripts' checks, how the Open Food Facts lookup answers and the
+// key-and-privacy row.
 
 import { h, clear } from "./dom.js";
 import { icon } from "./icons.js";
@@ -27,6 +28,7 @@ export function openDiagnostics() {
   }
 
   const worldList = h("ul", { class: "world-checks" });
+  const scriptList = h("ul", { class: "world-checks script-checks" });
 
   function setRow(id, r) {
     const row = rows.get(id);
@@ -36,10 +38,12 @@ export function openDiagnostics() {
       s === "running" ? h("span", { class: "spinner" }) : icon(STATUS_ICON[s] || "info", 16), STATUS_TEXT[s] || s));
     row.msCell.textContent = r.ms ? `${r.ms} ms` : "";
     if (r.detail) row.detailCell.textContent = r.detail;
-    if (id === "world" && r.checks) {
-      clear(worldList);
+    const list = id === "world" ? worldList : id === "scripts" ? scriptList : null;
+    if (list && r.checks) {
+      clear(list);
       for (const c of r.checks) {
-        worldList.appendChild(h("li", {}, h("span", { class: c.ok ? "mark-pass" : "mark-fail" }, icon(c.ok ? "check" : "x", 16)), h("span", {}, `${c.name}${c.detail ? ` — ${c.detail}` : ""}`)));
+        const mark = c.pending ? "mark-skip" : c.ok ? "mark-pass" : "mark-fail";
+        list.appendChild(h("li", { dataset: { pending: String(!!c.pending) } }, h("span", { class: mark }, icon(c.pending ? "info" : c.ok ? "check" : "x", 16)), h("span", {}, `${c.name}${c.detail ? ` — ${c.detail}` : ""}`)));
       }
     }
   }
@@ -63,7 +67,11 @@ export function openDiagnostics() {
       h("div", { class: "diag-section" },
         h("h3", {}, "World data integrity"),
         h("p", {}, "Checks run locally on the synthetic world: the stores and their cut-offs, the item master, the night's allocation at 3,000 and 4,200 units, the barcodes, the scenarios, the shadow-mode record and the Open Food Facts file."),
-        worldList)
+        worldList),
+      h("div", { class: "diag-section" },
+        h("h3", {}, "Simulation scripts"),
+        h("p", {}, "Each scripted replay is played headless through the agent's own tools on its night, once for every decision you can take: every tool call must pass the live guardrails, every placeholder resolve and every figure come from a tool result."),
+        scriptList)
     ],
     footer: [
       h("span", { class: "left" }, `${APP.name} ${APP.version}. Without a key, the Anthropic test sends one request with no key: the API answers 401 and nothing is billed.`),
@@ -71,8 +79,10 @@ export function openDiagnostics() {
     ]
   });
 
-  // The integrity and privacy checks are local and instant: show them straight away.
-  runTest("world").then((r) => setRow("world", r));
-  runTest("privacy").then((r) => setRow("privacy", r));
+  // The local checks need no network: show them straight away.
+  for (const id of ["world", "scripts", "openfoodfacts", "privacy"]) {
+    setRow(id, { status: "running" });
+    runTest(id).then((r) => setRow(id, r));
+  }
   return modal;
 }

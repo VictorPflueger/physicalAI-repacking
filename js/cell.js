@@ -304,7 +304,7 @@ export function createCellBoard(root, { scenarios = [], getParams = () => ({}), 
     sub.textContent = `${date ? `${date} · ` : ""}22:00–06:00${scenario ? ` · Scenario ${scenario.number}: ${scenario.short}` : ""}`;
   }
 
-  const FEED = ["detection", "grasp_attempt", "rehearsal", "scale_reading", "world_model_correction", "manual_pick", "tote_update", "projection", "cutoff_risk", "order_new", "dispatch", "late_complete", "escalation", "wave_arrival", "wake", "clock", "night_end"];
+  const FEED = ["detection", "grasp_attempt", "rehearsal", "scale_reading", "world_model_correction", "manual_pick", "tote_update", "projection", "cutoff_risk", "order_new", "dispatch", "late_complete", "escalation", "wave_arrival", "units_routed", "order_moved", "plan_update", "wake", "clock", "night_end"];
   for (const type of FEED) {
     bus.on(type, (ev) => {
       if (!st || !running) return;

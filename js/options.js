@@ -26,32 +26,42 @@ export function validateVariants(variants, night) {
     ids.add(v.variant_id);
     if (!Array.isArray(v.levers) || v.levers.length === 0) problems.push(`${v.variant_id}: no levers`);
     for (const l of v.levers || []) {
-      if (!LEVER_TYPES.includes(l?.type)) problems.push(`${v.variant_id}: unknown lever ${l?.type}`);
-      for (const id of l?.store_ids || []) if (!night.ordersById.has(id)) problems.push(`${v.variant_id}: unknown order ${id}`);
-      if (l?.start !== undefined) { try { msOf(l.start); } catch { problems.push(`${v.variant_id}: start ${l.start} is not a clock time`); } }
-      if (l?.type === "split_order" && !(l.share > 0 && l.share <= 1)) problems.push(`${v.variant_id}: split_order needs a share between 0 and 1`);
+      if (!LEVER_TYPES.includes(l?.type)) { problems.push(`${v.variant_id}: unknown lever ${l?.type} (levers: ${LEVER_TYPES.join(", ")})`); continue; }
+      const ids = l.store_ids ?? l.order;
+      if (ids !== undefined && !Array.isArray(ids)) problems.push(`${v.variant_id}: store_ids must be a list of order ids`);
+      for (const id of Array.isArray(ids) ? ids : []) if (!night.ordersById.has(id)) problems.push(`${v.variant_id}: unknown order ${id}`);
+      if (["resequence", "split_order", "move_to_next_wave"].includes(l.type) && !(Array.isArray(ids) && ids.length)) problems.push(`${v.variant_id}: ${l.type} needs store_ids`);
+      if (l.start !== undefined) { try { msOf(l.start); } catch { problems.push(`${v.variant_id}: start ${l.start} is not a clock time (HH:MM)`); } }
+      if (l.minutes !== undefined && !(Number.isInteger(l.minutes) && l.minutes > 0 && l.minutes <= 480)) problems.push(`${v.variant_id}: minutes must be a whole number from 1 to 480`);
+      if (l.type === "split_order" && !(l.share > 0 && l.share <= 1)) problems.push(`${v.variant_id}: split_order needs a share between 0 and 1`);
     }
   }
   return problems;
 }
 
-/** Levers with their start: their own `start`, or the current minute. */
-function leversFrom(levers, nowMs) {
-  return (levers || []).map((l) => ({ ...l, from_ms: l.start !== undefined ? msOf(l.start) : nowMs }));
+/**
+ * Levers with their start: their own `start`, or now, and never before now: an option decided at a
+ * wake-up acts from the next millisecond (nowMs is the wake-up's time plus one), so the costing and the
+ * night that follows a decision run on the same levers (TECH_NOTES D33).
+ */
+export function leversFrom(levers, nowMs) {
+  return (levers || []).map((l) => ({ ...l, from_ms: Math.max(l.start !== undefined ? msOf(l.start) : nowMs, nowMs), decided_ms: nowMs }));
 }
 
 /**
- * Prices the variants. opts: { seed (tonight's), now_ms (the current minute), variants: [3 × { variant_id,
- * name, levers }], inputs (engine inputs: c, r_m, callin_min_h, callin_premium, late_cost), replications }.
- * Returns { seed, now_ms, replications, baseline, variants: [...] }, each priced alike.
+ * Prices the variants. opts: { seed (tonight's), now_ms (now: a wake-up's time plus one), variants: [3 ×
+ * { variant_id, name, levers }], inputs (engine inputs: c, r_m, callin_min_h, callin_premium, late_cost),
+ * base_levers (the levers already in force tonight: earlier decisions and safety actions, with their
+ * decided_ms), replications }. Returns { seed, now_ms, replications, baseline, variants: [...] }, each
+ * priced alike on top of the levers in force.
  */
-export function costOptions(night, { seed, now_ms = 0, variants, inputs, replications = REPLICATIONS }) {
+export function costOptions(night, { seed, now_ms = 0, variants, inputs, base_levers = [], replications = REPLICATIONS }) {
   const problems = validateVariants(variants, night);
   if (problems.length) throw new Error(`Option set refused: ${problems.join("; ")}.`);
   const v = inputs;
   const seeds = Array.from({ length: replications }, (_, k) => replicationSeed(seed, k));
   const all = [{ variant_id: "do_nothing", name: "Do nothing", levers: [] }, ...variants];
-  const runs = all.map((variant) => seeds.map((s) => simulate(night, { seed: s, levers: leversFrom(variant.levers, now_ms), events: false })));
+  const runs = all.map((variant) => seeds.map((s) => simulate(night, { seed: s, levers: [...base_levers, ...leversFrom(variant.levers, now_ms)], events: false })));
   const base = runs[0];
   const priced = all.map((variant, i) => {
     const reps = runs[i];

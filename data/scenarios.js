@@ -6,7 +6,8 @@
  * bar and the run header show, and its night for the simulation (js/nightsim.js):
  *   volume     "n1" (3,000 units) or "n2" (4,200, the peak night)
  *   seed       the night's seed: every grasp outcome and reading is a hash of it (js/rng.js)
- *   express    an express order: arrival, store, units, the truck it is due on (Assumption, PLAN.md B2)
+ *   express    an express order: arrival, store, units, the truck it is due on, and its mix ("chilled":
+ *              the flagship's chilled lines only; default its whole mix) (Assumption, PLAN.md B2; D32)
  *   unsafe     units the camera finds unsafe to grip (fixed here, not left to chance)
  *   unknown    an item whose barcode the item master does not know: units, when the camera sees it
  *   wear       gripper wear: from when, and the success rate it falls to (Assumption)
@@ -24,10 +25,12 @@ window.SCENARIOS = [
     title: "Express order for the flagship store at 02:00",
     short: "Express order at 02:00",
     category: "The order book changes",
-    trigger: "A large express order for the Dortmund flagship lands at 02:00 for its next truck and puts two smaller stores' cut-offs at risk.",
+    trigger: "A chilled express top-up of 400 units for the Dortmund flagship lands at 02:00 for its next truck at 02:45 and puts two smaller stores' cut-offs at risk.",
     night: {
       volume: "n1", seed: 7,
-      express: { at: "02:00", store: "DOR", units: 600, due: "03:30" },
+      // Tuned in M3 (PLAN.md §c.7, TECH_NOTES D32): a chilled top-up competes with Hamm and Soest for the
+      // manual station, so re-sequencing them first puts the express order's own truck at risk.
+      express: { at: "02:00", store: "DOR", units: 400, due: "02:45", mix: "chilled" },
       unsafe: [
         { unit: "BOC:S08:2", grasp_confidence: 0.62, reason: "Olive oil bottle lying on its side" },
         { unit: "BOC:S04:0", grasp_confidence: 0.71, reason: "Passata bottle with a chipped neck" }

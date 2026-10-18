@@ -42,6 +42,18 @@ export const PARAMETERS = Object.freeze([
     basis: "Brief", note: "22:00 to 06:00" }
 ]);
 
+/**
+ * The inputs the night simulation itself reads (js/nightsim.js buildNight): the picking rate, the cell's
+ * attempts per hour, the grasp success and the call-in minimum (how long a called-in picker stays).
+ * The others price the night (c, the premium, the cost of a late order) or scale it to a year.
+ */
+export const NIGHT_INPUTS = Object.freeze(["r_m", "r_c", "p", "callin_min_h"]);
+
+/** The night simulation's parameters from a set of inputs. */
+export function nightParams(v) {
+  return Object.fromEntries(NIGHT_INPUTS.map((k) => [k, v[k]]));
+}
+
 /** The default inputs as a plain object { N, r_m, c, s, p, r_c, callin_min_h, … }. */
 export function defaults() {
   return Object.fromEntries(PARAMETERS.map((x) => [x.id, x.value]));

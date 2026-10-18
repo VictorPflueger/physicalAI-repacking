@@ -1,18 +1,18 @@
-// The run-event bus. Every UI effect flows through here, whichever producer runs: the live agent
-// or the simulation player (both from M3). The UI subscribes to event types and never asks which
-// producer is running; only the mode badge, the console watermark and the audit export read the
-// envelope's `mode`.
+// The run-event bus. Every UI effect flows through here, whichever producer runs: the live agent or
+// the scripted replay, which drive the same tools (js/tools.js). The UI subscribes to event types and
+// never asks which producer is running; only the mode badge, the console watermark and the audit
+// export read the envelope's `mode`.
 //
 // Envelope: { id, seq, type, ts (ISO), t (ms since run start or null), run_id, mode, payload }
 //
 // Event types and payloads (PLAN.md §d.1). Inherited from Rebate Hunter with the same envelope and role:
 //   run_start         { run_id, mode: "live"|"simulation"|"preview", scenario_id, title, seed?, chosen_mode?, model?, model_label?,
-//                       sim_source?: "authored"|"recorded", recorded_on?, recorded_model? }
+//                       inputs, changed_inputs, night_inputs_kept?, sim_source?: "authored"|"recorded", recorded_on?, recorded_model? }
 //   state_change      { state, note? }              states: see RUN_STATES
 //   narration         { msg_id, text, done }        streamed upsert: same msg_id replaces text
 //   reasoning         { msg_id, text, done }        summarised model thinking (shown collapsed)
-//   tool_call         { call_id, name, input }
-//   tool_result       { call_id, name, ok, summary, result }
+//   tool_call         { call_id, name, input, server, blocking? }
+//   tool_result       { call_id, name, ok, summary, result }   result.refused: a guardrail refused it (a Guardrail line)
 //   option_decision   { option_id, option_label, options_seq, decision: "approved"|"rejected", by: "user", note? }
 //   action_draft      { action_id, type: "email"|"memo"|"call_in", recipient, subject, body, status: "pending" }
 //   action_decision   { action_id, decision: "approved"|"rejected", by: "user", label? }
@@ -21,8 +21,15 @@
 //   notice            { level: "info"|"warn"|"error", text }
 //   attempt_discarded { msg_ids, call_ids, reason }
 //   run_end           { status: "done"|"incomplete"|"aborted"|"error", reason? }
-// New payloads: options (extra labour, late store orders, expected total), kpi_update (labour per
-// 1,000 units, orders on time, night clock) and cell_update (Rebate Hunter's board_update).
+// New payloads (M3): options { options_seq, at, replications, seed, late_cost_eur, recommended, options: [{ id,
+// letter, title, description, residual_risk, levers_text, extra_labour_eur, call_in_eur, extra_picks_eur,
+// expected_late_orders, late_orders_eur, expected_total_eur, late_by_order, tonight, recommended }],
+// baseline: { expected_late_orders, late_orders_eur, expected_total_eur, late_by_order, tonight, description } };
+// plan_update { source: "decision"|"safety", option_id?, clock, sim_t, reason?, levers: [{ type, …, from, from_ms,
+// until?, until_ms? }] } (a decision or a safety action, from the next millisecond, js/night_session.js);
+// provisional_entry { barcode, name, net_content, source, status: "unverified", created };
+// confirmation_request { request_id, subject, reason, entry_barcode?, choices } and confirmation_decision
+// { request_id, choice: "confirm"|"reject", subject?, by: "user" }.
 // New for Repack Pilot (the brief's five first): detection, grasp_attempt, world_model_correction,
 // escalation, autonomy_change, then clock, scale_reading, tote_update, wake, cutoff_risk, dispatch,
 // plan_update, confirmation_request and confirmation_decision. Their payloads are specified in
@@ -48,10 +55,12 @@
 //   dispatch          { store, order, t, on_time, units, of, moved }   at the store's cut-off
 //   late_complete     { store, order, t, units }                       the last unit of a late order
 //   night_end         { figures, orders }                              tonight's figures (PLAN.md §c.5)
+//   units_routed      { reason, units, skus }                         the cell hands units to the manual station
+//   order_moved       { order, store, manual_dropped }                 an order moved to the next day's wave
 //   unit_log          { columns, rows, seed, hash, partial?, until? }  one row per unit: the audit keeps the
 //                     ordinary units here instead of thousands of envelopes (js/night.js, isFineEvent)
-// The M2 build plays the night without the agent ("night preview": run_start mode "preview", run state
-// "previewing"); the agent and the scripted replays take over the same events in M3.
+// A scenario without a scripted replay yet plays its night in Simulation without the agent ("night
+// preview": run_start mode "preview", run state "previewing").
 
 export const RUN_STATES = {
   idle: "Idle",

@@ -19,7 +19,7 @@
  */
 window.WORLD = {
   "meta": {
-    "world_version": "1.0.0",
+    "world_version": "1.1.0",
     "synthetic": true,
     "retailer": "Ruhrkorb",
     "retailer_note": "Ruhrkorb, its DC, its stores, tonight's orders, the item master, the robot cell and the shadow record are Synthetic. The towns are real places in North Rhine-Westphalia; no real store, company or person is described.",
@@ -37,7 +37,7 @@ window.WORLD = {
     {"id":"HER","name":"Herne","town":"Herne","plan_rank":4,"units_n1":160,"cutoff":"01:55","flagship":false,"express_truck":null,"note":null},
     {"id":"HAG","name":"Hagen","town":"Hagen","plan_rank":5,"units_n1":240,"cutoff":"02:00","flagship":false,"express_truck":null,"note":null},
     {"id":"WIT","name":"Witten","town":"Witten","plan_rank":6,"units_n1":230,"cutoff":"02:05","flagship":false,"express_truck":null,"note":null},
-    {"id":"DOR","name":"Dortmund","town":"Dortmund","plan_rank":7,"units_n1":600,"cutoff":"02:30","flagship":true,"express_truck":"03:30","note":"Flagship; a second truck at 03:30 takes express orders"},
+    {"id":"DOR","name":"Dortmund","town":"Dortmund","plan_rank":7,"units_n1":600,"cutoff":"02:30","flagship":true,"express_truck":"02:45","note":"Flagship; a second truck at 02:45 takes express orders"},
     {"id":"ISE","name":"Iserlohn","town":"Iserlohn","plan_rank":8,"units_n1":180,"cutoff":"02:40","flagship":false,"express_truck":null,"note":null},
     {"id":"HAM","name":"Hamm","town":"Hamm","plan_rank":9,"units_n1":260,"cutoff":"02:40","flagship":false,"express_truck":null,"note":null},
     {"id":"SOE","name":"Soest","town":"Soest","plan_rank":10,"units_n1":150,"cutoff":"02:40","flagship":false,"express_truck":null,"note":null},

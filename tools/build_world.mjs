@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CHECK = process.argv.includes("--check");
-export const WORLD_VERSION = "1.0.0";
+export const WORLD_VERSION = "1.1.0"; // 1.1.0 (M3): the flagship's express truck at 02:45 (TECH_NOTES D32)
 
 // ---- the night -----------------------------------------------------------------------------------
 const SHIFT = { start: "22:00", end: "06:00" };
@@ -34,7 +34,7 @@ const STORES = [
   { id: "HER", name: "Herne", units: 160, cutoff: "01:55" },
   { id: "HAG", name: "Hagen", units: 240, cutoff: "02:00" },
   { id: "WIT", name: "Witten", units: 230, cutoff: "02:05" },
-  { id: "DOR", name: "Dortmund", units: 600, cutoff: "02:30", flagship: true, express_truck: "03:30", note: "Flagship; a second truck at 03:30 takes express orders" },
+  { id: "DOR", name: "Dortmund", units: 600, cutoff: "02:30", flagship: true, express_truck: "02:45", note: "Flagship; a second truck at 02:45 takes express orders" },
   { id: "ISE", name: "Iserlohn", units: 180, cutoff: "02:40" },
   { id: "HAM", name: "Hamm", units: 260, cutoff: "02:40" },
   { id: "SOE", name: "Soest", units: 150, cutoff: "02:40" },
