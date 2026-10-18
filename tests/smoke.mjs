@@ -1,21 +1,24 @@
-// Smoke tests of the workspace, the night preview and the failure modes of loading:
+// Smoke tests of the workspace, the agent's runs and the failure modes of loading:
 //   boot          the idle workspace: disclosure, badge, fonts, the Simulated cell tag, the board at 22:00
 //                 (twelve store lanes with their cut-offs, five stations, the world model's Synthetic
 //                 label), the header tiles at the manual baseline, six scenarios, no external request,
 //                 storage keys under rp.
 //   intro         first visit opens the intro window (five steps, three value points, what is real);
 //                 "How it works" reopens it; its Start agent leads to the mode choice
-//   modes         Start agent → Simulation → a night preview starts (notice, banner, status, badge) →
-//                 Abort; Start agent → Live → key dialog (401, then accepted) → key kept in this tab's
-//                 session storage only, never in local storage or the console; change or forget the key
-//   diag          Diagnostics: Anthropic (keyless 401 from a stand-in), world (14 checks) and privacy rows
-//   drawer        five tabs with their content; a night stopped by Abort, then the audit export: version,
-//                 mode "preview", the chosen mode, the night's hash, a partial unit log instead of the
-//                 ordinary units' events, no key
-//   night         scenario 1 played to night end at ×4, ×2 and ×1: every lane's dispatch state, the
-//                 orders-on-time tile, the KPI board's Tonight column and the night report equal the night
-//                 simulation computed in Node; the night clock moves at about 6 simulated minutes per
-//                 second per speed step
+//   modes         Start agent → Simulation → the scripted replay starts (status, badge, the console's run
+//                 line, the watermark) → Abort; scenario 2 → a night preview (no script yet, with its
+//                 note); Start agent → Live → key dialog (401, then accepted) → the live agent starts (the
+//                 Messages API stand-in holds the call) → key kept in this tab's session storage only,
+//                 never in local storage or the console; change or forget the key
+//   diag          Diagnostics: Anthropic (keyless 401 from a stand-in), world (14 checks), simulation
+//                 scripts (scenario 1 valid, five pending), Open Food Facts (live reads off) and privacy
+//   drawer        five tabs with their content; a scripted night stopped by Abort, then the audit export:
+//                 version, mode "simulation", the chosen mode, the night's hash, a partial unit log instead
+//                 of the ordinary units' events, the agent's tool calls, no key
+//   night         scenario 1's scripted replay to night end at ×4, ×2 and ×1, with option B approved and
+//                 its drafts: every lane's dispatch state, the orders-on-time tile, the KPI board's Tonight
+//                 column and the night report equal the replay computed headless in Node; the night clock
+//                 moves at about 6 simulated minutes per second per speed step
 //   board         the cell board by keyboard and mouse: every station, lane and the world model are
 //                 buttons of at least 44 px in the Tab order; Enter opens a popover named for the entity,
 //                 Escape closes it and gives the focus back; a popover follows the night; reduced motion
@@ -26,9 +29,11 @@
 //   world         scenario 2: the scale writes the glass jar back once (22:17, 200 g → 400 g) in the
 //                 console, the corrections log and the item's popover; the audit holds that one
 //                 correction and no tote over 15 kg
-//   contrast      every visible text in thirteen states (intro, idle, Diagnostics, five drawer tabs, mode
-//                 choice, key dialog, notice and banner, the running night, the night with the drawer
-//                 open) meets its WCAG contrast duty; a control is caught
+//   contrast      every visible text in seventeen states (intro, idle, Diagnostics, five drawer tabs, mode
+//                 choice, key dialog, banners of each level, the running replay, the replay with the
+//                 drawer open, the options, the drafts with the console's notice, the night's end with the
+//                 summary card and run facts, the management summary) meets its WCAG contrast duty; a
+//                 control is caught
 //   csp           the page's policy blocks a connection to any other host
 //   file          opened from file://: the page explains how to start a server
 //   missing-data  a data file is missing: the boot screen names it
@@ -40,6 +45,7 @@ import vm from "node:vm";
 import { readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { APP_ROOT, outDir, wanted, launchBrowser, serveStatic, NETWORK_NOISE, MOCK_KEY, SKIP_INTRO, KEYS } from "./lib/harness.mjs";
+import { contrastShortfalls } from "./lib/contrast.mjs";
 
 // The night simulation, the engine and the formatting, in Node: what the screen must show.
 const mod = (p) => import(pathToFileURL(path.join(APP_ROOT, p)).href);
@@ -47,6 +53,9 @@ const NS = await mod("js/nightsim.js");
 const E = await mod("js/engine.js");
 const F = await mod("js/format.js");
 const { APP } = await mod("js/config.js");
+const { replayScenario1 } = await mod("tests/lib/scenario1.mjs");
+// Scenario 1's scripted replay with option B approved, headless in Node: what the screen must show.
+const SC1_B = await replayScenario1({ option: "B" });
 const sandbox = { window: {} };
 vm.createContext(sandbox);
 for (const f of ["data/world.js", "data/scenarios.js"]) vm.runInContext(await readFile(path.join(APP_ROOT, f), "utf8"), sandbox, { filename: f });
@@ -74,7 +83,10 @@ function anthropicStandIn({ models = [401, 200] } = {}) {
     const url = new URL(req.url());
     handler.seen.push(`${req.method()} ${url.pathname} key=${req.headers()["x-api-key"] ? "yes" : "no"} browser=${req.headers()["anthropic-dangerous-direct-browser-access"] || "-"}`);
     if (url.pathname === "/v1/messages") {
-      return route.fulfill({ status: 401, headers: cors, body: JSON.stringify({ type: "error", error: { type: "authentication_error", message: "x-api-key header is required" } }) });
+      // Without a key: the keyless probe's 401. With a key: a live run's first call, held unanswered so
+      // the run stays live until the test stops it (no model is called in this suite).
+      if (!req.headers()["x-api-key"]) return route.fulfill({ status: 401, headers: cors, body: JSON.stringify({ type: "error", error: { type: "authentication_error", message: "x-api-key header is required" } }) });
+      return undefined;
     }
     const status = models[Math.min(modelCalls++, models.length - 1)];
     if (status !== 200) return route.fulfill({ status, headers: cors, body: JSON.stringify({ type: "error", error: { type: "authentication_error", message: "invalid x-api-key" } }) });
@@ -129,6 +141,17 @@ async function startNight(page, { scenario = null, speed = 4, mode = "simulation
   await page.waitForSelector(".mode-card", { timeout: 5000 });
   await page.click(`.mode-card[data-mode="${mode}"] .mode-cta button`);
   await page.waitForSelector('.cell-board[data-state="running"]', { timeout: 5000 });
+}
+/**
+ * Takes the decisions of a scripted run as they come: approves an option once the options are on screen,
+ * then every draft in the Outbox. Resolves when the run is Done.
+ */
+async function decideAndFinish(page, { option = "B", timeout = 300000 } = {}) {
+  await page.waitForSelector(`.option-card[data-id="${option}"] .btn-approve`, { timeout });
+  await page.click(`.option-card[data-id="${option}"] .btn-approve`);
+  await page.waitForSelector("#btn-approve-all", { timeout: 60000 });
+  await page.click("#btn-approve-all");
+  await waitStatus(page, "Done", timeout);
 }
 const statusText = (page) => page.textContent(".status-pill .text").then((t) => t.trim());
 /** Waits for a run state in the status pill, then two frames: the pill changes at once, the board on its next frame. */
@@ -277,19 +300,36 @@ if (wanted("modes")) {
     await page.click("#btn-start");
     await page.waitForSelector(".mode-card", { timeout: 5000 });
     checks.runLabel = (await page.textContent(".run-summary strong")).trim();
-    checks.stageNote = (await page.textContent(".stage-note")).trim();
+    checks.noteForScripted = await page.$(".stage-note");
     await shot(page, "03-mode-choice.png");
     await page.click('.mode-card[data-mode="simulation"] .mode-cta button');
-    await page.waitForSelector('#console .entry[data-type="notice"]', { timeout: 5000 });
-    checks.simNotice = (await page.textContent('#console .entry[data-type="notice"] .entry-body')).trim();
-    checks.banner = (await page.textContent(".banner")).replace(/\s+/g, " ").trim();
+    await page.waitForSelector('#console .entry[data-type="run"]', { timeout: 5000 });
+    checks.simRunLine = (await page.$eval('#console .entry[data-type="run"] .entry-body', (e) => e.innerText)).replace(/\s+/g, " ").trim();
+    checks.watermark = await page.isVisible("#console .sim-watermark");
+    await page.waitForFunction(() => document.querySelector(".status-pill .text")?.textContent.trim() === "Perceiving", null, { timeout: 5000 });
     checks.statusAfterSim = await statusText(page);
     checks.badgeAfterSim = (await page.textContent("#mode-badge")).trim();
     checks.boardRunning = await page.getAttribute(".cell-board", "data-state");
     checks.startLocked = await page.getAttribute("#btn-start", "aria-disabled");
     await page.click("#btn-abort");
     await waitStatus(page, "Aborted", 5000);
-    checks.abortLine = (await page.$$eval("#console .entry .entry-body", (els) => els.at(-1).textContent)).trim();
+    checks.abortLine = (await page.$$eval("#console .entry .entry-body", (els) => els.at(-1).querySelector("span")?.textContent || "")).trim();
+    checks.abortFacts = (await page.$$eval("#console .entry .entry-body", (els) => els.at(-1).querySelector(".run-facts")?.textContent || "")).trim();
+    // A scenario without a scripted replay yet plays its night without the agent, and says so first.
+    await page.click("#dd-scenario");
+    await page.click('.menu-item[data-id="SC2-GLASS"]');
+    await page.click("#btn-start");
+    await page.waitForSelector(".mode-card", { timeout: 5000 });
+    checks.previewNote = (await page.textContent(".stage-note")).trim();
+    await page.click('.mode-card[data-mode="simulation"] .mode-cta button');
+    await page.waitForFunction(() => document.querySelector(".status-pill .text")?.textContent.trim() === "Night preview", null, { timeout: 5000 });
+    checks.previewBadge = (await page.textContent("#mode-badge")).trim();
+    checks.previewNotice = (await page.$$eval('#console .entry[data-type="notice"] .entry-body', (els) => els.map((e) => e.textContent.trim()).find((x) => /^No scripted replay/.test(x)) || ""));
+    await page.click("#btn-abort");
+    await waitStatus(page, "Aborted", 5000);
+    await page.click("#dd-scenario");
+    await page.click('.menu-item[data-id="SC1-EXPRESS"]');
+    // Live: the key dialog, then the live agent on that key.
     await page.click("#btn-start");
     await page.waitForSelector(".mode-card");
     await page.click('.mode-card[data-mode="live"] .mode-cta button');
@@ -307,7 +347,12 @@ if (wanted("modes")) {
     await page.click('button:has-text("Check key and continue")');
     await page.waitForSelector("#api-key-input", { state: "detached", timeout: 8000 });
     await page.waitForSelector('.cell-board[data-state="running"]', { timeout: 5000 });
-    checks.liveNotice = (await page.$$eval('#console .entry[data-type="notice"] .entry-body', (els) => els.map((e) => e.textContent.trim()).find((x) => /^Live agent chosen/.test(x)) || ""));
+    await page.waitForFunction(() => document.querySelectorAll(".entry[data-type='run']").length === 1 && /Live agent on/.test(document.querySelector(".entry[data-type='run']").textContent), null, { timeout: 5000 });
+    checks.liveRunLine = (await page.$eval('#console .entry[data-type="run"] .entry-body', (e) => e.innerText)).replace(/\s+/g, " ").trim();
+    checks.liveBadge = (await page.textContent("#mode-badge")).trim();
+    // The run's first model call has gone out (and is held by the stand-in).
+    await page.waitForFunction(() => document.querySelector(".status-pill .text")?.textContent.trim() === "Perceiving", null, { timeout: 5000 });
+    await page.waitForTimeout(500);
     checks.keySession = await page.evaluate((k) => sessionStorage.getItem(k), KEYS.apiKey);
     checks.keyInLocal = await page.evaluate(() => Object.keys(localStorage).some((k) => /sk-ant/.test(localStorage.getItem(k) || "")));
     checks.keyOnPage = await page.evaluate(() => document.body.innerText.includes("MOCKKEY"));
@@ -329,20 +374,21 @@ if (wanted("modes")) {
     await shot(page, "modes-fail.png");
   }
   checks.keyInConsole = log.consoleAll.some((m) => m.includes("MOCKKEY"));
-  await finish("modes: Simulation, Live and the key", t, checks, [
-    [checks.runLabel === "Scenario 1: Express order for the flagship store at 02:00", "the mode choice names the scenario"],
-    [checks.stageNote === APP.stageNote, `the mode choice says that this build has no agent (${checks.stageNote})`],
-    [checks.simNotice === `Simulation chosen for scenario 1. ${APP.stage}`, `the console says what happens (${checks.simNotice})`],
-    [/^Night preview/.test(checks.banner || "") && checks.statusAfterSim === "Night preview" && checks.badgeAfterSim === "NIGHT PREVIEW", `a banner, the night preview's status and badge (${checks.statusAfterSim}, ${checks.badgeAfterSim})`],
+  const live = (checks.requests || []).filter((r) => /^POST \/v1\/messages/.test(r));
+  await finish("modes: Simulation, a night preview, Live and the key", t, checks, [
+    [checks.runLabel === "Scenario 1: Express order for the flagship store at 02:00" && checks.noteForScripted === null, "the mode choice names the scenario; a scripted scenario needs no note"],
+    [/^Scenario 1: Express order for the flagship store at 02:00 Simulation: scripted replay through the agent's own tools/.test(checks.simRunLine || "") && checks.watermark, `the console says what runs and shows the SIMULATION watermark (${checks.simRunLine})`],
+    [checks.statusAfterSim === "Perceiving" && checks.badgeAfterSim === "SIMULATION", `the replay's status and badge (${checks.statusAfterSim}, ${checks.badgeAfterSim})`],
     [checks.boardRunning === "running" && checks.startLocked === "true", "the night runs on the board; Start is locked"],
-    [/^Night preview stopped\. Stopped by the user\.$/.test(checks.abortLine || ""), `Abort stops the night (${checks.abortLine})`],
+    [/^Run aborted\. Stopped by the user\.$/.test(checks.abortLine || "") && /^Replay facts: .*; 1 wake-up; .*; no cost \(simulated\)\.$/.test(checks.abortFacts || ""), `Abort stops the run and says how far it got (${checks.abortLine} | ${checks.abortFacts})`],
+    [/^This scenario has no scripted replay yet \(M4\)/.test(checks.previewNote || "") && checks.previewBadge === "NIGHT PREVIEW" && /^No scripted replay for scenario 2 yet/.test(checks.previewNotice || ""), `a scenario without a script plays as a night preview, and says so (${checks.previewNote} | ${checks.previewNotice})`],
     [checks.inputMasked && /does not look like an Anthropic API key/.test(checks.formatMessage || ""), "masked input, format check before any request"],
     [/rejected this key \(401\)/.test(checks.rejectMessage || "") && checks.keyAfterReject === null, "a rejected key is not stored"],
-    [checks.keySession === MOCK_KEY && checks.liveNotice === `Live agent chosen for scenario 1. Your key is kept for this tab only (rp.anthropic.key); no model is called in this build. ${APP.stage}`, `an accepted key is kept in session storage under rp. (${checks.liveNotice})`],
+    [checks.keySession === MOCK_KEY && /Live agent on Sonnet 5\.5/.test(checks.liveRunLine || "") && checks.liveBadge === "LIVE", `an accepted key is kept in session storage under rp.; the live agent starts (${checks.liveRunLine})`],
     [checks.keyInLocal === false && checks.keyOnPage === false && checks.keyInConsole === false, "the key never reaches local storage, the page text or the console"],
     [/sk-ant-…6789/.test(checks.maskedInFooter || ""), "the stored key is shown masked"],
     [/Key removed/.test(checks.forgotMessage || "") && checks.keyAfterForget === null, "Forget key removes it"],
-    [(checks.requests || []).length === 2 && checks.requests.every((r) => /^GET \/v1\/models key=yes browser=true$/.test(r)), `only the free key check reached the API, with the browser header (${JSON.stringify(checks.requests)})`]
+    [(checks.requests || []).filter((r) => /^GET \/v1\/models key=yes browser=true$/.test(r)).length === 2 && live.length === 1 && /key=yes browser=true$/.test(live[0]) && checks.requests.length === 3, `the key checks and the live run's first call, with the key and the browser header (${JSON.stringify(checks.requests)})`]
   ]);
 }
 
@@ -357,12 +403,15 @@ if (wanted("diag")) {
     await page.click("#btn-diagnostics");
     await page.waitForSelector(".diag-table", { timeout: 5000 });
     await page.click("#btn-run-tests");
-    await page.waitForFunction(() => document.querySelectorAll('.diag-status[data-s="pass"]').length === 3, null, { timeout: 10000 });
+    await page.waitForFunction(() => document.querySelectorAll('.diag-status[data-s="pass"]').length === 4 && !document.querySelector('.diag-status[data-s="running"]'), null, { timeout: 30000 });
     checks.rows = await page.$$eval(".diag-table tbody tr", (rows) => rows.map((r) => `${r.dataset.test}:${r.querySelector(".diag-status")?.dataset.s}`));
     checks.anthropic = (await page.textContent('tr[data-test="anthropic"] .detail')).trim();
+    checks.scripts = (await page.textContent('tr[data-test="scripts"] .detail')).trim();
+    checks.off = (await page.textContent('tr[data-test="openfoodfacts"] .detail')).trim();
     checks.privacy = (await page.textContent('tr[data-test="privacy"] .detail')).trim();
-    checks.worldChecks = await page.$$eval(".world-checks li", (els) => els.length);
+    checks.worldChecks = await page.$$eval(".world-checks:not(.script-checks) li", (els) => els.length);
     checks.worldFails = await page.$$eval(".world-checks .mark-fail", (els) => els.length);
+    checks.scriptRows = await page.$$eval(".script-checks li", (els) => els.map((e) => `${e.dataset.pending === "true" ? "pending" : e.querySelector(".mark-pass") ? "pass" : "fail"}`));
     checks.footer = await page.$eval(".modal-foot .left", (e) => e.textContent.trim());
     checks.requests = stand.seen;
     await shot(page, "05-diagnostics.png");
@@ -372,11 +421,13 @@ if (wanted("diag")) {
     await shot(page, "diag-fail.png");
   }
   await finish("diag: Diagnostics", t, checks, [
-    [JSON.stringify(checks.rows) === JSON.stringify(["anthropic:pass", "world:pass", "privacy:pass"]), `three rows pass (${JSON.stringify(checks.rows)})`],
+    [JSON.stringify(checks.rows) === JSON.stringify(["anthropic:pass", "world:pass", "scripts:pass", "openfoodfacts:skip", "privacy:pass"]), `four rows pass, Open Food Facts is skipped (${JSON.stringify(checks.rows)})`],
     [/^Reachable; CORS accepted \(no key sent\)\./.test(checks.anthropic || ""), "the keyless probe reads the 401"],
+    [checks.scripts === "1 script valid on every decision path; 5 scenarios without a script yet (M4)." && JSON.stringify(checks.scriptRows) === JSON.stringify(["pass", "pending", "pending", "pending", "pending", "pending"]), `the script row (${checks.scripts}; ${JSON.stringify(checks.scriptRows)})`],
+    [/^Live reads are off in this build .* No request is sent\.$/.test(checks.off || ""), `the Open Food Facts row (${checks.off})`],
     [/^Connections limited to api\.anthropic\.com, as configured; no key stored; audit export checked\.$/.test(checks.privacy || ""), `privacy row (${checks.privacy})`],
     [checks.worldChecks === 14 && checks.worldFails === 0, `14 world checks listed, none failing (${checks.worldChecks}, ${checks.worldFails})`],
-    [new RegExp(`^Repack Pilot ${APP.version.replace(/\./g, "\\.")}\\.`).test(checks.footer || "") && APP.version === "0.2.0", `the footer shows the version (${checks.footer})`],
+    [new RegExp(`^Repack Pilot ${APP.version.replace(/\./g, "\\.")}\\.`).test(checks.footer || "") && APP.version === "0.3.0", `the footer shows the version (${checks.footer})`],
     [(checks.requests || []).length === 1 && /^POST \/v1\/messages key=no browser=true$/.test(checks.requests[0]), `one keyless probe with the browser header (${JSON.stringify(checks.requests)})`],
     [checks.remembered === "pass", "the result is remembered for this session"]
   ]);
@@ -400,7 +451,7 @@ if (wanted("drawer")) {
     // A night stopped by Abort, with a key in this tab that must stay out of the export.
     await startNight(page, { speed: 4 });
     await page.evaluate(async (k) => (await import("./js/keystore.js")).setKey(k), MOCK_KEY);
-    await page.waitForFunction(() => document.querySelector(".cell-clock")?.textContent >= "23:00", null, { timeout: 30000 });
+    await page.waitForFunction(() => document.querySelector(".cell-clock")?.textContent >= "23:00", null, { timeout: 60000 });
     await page.click("#btn-abort");
     await waitStatus(page, "Aborted", 5000);
     await page.click("#tab-audit");
@@ -423,6 +474,9 @@ if (wanted("drawer")) {
     checks.unitLog = ev.filter((e) => e.type === "unit_log").map((e) => ({ partial: e.payload.partial, until: e.payload.until, rows: e.payload.rows.length }));
     checks.fine = ev.filter((e) => (e.type === "grasp_attempt" && e.payload.ok) || (e.type === "detection" && e.payload.known) || e.type === "clock" || (e.type === "tote_update" && e.payload.status !== "closed")).length;
     checks.failedGrasps = ev.filter((e) => e.type === "grasp_attempt" && !e.payload.ok).length;
+    checks.tools = [...new Set(ev.filter((e) => e.type === "tool_call").map((e) => e.payload.name))];
+    checks.narration = ev.filter((e) => e.type === "narration").length;
+    checks.partialNarration = ev.filter((e) => e.type === "narration" && !e.payload.done).length;
     checks.noKey = !text.includes("MOCKKEY") && !/sk-ant-(?!\[REDACTED\])/.test(text);
     checks.simCell = audit.simulated_cell;
     await page.click(".drawer-end .btn");
@@ -431,13 +485,14 @@ if (wanted("drawer")) {
     checks.FAILED = String(err.message).split("\n")[0];
     await shot(page, "drawer-fail.png");
   }
-  const want = ["run_start", "state_change", "notice", "night_plan", "projection", "wake", "world_model_correction", "escalation", "grasp_attempt", "unit_log", "run_end"];
+  const want = ["run_start", "state_change", "night_plan", "projection", "wake", "world_model_correction", "escalation", "grasp_attempt", "tool_call", "tool_result", "narration", "plan_update", "unit_log", "run_end"];
   await finish("drawer: tabs and the audit export", t, checks, [
     [JSON.stringify(checks.tabs) === JSON.stringify(["Options", "Outbox", "KPI board", "Assumptions", "Audit"]), "five tabs"],
-    [JSON.stringify(checks.panels) === JSON.stringify({ options: "Options", outbox: "Outbox", kpiboard: "Plan and tonight", assumptions: "Assumptions" }), `each tab with its content (${JSON.stringify(checks.panels)})`],
-    [checks.auditCount > 20 && want.every((x) => (checks.auditTypes || []).includes(x)), `the audit holds the night (${checks.auditCount}: ${JSON.stringify(checks.auditTypes)})`],
-    [/^run-\d{8}-\d{4}-[a-z0-9]{4}-PREVIEW-audit\.json$/.test(checks.file || "") && checks.version === APP.version && checks.mode === "preview" && /^NIGHT PREVIEW: /.test(checks.statement || ""), `export: version, mode and statement (${checks.file}, ${checks.mode})`],
-    [checks.chosen === "simulation" && /^[0-9a-f]{16}$/.test(checks.hash || "") && checks.status === "aborted" && checks.notices >= 1, `export: the chosen mode, the night's hash, the status (${checks.chosen}, ${checks.hash}, ${checks.status})`],
+    [JSON.stringify(checks.panels) === JSON.stringify({ options: "No options yet", outbox: "Nothing drafted yet", kpiboard: "Plan and tonight", assumptions: "Assumptions" }), `each tab with its content (${JSON.stringify(checks.panels)})`],
+    [checks.auditCount > 20 && want.every((x) => (checks.auditTypes || []).includes(x)), `the audit holds the night and the agent's turns (${checks.auditCount}: ${JSON.stringify(checks.auditTypes)})`],
+    [/^run-\d{8}-\d{4}-[a-z0-9]{4}-SIMULATION-audit\.json$/.test(checks.file || "") && checks.version === APP.version && checks.mode === "simulation" && /^SIMULATION: scripted replay/.test(checks.statement || ""), `export: version, mode and statement (${checks.file}, ${checks.mode})`],
+    [checks.chosen === "simulation" && /^[0-9a-f]{16}$/.test(checks.hash || "") && checks.status === "aborted", `export: the chosen mode, the night's hash, the status (${checks.chosen}, ${checks.hash}, ${checks.status})`],
+    [["wms_get_night", "sim_plan_night", "sim_project", "sim_advance", "world_get_item", "cell_get_grasp_plan", "wms_get_order", "wms_rebalance_tote"].every((n) => (checks.tools || []).includes(n)) && checks.narration > 3 && checks.partialNarration === 0, `export: the agent's tool calls and finished narration only (${JSON.stringify(checks.tools)}, ${checks.narration} narration, ${checks.partialNarration} partial)`],
     [checks.unitLog?.length === 1 && checks.unitLog[0].partial === true && checks.unitLog[0].rows > 100, `a partial unit log (${JSON.stringify(checks.unitLog)})`],
     [checks.fine === 0 && checks.failedGrasps > 0, `ordinary units stay in the unit log, failed grasps are events (${checks.fine} ordinary, ${checks.failedGrasps} failed)`],
     [checks.noKey && /simulated in both modes/.test(checks.simCell || ""), "export: no key; the simulated-cell statement"],
@@ -450,10 +505,12 @@ if (wanted("night")) {
   const t = await newPage();
   const { page } = t;
   const checks = { speeds: {} };
-  const want = expected("SC1-EXPRESS");
-  const states = Object.fromEntries(want.res.orders.map((o) => [o.id, o.on_time ? "dispatched" : "late"]));
-  const onTime = want.res.orders.filter((o) => o.on_time).length;
-  const late = want.res.orders.filter((o) => !o.on_time).map((o) => o.name.replace(/ express$/, " express"));
+  // The night of scenario 1's scripted replay with option B approved, computed headless in Node.
+  const res = SC1_B.replay.session.run;
+  const f = SC1_B.replay.session.figures();
+  const states = Object.fromEntries(res.orders.map((o) => [o.id, o.on_time ? "dispatched" : "late"]));
+  const onTime = res.orders.filter((o) => o.on_time).length;
+  const late = res.orders.filter((o) => !o.on_time).map((o) => o.name);
   try {
     await boot(page);
     for (const speed of [4, 2, 1]) {
@@ -464,13 +521,14 @@ if (wanted("night")) {
       // The night clock against real time, for the playback rate (busy stretch, no wake-up).
       const samples = [];
       const sampler = setInterval(() => { page.textContent(".cell-clock").then((x) => samples.push([Date.now(), x.trim()])).catch(() => {}); }, 400);
-      await waitStatus(page, "Done", 240000);
+      await decideAndFinish(page, { option: "B" });
       clearInterval(sampler);
       c.seconds = Math.round((Date.now() - started) / 1000);
       c.lanes = Object.fromEntries(await page.$$eval(".lane", (els) => els.map((e) => [e.dataset.order, e.dataset.state])));
       c.tile = (await page.textContent("#kpi-ontime-value")).trim();
       c.clock = (await page.textContent("#kpi-clock-value")).trim();
       c.report = (await page.textContent("#console .night-report-title")).trim();
+      c.summary = await page.$$eval('#console .entry[data-kind="summary"]', (els) => els.length);
       await page.click("#tab-kpiboard");
       await page.waitForSelector("#panel-kpiboard:not([hidden])");
       c.kpi = await kpiRows(page);
@@ -480,7 +538,7 @@ if (wanted("night")) {
       // Rate: simulated minutes per real second between 22:50 and 01:50 (no wake-up in that stretch),
       // the slope from the first to the last sample in it.
       const mins = (x) => { const m = /^(\d\d):(\d\d)/.exec(x); if (!m) return null; const v = Number(m[1]) * 60 + Number(m[2]); return v >= 22 * 60 ? v - 22 * 60 : v + 120; };
-      const pts = samples.map(([ms, x]) => [ms, mins(x), /paused/.test(x)]).filter(([, m, p]) => m !== null && !p && m >= 50 && m <= 230);
+      const pts = samples.map(([ms, x]) => [ms, mins(x), /paused|‖/.test(x)]).filter(([, m, p]) => m !== null && !p && m >= 50 && m <= 230);
       const [a, z] = [pts[0], pts.at(-1)];
       c.rate = pts.length >= 2 && z[0] > a[0] ? Math.round(((z[1] - a[1]) / ((z[0] - a[0]) / 1000)) * 10) / 10 : null;
       c.samples = pts.length;
@@ -490,26 +548,25 @@ if (wanted("night")) {
     checks.FAILED = String(err.message).split("\n")[0];
     await shot(page, "night-fail.png");
   }
-  const f = want.fig;
   const expectRows = {
     "Labour hours tonight": F.hours(f.labour_hours),
-    [`Cell hours, ${F.int(want.res.orders.reduce((n, o) => n + o.units, 0))} units tonight`]: F.hours(f.cell_hours),
+    [`Cell hours, ${F.int(res.orders.reduce((n, o) => n + o.units, 0))} units tonight`]: F.hours(f.cell_hours),
     "Robot picks per cell hour": F.int(f.robot_picks_per_cell_hour),
-    "Store orders on time": `${F.int(onTime)} of ${F.int(want.res.orders.length)}`,
+    "Store orders on time": `${F.int(onTime)} of ${F.int(res.orders.length)}`,
     "Labour per 1,000 units, hybrid": `${F.hours(f.labour_hours_per_1000)} · ${F.eur2(E.tonightEuros(E.defaults(), f).per_thousand_eur)}`
   };
-  const exps = [];
+  const exps = [[onTime === 13 && SC1_B.hash === res.hash, `option B keeps every truck on time in the Node replay (${onTime} of ${res.orders.length})`]];
   for (const speed of [4, 2, 1]) {
     const c = checks.speeds[speed] || {};
-    exps.push([JSON.stringify(c.lanes) === JSON.stringify(states), `×${speed}: every lane's dispatch state equals the simulation (${JSON.stringify(c.lanes)})`]);
-    exps.push([c.tile === `${onTime} of ${want.res.orders.length}` && c.clock === "06:00", `×${speed}: the tile ${c.tile}, the clock ${c.clock}`]);
-    exps.push([c.report === `Night over at 06:00. ${onTime} of ${want.res.orders.length} orders on time; late: ${late.join(" and ")}.`, `×${speed}: the night report (${c.report})`]);
+    exps.push([JSON.stringify(c.lanes) === JSON.stringify(states), `×${speed}: every lane's dispatch state equals the replay (${JSON.stringify(c.lanes)})`]);
+    exps.push([c.tile === `${onTime} of ${res.orders.length}` && c.clock === "06:00", `×${speed}: the tile ${c.tile}, the clock ${c.clock}`]);
+    exps.push([c.report === (late.length ? `Night over at 06:00. ${onTime} of ${res.orders.length} orders on time; late: ${late.join(" and ")}.` : `Night over at 06:00. All ${res.orders.length} orders on time.`) && c.summary === 1, `×${speed}: the night report and the management summary (${c.report})`]);
     const bad = Object.entries(expectRows).filter(([k, v]) => c.kpi?.[k]?.[1] !== v).map(([k, v]) => `${k}: ${c.kpi?.[k]?.[1]} ≠ ${v}`);
-    exps.push([bad.length === 0 && c.tonightHead === `Tonight (simulation, seed ${want.res.seed})`, `×${speed}: the KPI board's Tonight column (${bad.join("; ") || c.tonightHead})`]);
+    exps.push([bad.length === 0 && c.tonightHead === `Tonight (simulation, seed ${res.seed})`, `×${speed}: the KPI board's Tonight column (${bad.join("; ") || c.tonightHead})`]);
     exps.push([c.rate !== null && c.samples >= 4 && c.rate >= 4.5 * speed && c.rate <= 7.5 * speed, `×${speed}: ${c.rate} simulated minutes per second over ${c.samples} samples (6 × ${speed} expected)`]);
   }
   checks.durations = Object.fromEntries(Object.entries(checks.speeds).map(([k, v]) => [k, v.seconds]));
-  await finish(`night: scenario 1 to night end at ×4, ×2 and ×1 (${JSON.stringify(checks.durations)} s)`, t, checks, exps);
+  await finish(`night: scenario 1's scripted replay to night end at ×4, ×2 and ×1, option B approved (${JSON.stringify(checks.durations)} s)`, t, checks, exps);
 }
 
 // ---- board: keyboard, mouse, popovers, reduced motion ---------------------------------------------------------
@@ -555,8 +612,11 @@ if (wanted("board")) {
     // A popover follows the night.
     await startNight(page, { speed: 4 });
     await dismissBanners(page);
-    await page.waitForFunction(() => /^2[23]:/.test(document.querySelector(".cell-clock")?.textContent || ""), null, { timeout: 10000 });
-    await page.focus('.lane[data-order="ESS"]');
+    // A stretch with no wake-up (the scripted agent's turns pause the night until 22:41).
+    await page.waitForFunction(() => /^(23|00|01):/.test(document.querySelector(".cell-clock")?.textContent || ""), null, { timeout: 60000 });
+    // The robot cell works without a break from 22:00 to the small hours; a store lane can stand still
+    // for hours (Essen waits from 22:20 for its chilled units at 01:00).
+    await page.focus('.station[data-station="cell"]');
     await page.keyboard.press("Enter");
     await page.waitForSelector(".cell-pop:not([hidden])");
     const before = (await page.textContent(".cell-pop .pop-grid")).trim();
@@ -565,7 +625,7 @@ if (wanted("board")) {
     checks.follows = before !== after && (await page.isVisible(".cell-pop"));
     await shot(page, "12-board-popover.png");
     await page.keyboard.press("Escape");
-    checks.backAfterRun = await page.evaluate(() => document.activeElement?.dataset.order);
+    checks.backAfterRun = await page.evaluate(() => document.activeElement?.dataset.station);
     await page.click("#btn-abort");
   } catch (err) {
     checks.FAILED = String(err.message).split("\n")[0];
@@ -601,7 +661,7 @@ if (wanted("board")) {
     [checks.pops?.['.lane[data-order="SOE"]']?.label === "Soest" && checks.pops?.['.station[data-station="cell"]']?.label === "Robot cell" && checks.pops?.['.station[data-station="manual"]']?.label === "Manual station" && checks.pops?.[".wm-focus"]?.label === "World model", `popovers named for their entity (${JSON.stringify(checks.pops)})`],
     [Object.values(checks.pops || {}).length === 4 && Object.values(checks.pops).every((p) => p.focusIn && p.back), "Enter moves the focus into the popover; Escape closes it and gives the focus back"],
     [checks.mouseOpen && checks.mouseLabel === "Hamm" && checks.mouseClosed, "a click opens a popover, a click elsewhere closes it"],
-    [checks.follows && checks.backAfterRun === "ESS", "an open popover follows the night and gives the focus back"],
+    [checks.follows && checks.backAfterRun === "cell", `an open popover follows the night and gives the focus back (${checks.follows}, ${checks.backAfterRun})`],
     [(checks.reducedRunning || []).length === 8 && checks.reducedRunning.every((n) => n === 0), `reduced motion: nothing animates on the board (${JSON.stringify(checks.reducedRunning)})`]
   ]);
 }
@@ -707,54 +767,7 @@ if (wanted("world")) {
   ]);
 }
 
-// ---- contrast: every visible text meets its WCAG 2.2 contrast duty ---------------------------------------------
-// Measured in the running page, against the nearest opaque background (semi-transparent layers blended),
-// with the element's opacity applied. Normal text needs 4.5:1, large text (24 px, or 18.66 px bold) 3:1
-// (WCAG 1.4.3). Inactive controls have no duty. With a dialog open, only the dialog is measured.
-/** { measured: text elements in view, below: those below their duty [{ text, ratio, need, color, bg }] }. */
-const contrastShortfalls = (page) => page.evaluate(() => {
-  const parse = (c) => { const m = /rgba?\(([^)]+)\)/.exec(c); if (!m) return null; const p = m[1].split(/[\s,/]+/).filter(Boolean).map(Number); return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 }; };
-  const lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
-  const lum = (c) => 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
-  const over = (fg, bg) => ({ r: fg.r * fg.a + bg.r * (1 - fg.a), g: fg.g * fg.a + bg.g * (1 - fg.a), b: fg.b * fg.a + bg.b * (1 - fg.a), a: 1 });
-  const background = (el) => {
-    const layers = [];
-    for (let e = el; e; e = e.parentElement) {
-      const c = parse(getComputedStyle(e).backgroundColor);
-      if (c && c.a > 0) { layers.push(c); if (c.a >= 1) break; }
-    }
-    return layers.reduceRight((bg, layer) => over(layer, bg), { r: 255, g: 255, b: 255, a: 1 });
-  };
-  const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
-  const scope = dialogs.length ? dialogs[dialogs.length - 1] : document.body;
-  const out = [];
-  let measured = 0;
-  const seen = new Set();
-  const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
-  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-    const el = n.parentElement;
-    if (!n.textContent.trim() || !el || seen.has(el) || el instanceof SVGElement) continue;
-    seen.add(el);
-    const box = el.getBoundingClientRect();
-    if (box.width === 0 || box.height === 0 || box.bottom <= 0 || box.right <= 0 || box.top >= innerHeight || box.left >= innerWidth) continue;
-    const cs = getComputedStyle(el);
-    if (cs.visibility !== "visible" || el.closest('[hidden], [aria-hidden="true"], [disabled], [aria-disabled="true"]')) continue;
-    let opacity = 1;
-    for (let e = el; e; e = e.parentElement) opacity *= Number(getComputedStyle(e).opacity);
-    if (opacity === 0) continue;
-    const bg = background(el);
-    const ink = parse(cs.color);
-    const fg = over({ ...ink, a: ink.a * opacity }, bg);
-    const [hi, lo] = [lum(fg), lum(bg)].sort((a, b) => b - a);
-    const ratio = (hi + 0.05) / (lo + 0.05);
-    measured += 1;
-    const size = parseFloat(cs.fontSize);
-    const need = size >= 24 || (Number(cs.fontWeight) >= 700 && size >= 18.66) ? 3 : 4.5;
-    if (ratio < need) out.push({ text: n.textContent.trim().slice(0, 40), ratio: Math.round(ratio * 100) / 100, need, color: cs.color, bg: `rgb(${Math.round(bg.r)}, ${Math.round(bg.g)}, ${Math.round(bg.b)})` });
-  }
-  return { measured, below: out };
-});
-
+// ---- contrast: every visible text meets its WCAG 2.2 contrast duty (tests/lib/contrast.mjs) -------------
 if (wanted("contrast")) {
   for (const [w, hgt] of [[1920, 1080], [1280, 720]]) {
     const t = await newPage({ intro: true, viewport: { width: w, height: hgt }, anthropic: anthropicStandIn() });
@@ -772,7 +785,7 @@ if (wanted("contrast")) {
       await measure("idle");
       await page.click("#btn-diagnostics");
       await page.click("#btn-run-tests");
-      await page.waitForFunction(() => document.querySelectorAll('.diag-status[data-s="pass"]').length === 3, null, { timeout: 15000 });
+      await page.waitForFunction(() => document.querySelectorAll('.diag-status[data-s="pass"]').length === 4 && !document.querySelector('.diag-status[data-s="running"]'), null, { timeout: 30000 });
       await measure("diagnostics");
       await page.keyboard.press("Escape");
       for (const tab of ["options", "outbox", "kpiboard", "assumptions", "audit"]) {
@@ -790,20 +803,42 @@ if (wanted("contrast")) {
       await page.click('button:has-text("Check key and continue")');
       await measure("key dialog with its message");
       await page.keyboard.press("Escape");
+      await page.click('button[aria-label="Night speed ×4"]');
       await page.click("#btn-start");
       await page.click('.mode-card[data-mode="simulation"] .mode-cta button');
-      await page.waitForSelector(".banner", { timeout: 5000 });
-      await measure("notice and banner");
+      await page.waitForSelector('.cell-board[data-state="running"]', { timeout: 5000 });
+      // A banner of each level over the running replay (the app raises them on notes, warnings and errors).
+      await page.evaluate(() => import("./js/ui.js").then((m) => {
+        m.showBanner({ level: "info", title: "Note", text: "Contrast check: a note." });
+        m.showBanner({ level: "warn", title: "Heads-up", text: "Contrast check: a warning." });
+        m.showBanner({ level: "error", title: "Error", text: "Contrast check: an error." });
+      }));
+      await page.waitForSelector('.banner[data-level="error"]', { timeout: 5000 });
+      await measure("banners");
       await dismissBanners(page);
-      await page.waitForFunction(() => document.querySelector(".cell-clock")?.textContent >= "22:30", null, { timeout: 30000 });
+      await page.waitForFunction(() => document.querySelector(".cell-clock")?.textContent >= "22:30", null, { timeout: 60000 });
       await measure("night running");
       await page.click("#tab-kpiboard");
       await page.waitForTimeout(400);
       await measure("night, drawer open");
-      await page.click("#btn-abort");
+      // 02:00: the options in the drawer, then the drafts in the Outbox with the console's notice.
+      await page.waitForSelector('.option-card[data-id="B"] .btn-approve', { timeout: 120000 });
+      await measure("options");
+      await page.click('.option-card[data-id="B"] .btn-approve');
+      await page.waitForSelector("#btn-approve-all", { timeout: 60000 });
+      await page.waitForSelector('#console .entry[data-type="notice"]', { timeout: 10000 });
+      await measure("drafts and notice");
+      await page.click("#btn-approve-all");
+      await waitStatus(page, "Done", 120000);
+      await page.click(".drawer-end .btn");
+      await measure("night end, summary and run facts");
+      await page.click("#btn-open-report");
+      await page.waitForSelector(".report-modal", { timeout: 5000 });
+      await measure("management summary");
+      await page.keyboard.press("Escape");
+      await page.waitForSelector(".report-modal", { state: "detached", timeout: 3000 });
       // Control: faint text on the app background (porcelain) measures 4.44:1, a known gap in the
       // shared palette (Rebate Hunter REVIEW W9). The measure has to catch it.
-      await page.click(".banner .btn, .banner button").catch(() => {});
       checks.control = await page.evaluate(() => {
         const probe = document.createElement("p");
         probe.textContent = "Contrast control";
@@ -819,7 +854,7 @@ if (wanted("contrast")) {
     const below = Object.entries(checks.states).flatMap(([state, r]) => r.below.map((s) => `${state}: "${s.text}" ${s.ratio}:1 (needs ${s.need}) ${s.color} on ${s.bg}`));
     const thin = Object.entries(checks.states).filter(([, r]) => r.measured < 5).map(([state, r]) => `${state} (${r.measured})`);
     await finish(`contrast: every visible text meets its duty at ${w}×${hgt}`, t, checks, [
-      [Object.keys(checks.states).length === 13 && thin.length === 0, `thirteen states, each with at least five text elements measured (${Object.entries(checks.states).map(([k, r]) => `${k} ${r.measured}`).join(", ")})`],
+      [Object.keys(checks.states).length === 17 && thin.length === 0, `seventeen states, each with at least five text elements measured (${Object.entries(checks.states).map(([k, r]) => `${k} ${r.measured}`).join(", ")})`],
       [below.length === 0, `text below its duty: ${JSON.stringify(below)}`],
       [checks.control && checks.controlFound?.length === 1 && checks.controlFound[0].ratio === 4.44, `the control is caught at 4.44:1 (${JSON.stringify(checks.controlFound)})`]
     ]);

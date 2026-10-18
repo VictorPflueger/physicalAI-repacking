@@ -2,7 +2,8 @@
 // Usage: node tests/run-all.mjs             (all suites)
 //        node tests/run-all.mjs unit smoke  (only the named suites)
 // The suites grow with the milestones: sims and layout start in M2 (the night in Chromium, the five
-// window sizes); live (M3), accept and design (M4 and M5) join the list as they land.
+// window sizes); the live suite and the scripted replays arrived with the agent (M3); accept and design
+// (M4 and M5) join the list as they land.
 // On GitHub Actions a failing suite's FAIL lines also become error annotations on the check run, so a
 // failure can be read through the API without the log.
 import { spawnSync } from "node:child_process";
@@ -12,11 +13,12 @@ import { APP_ROOT } from "./lib/harness.mjs";
 const SUITES = [
   { id: "tokens", what: "colour system: WCAG 2.2 contrast, colour-blind separation, token files", file: "tools/palette.mjs", args: ["--check"], browser: false },
   { id: "world", what: "synthetic world, scenarios and their nights, calibration, shadow record, generated files", file: "tools/check_world.mjs", browser: false },
-  { id: "unit", what: "streaming client, retries, cost maths, half-up formatting, world checks, autonomy gate", file: "tests/unit.mjs", browser: false },
-  { id: "engine", what: "golden cases and display strings, night snapshots, calibration, escalation rules, world model, levers, option costing, the night on the screen", file: "tests/engine.mjs", browser: false },
-  { id: "smoke", what: "boot, intro, modes and key, Diagnostics, drawer and audit, the night at ×4/×2/×1, board keyboard, KPI board and assumptions, world model, contrast, CSP, file://, missing data", file: "tests/smoke.mjs", browser: true },
-  { id: "sims", what: "the six scenario nights identical in Chromium and Node", file: "tests/sims.mjs", browser: true },
-  { id: "layout", what: "five window sizes in five states of the night", file: "tests/layout.mjs", browser: true }
+  { id: "unit", what: "streaming client, retries, cost maths, half-up formatting, world checks, autonomy gate, Open Food Facts lookup, placeholders, wake bridge, human channel, run facts", file: "tests/unit.mjs", browser: false },
+  { id: "engine", what: "golden cases and display strings, night snapshots, calibration, escalation rules, world model, levers, option costing, decisions, figure audit, rules in code, toolbox, the scenario 1 script on every path", file: "tests/engine.mjs", browser: false },
+  { id: "smoke", what: "boot, intro, modes and key, Diagnostics, drawer and audit, the scripted replay at ×4/×2/×1, board keyboard, KPI board and assumptions, world model, contrast, CSP, file://, missing data", file: "tests/smoke.mjs", browser: true },
+  { id: "sims", what: "the six scenario nights identical in Chromium and Node; scenario 1's scripted replay on two decision paths equal to Node", file: "tests/sims.mjs", browser: true },
+  { id: "live", what: "the live loop against a fake Claude: scenario 1, the step and cost caps, abort, a rejected key", file: "tests/live.mjs", browser: true },
+  { id: "layout", what: "five window sizes in seven states of the night, the options and the drafts", file: "tests/layout.mjs", browser: true }
 ];
 
 const only = process.argv.slice(2);

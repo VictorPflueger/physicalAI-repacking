@@ -6,7 +6,12 @@
 //   - the night-shift clock and the EAN-13 check in js/world.js;
 //   - the world integrity checks in js/world_check.js against broken copies of the world (negative
 //     controls), and the shadow-mode gate in js/autonomy.js;
-//   - the key store's masking and redaction.
+//   - the key store's masking and redaction;
+//   - the Open Food Facts lookup with a mocked fetch: success, not found, a CORS failure, a 429 and a 503 fall
+//     back to the snapshot and are remembered, the cap of 3, the cache, no request in Simulation or
+//     while live reads are off, an abort;
+//   - the script placeholders, the wake bridge between the night and the producer, the person's
+//     decisions as a producer waits for them, and the run facts.
 // Usage: node tests/unit.mjs
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -222,5 +227,136 @@ assert.equal(keystore.hasKey(), false);
 assert.ok(Object.values(STORAGE).every((k) => k.startsWith("rp.")), "every storage key under the rp. prefix");
 assert.deepEqual(CONNECT_ORIGINS, ["https://api.anthropic.com"]);
 ok("key store masking and redaction; rp.* storage keys; one connect origin");
+
+// ---- Open Food Facts lookup ---------------------------------------------------------------------------------
+{
+  const { createOffLookup, productFields } = await mod("js/openfoodfacts.js");
+  const { OPEN_FOOD_FACTS, OPEN_DATA } = await mod("js/config.js");
+  assert.equal(OPEN_FOOD_FACTS.live, false, "live reads are off in this build");
+  assert.deepEqual(OPEN_DATA, {}, "and the host is in no connection list");
+  const BAR = "4037848020859";
+  const record = { code: BAR, product_name: "Bio Elisen-Lebkuchen", brands: "Test brand", quantity: "210g", product_quantity: 210, product_quantity_unit: "g", packaging_text: "", categories_tags: ["en:gingerbreads"] };
+  const snap = { meta: { status: "test" }, products: { [BAR]: { product: record, fetched: "2026-10-18" } } };
+  const live = { ...OPEN_FOOD_FACTS, live: true, productUrl: (b) => `https://world.openfoodfacts.org/api/v2/product/${b}.json`, productPage: (b) => `https://world.openfoodfacts.org/product/${b}` };
+  const mem = () => { const m = {}; return { m, remember: (id, status, detail) => { m[id] = { status, detail }; }, recentFailure: (id) => (m[id]?.status === "fail" ? m[id] : null) }; };
+  const noFetch = async () => { throw new Error("no request may be made"); };
+  // Simulation: the snapshot only, never a request; the bundled snapshot has no record yet.
+  let r = await createOffLookup({ mode: "simulation", snapshot: snap, config: live, fetchImpl: noFetch, memory: mem() }).lookup(BAR);
+  assert.equal(r.found, true); assert.equal(r.source, "bundled snapshot"); assert.equal(r.product.net_content, "210 g"); assert.match(r.note, /Simulation: no live request/);
+  const pending = { meta: { status: "pending" }, products: {} };
+  r = await createOffLookup({ mode: "simulation", snapshot: pending, config: live, fetchImpl: noFetch, memory: mem() }).lookup(BAR);
+  assert.equal(r.found, false); assert.match(r.note, /pending/);
+  // Live with reads switched off (this build): the snapshot, no request.
+  r = await createOffLookup({ mode: "live", snapshot: snap, config: OPEN_FOOD_FACTS, fetchImpl: noFetch, memory: mem() }).lookup(BAR);
+  assert.equal(r.source, "bundled snapshot"); assert.match(r.note, /not enabled in this build/);
+  // Live and enabled: a product, a barcode the API does not know, the cache and the cap of 3.
+  const calls = [];
+  const api = async (url) => {
+    calls.push(url);
+    const code = /product\/(\d+)\.json/.exec(url)[1];
+    if (code === BAR) return new Response(JSON.stringify({ code, product: record, status: 1, status_verbose: "product found" }), { status: 200 });
+    return new Response(JSON.stringify({ code, status: 0, status_verbose: "product not found" }), { status: 404 });
+  };
+  const m1 = mem();
+  const lk = createOffLookup({ mode: "live", snapshot: snap, config: live, fetchImpl: api, memory: m1 });
+  r = await lk.lookup(BAR);
+  assert.equal(r.found, true); assert.equal(r.source, "Open Food Facts API (live)"); assert.equal(r.product.name, "Bio Elisen-Lebkuchen"); assert.equal(r.attribution, "Product data: Open Food Facts, ODbL");
+  r = await lk.lookup(BAR);
+  assert.equal(r.cached, true); assert.equal(calls.length, 1, "a repeated barcode is answered from the cache");
+  r = await lk.lookup("4000000000001");
+  assert.equal(r.found, false); assert.match(r.note, /no product/); assert.equal(m1.m.open_food_facts.status, "pass", "not found is an answer, not a failure");
+  r = await lk.lookup("4000000000002");
+  r = await lk.lookup("4000000000003");
+  assert.ok(r.error && r.refused && /at most 3/.test(r.error), "the fourth barcode is refused");
+  assert.equal(lk.count(), 3); assert.equal(calls.length, 3);
+  assert.match((await lk.lookup("12ab")).error, /not a barcode/);
+  // A CORS failure falls back to the snapshot and is remembered: the next lookup skips the network.
+  const m2 = mem();
+  let tries = 0;
+  const blocked = async () => { tries += 1; throw new TypeError("Failed to fetch"); };
+  const lk2 = createOffLookup({ mode: "live", snapshot: snap, config: live, fetchImpl: blocked, memory: m2 });
+  r = await lk2.lookup(BAR);
+  assert.equal(r.fallback, true); assert.equal(r.found, true); assert.match(r.note, /The live lookup failed \(blocked or unreachable/); assert.equal(m2.m.open_food_facts.status, "fail");
+  r = await lk2.lookup("4000000000001");
+  assert.equal(tries, 1, "a remembered failure skips the source"); assert.match(r.note, /failed earlier in this session/);
+  // A 429 is a failure of the source too.
+  const m3 = mem();
+  r = await createOffLookup({ mode: "live", snapshot: snap, config: live, fetchImpl: async () => new Response("{}", { status: 429 }), memory: m3 }).lookup(BAR);
+  assert.equal(r.fallback, true); assert.match(r.note, /rate limited \(429/); assert.match(m3.m.open_food_facts.detail, /429/);
+  // So is a server error.
+  const m4 = mem();
+  r = await createOffLookup({ mode: "live", snapshot: snap, config: live, fetchImpl: async () => new Response("{}", { status: 503 }), memory: m4 }).lookup(BAR);
+  assert.equal(r.fallback, true); assert.equal(r.found, true); assert.equal(m4.m.open_food_facts.status, "fail"); assert.match(m4.m.open_food_facts.detail, /503/);
+  // Abort: the run's signal stops the request.
+  const ac = new AbortController();
+  const hang = (url, init) => new Promise((res, rej) => init.signal.addEventListener("abort", () => rej(Object.assign(new Error("aborted"), { name: "AbortError" }))));
+  const pend = createOffLookup({ mode: "live", snapshot: snap, config: live, fetchImpl: hang, memory: mem() }).lookup(BAR, { signal: ac.signal });
+  ac.abort();
+  await assert.rejects(pend, (e) => e.name === "AbortError");
+  assert.deepEqual(productFields({ code: 1, product_name: "x" }), { code: "1", name: "x", brands: null, quantity: null, net_content: null, packaging: null, categories: [] });
+  ok("Open Food Facts lookup: snapshot in Simulation and while live reads are off, live product and not-found, cache, cap of 3, CORS failure, 429 and 503 remembered with a snapshot fallback, abort");
+}
+
+// ---- script placeholders, the wake bridge, the person's decisions, run facts --------------------------------
+{
+  const V = await mod("js/sim_vars.js");
+  const vars = { "B.total": "€134.25", "night.on_time": "13 of 13" };
+  assert.equal(V.fillTemplate(vars, "Expected {{B.total}}; {{ night.on_time }} on time."), "Expected €134.25; 13 of 13 on time.");
+  assert.deepEqual(V.unresolvedKeys(vars, "{{B.total}} {{C.total}}"), ["C.total"]);
+  assert.equal(V.pick({ B: "b", default: "d" }, "B"), "b");
+  assert.equal(V.pick({ B: "b", default: "d" }, "A"), "d");
+  assert.deepEqual(V.pickDeep({ outcome: { $by_decision: { baseline: "baseline_accepted", default: "option_decided" } }, n: 1 }, "baseline"), { outcome: "baseline_accepted", n: 1 });
+  ok("script placeholders: filled, unresolved keys named, texts by decision");
+
+  const { createWakeBridge } = await mod("js/wake_bridge.js");
+  const b = createWakeBridge();
+  const order = [];
+  const turn1 = b.wake({ wake_id: "W1" }).then(() => order.push("turn W1 over"));
+  const w1 = await b.first();
+  order.push(`producer at ${w1.wake_id}`);
+  const next = b.advance().then((w) => order.push(`producer at ${w.wake_id}`));
+  await turn1;
+  const turn2 = b.wake({ wake_id: "W2" });
+  await next;
+  b.release();
+  await turn2;
+  assert.equal(await b.advance(), null, "after release no turn follows");
+  assert.deepEqual(order, ["producer at W1", "turn W1 over", "producer at W2"]);
+  ok("wake bridge: the night waits for the producer's turn, sim_advance ends it and returns the next wake-up, release lets the night finish");
+
+  const { createHumanChannel, ABORT } = await mod("js/human.js");
+  const handlers = new Map();
+  const fakeBus = { on: (type, fn) => { handlers.set(type, fn); return () => handlers.delete(type); } };
+  const hc = createHumanChannel(fakeBus);
+  const decided = hc.waitUntil(() => hc.takeOptionDecision((ev) => ev.payload.options_seq === 2));
+  handlers.get("option_decision")({ payload: { option_id: "A", options_seq: 1 } });
+  handlers.get("option_decision")({ payload: { option_id: "B", options_seq: 2 } });
+  assert.equal((await decided).payload.option_id, "B", "a decision on an older set is not taken");
+  hc.drafts.set("act-1", { status: "pending" });
+  const approvals = hc.waitUntil(() => [...hc.drafts.values()].every((d) => d.status !== "pending"));
+  handlers.get("action_decision")({ payload: { action_id: "act-1", decision: "approved" } });
+  assert.equal(await approvals, true);
+  const hanging = hc.waitUntil(() => false);
+  hc.cancel();
+  await assert.rejects(hanging, (e) => e === ABORT);
+  ok("the person's decisions: queued until taken, bound to their option set, drafts decided, every wait rejected on Abort");
+
+  const { computeRunFacts, describeRunFacts } = await mod("js/run_facts.js");
+  const ev = (type, t, payload = {}) => ({ type, t, payload });
+  const rows = [
+    ev("run_start", 0, { mode: "live" }), ev("state_change", 0, { state: "perceiving" }), ev("wake", 100, {}),
+    ev("tool_call", 200, { name: "wms_get_night" }), ev("tool_call", 210, { name: "sim_plan_night" }), ev("tool_call", 220, { name: "sim_advance" }),
+    ev("wake", 5000, {}), ev("tool_call", 5100, { name: "ui_propose_options" }), ev("state_change", 6000, { state: "awaiting_approval" }),
+    ev("option_decision", 16000, { option_id: "B", decision: "approved" }), ev("state_change", 16000, { state: "executing" }),
+    ev("tool_result", 16100, { name: "ui_draft_action", ok: false, result: { refused: true } }), ev("action_draft", 17000, {}), ev("action_decision", 18000, { decision: "approved" }),
+    ev("cost_update", 19000, { eur: 0.4249, simulated: false }), ev("night_end", 20000, { figures: { orders_on_time: 13, orders: 13 } }),
+    { type: "model_call", t: 1000, payload: {} }, { type: "model_call", t: 2000, payload: {} }
+  ];
+  const f = computeRunFacts(rows, ev("run_end", 21000, { status: "done" }));
+  assert.equal(f.tool_calls, 2, "sim_advance and ui_* tools are not counted as visible calls");
+  assert.deepEqual([f.wakeups, f.model_calls, f.guardrail_refusals, f.approved_option, f.drafts_approved, f.waiting_time_s, f.agent_time_s, f.cost_eur], [2, 2, 1, "B", 1, 10, 11, 0.42]);
+  assert.equal(describeRunFacts(f), "11 s agent time plus 10 s waiting for you; 2 wake-ups; 2 tool calls (1 warehouse, 1 engine); 1 guardrail refusal; 2 of 40 model calls; 13 of 13 orders on time; cost €0.42.");
+  ok("run facts: agent time apart from waiting, wake-ups, visible tool calls by kind, refusals, model calls against the cap, cost");
+}
 
 console.log(`\nAll ${passed} unit tests passed.`);

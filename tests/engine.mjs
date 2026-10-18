@@ -13,7 +13,12 @@
 //     wake-ups follow the events of their moment; the manual queue counted from events; cut-off risk
 //     times agree with their minutes to spare; the player emits every event once and in order, waits
 //     at each wake-up and ends with the night report and the unit log; a stopped night logs nothing
-//     from after the stop; the audit keeps exceptions and drops ordinary units.
+//     from after the stop; the audit keeps exceptions and drops ordinary units;
+//   - the agent (M3): scenario 1's golden option cases at 02:00 (the cheapest option is not the one
+//     with the most slack); decisions change only the night after them, and the night played in pieces
+//     equals one simulation with the decisions (a lever at the wake-up's own millisecond is caught);
+//     the figure audit (cents, hours, rates, German formats, scopes); the decision, draft and summary
+//     rules; escalations only in code; scenario 1's script on every decision path.
 // Usage: node tests/engine.mjs                     run the suite
 //        node tests/engine.mjs --update-snapshots  rewrite tests/snapshots/des.json (after a deliberate
 //                                                  change to the night simulation; review the diff)
@@ -457,6 +462,222 @@ await test("the audit keeps exceptions and drops ordinary units", () => {
   const res = NS.runNight(nightOf(1));
   const kept = res.events.filter((e) => !fine(e.type, e.payload)).length;
   assert.ok(kept < res.events.length / 20, `${kept} of ${res.events.length} events kept`);
+});
+
+// ---- the agent (M3) -----------------------------------------------------------------------------------------
+const S = await mod("js/night_session.js");
+const F = await mod("js/figures.js");
+const G = await mod("js/guards.js");
+const T = await mod("js/tools.js");
+const SC = await mod("js/sim_check.js");
+for (const f of ["data/reference_cases.js", "data/sim_runs.js", "data/off_snapshot.js"]) vm.runInContext(fs.readFileSync(path.join(APP_ROOT, f), "utf8"), sandbox, { filename: f });
+const { REFERENCE_CASES, SIM_RUNS, OFF_SNAPSHOT } = sandbox.window;
+globalThis.OFF_SNAPSHOT = OFF_SNAPSHOT;
+/** A session of a scenario played to its wake-up `id` (W1, W2 …). */
+function sessionAt(n, id) {
+  const ses = S.createNightSession({ world: WORLD, scenario: scenario(n) });
+  for (let ev = ses.take(); ev; ev = ses.take()) if (ev.type === "wake" && ev.payload.wake_id === id) return ses;
+  throw new Error(`no wake-up ${id}`);
+}
+
+await test("golden option cases: scenario 1 at 02:00 on 20 replications; the cheapest option is not the one with the most slack", () => {
+  const ses = sessionAt(1, "W4");
+  assert.deepEqual([...ses.wake().kinds].sort(), ["cutoff_risk", "new_order"]);
+  const r = ses.cost(REFERENCE_CASES["SC1-EXPRESS"].options.variants, E.defaults());
+  const by = Object.fromEntries([r.baseline, ...r.variants].map((v) => [v.variant_id, v]));
+  const want = {
+    do_nothing: { total: 462.5, labour: 0, late: 1.85, by: { SOE: 20, HAM: 17 }, tonight: ["HAM", "SOE"], slack: -6.5 },
+    A: { total: 112.5, labour: 0, late: 0.45, by: { XPR: 9 }, tonight: ["XPR"], slack: -1.5 },
+    B: { total: 134.25, labour: 134.25, late: 0, by: {}, tonight: [], slack: 21.75 },
+    C: { total: 250, labour: 0, late: 1, by: { SOE: 20 }, tonight: ["SOE"], slack: 2.4 }
+  };
+  for (const [id, w] of Object.entries(want)) {
+    const v = by[id];
+    near(v.expected_total_eur, w.total, `${id} expected total`);
+    near(v.extra_labour_eur, w.labour, `${id} extra labour`);
+    near(v.expected_late_orders, w.late, `${id} expected late orders`);
+    assert.deepEqual(v.late_by_order, w.by, `${id} late by order`);
+    assert.deepEqual([...v.tonight.late].sort(), w.tonight, `${id} late tonight`);
+    near(v.tonight.smallest_slack_min, w.slack, `${id} smallest slack`);
+  }
+  assert.equal(eur2(by.B.call_in_eur), "€134.25", "the call-in is O1");
+  const cheapest = r.variants.reduce((a, b) => (b.expected_total_eur < a.expected_total_eur ? b : a));
+  const slackest = r.variants.reduce((a, b) => (b.tonight.smallest_slack_min > a.tonight.smallest_slack_min ? b : a));
+  assert.equal(cheapest.variant_id, "A");
+  assert.equal(slackest.variant_id, "B");
+  assert.notEqual(cheapest.variant_id, slackest.variant_id);
+});
+
+await test("decisions change only the night after them; the night played in pieces equals one simulation with the decisions", () => {
+  const same = (a, b) => a.t === b.t && a.type === b.type && JSON.stringify(a.payload) === JSON.stringify(b.payload);
+  const ses = S.createNightSession({ world: WORLD, scenario: scenario(1) });
+  const played = [];
+  const decide = { W2: [{ type: "close_tote", store_ids: ["ESS"] }], W4: REFERENCE_CASES["SC1-EXPRESS"].options.variants[1].levers };
+  for (let ev = ses.take(); ev; ev = ses.take()) {
+    played.push(ev);
+    if (ev.type === "wake" && decide[ev.payload.wake_id]) {
+      const before = ses.run.events.slice(0, played.length);
+      ses.apply(decide[ev.payload.wake_id], { source: "test" });
+      assert.ok(before.every((e, i) => same(e, ses.run.events[i])), `the played part changed at ${ev.payload.wake_id}`);
+    }
+    if (ev.type === "wake") ses.resume();
+  }
+  // What the screen showed, event by event, is the night computed once with both decisions.
+  const whole = NS.runNight(ses.night, { seed: 7, levers: ses.levers(), closedAt: played.filter((e) => e.type === "wake").map((e) => e.t) });
+  assert.equal(played.length, whole.events.length);
+  assert.ok(played.every((e, i) => same(e, whole.events[i])), "played in pieces = one simulation");
+  assert.equal(ses.run.hash, whole.hash);
+  assert.equal(ses.run.orders.filter((o) => o.on_time).length, 13, "option B: every order on time");
+  // Control: a lever decided at the wake-up's own millisecond changes what was already shown.
+  const at = sessionAt(1, "W4");
+  const w = at.wake();
+  const n = at.played();
+  const early = NS.runNight(at.night, { seed: 7, levers: [{ type: "call_in_picker", minutes: 180, from_ms: w.t, decided_ms: w.t }], closedAt: [] });
+  assert.ok(!at.run.events.slice(0, n).every((e, i) => same(e, early.events[i])), "a lever at the wake-up's own millisecond must be caught");
+});
+
+await test("a decision's plan update carries the projection the night plays right after it, so the board shows its effect at once", () => {
+  const ses = sessionAt(1, "W4");
+  const risky = (st) => [...st.orders.values()].filter((o) => o.status === "open" && o.at_risk).map((o) => o.id).sort();
+  assert.deepEqual(risky(ses.state()), ["HAM", "SOE", "XPR"], "02:00: Hamm, Soest and the express order inside the band");
+  const { update } = ses.apply(REFERENCE_CASES["SC1-EXPRESS"].options.variants[1].levers, { source: "decision", option_id: "B" });
+  const next = ses.run.events.find((e) => e.type === "projection" && e.t === ses.wake().t + 1);
+  assert.ok(update.projection && next, "a projection right after the decision");
+  assert.deepEqual(update.projection, next.payload, "the plan update's projection is the one the night plays next");
+  assert.deepEqual(risky(ses.state()), [], "option B: no order inside the band, while the night still stands at 02:00");
+  // The board's reducer, fed the same plan update, shows the same.
+  const st = CD.createNightState(ses.info);
+  for (const ev of ses.run.events.slice(0, ses.played())) CD.applyEvent(st, ev.type, ev.payload, ev.t);
+  assert.deepEqual(risky(st), ["HAM", "SOE", "XPR"]);
+  CD.applyEvent(st, "plan_update", update, ses.wake().t);
+  assert.deepEqual(risky(st), []);
+  // An order the decision moves to tomorrow's wave keeps its lane until its order_moved event.
+  const c = sessionAt(1, "W4");
+  const moved = c.apply(REFERENCE_CASES["SC1-EXPRESS"].options.variants[2].levers, { source: "decision", option_id: "C" });
+  const soe = c.state().orders.get("SOE");
+  assert.equal(soe.status, "open");
+  assert.ok(moved.update.projection.orders.some((o) => o.id === "SOE"), "the projection still lists Soest");
+  assert.equal(soe.at_risk, true, "Soest's lane is left as it was until the order moves");
+});
+
+await test("figure audit: euros with cents in English and German formats, hours and rates, by scope; clock times are no hours", () => {
+  const read = (t) => F.extractFigures(t).map((f) => `${f.kind}:${f.readings.map((r) => r.value).join("|")}`);
+  assert.deepEqual(read("€134.25 and 134,25 € and EUR 1,234.56 and 1.234,56 EUR and €1.2k"), ["eur:134.25", "eur:134.25", "eur:1234.56", "eur:1234.56", "eur:1200"]);
+  assert.deepEqual(read("0.91 h, 2.72 labour hours, 3 hours and 4.2 cell hours"), ["hours:0.91", "hours:2.72", "hours:3", "hours:4.2"]);
+  assert.deepEqual(read("455 picks per cell hour, 500 attempts an hour, 400 picks/h"), ["rate:455", "rate:500", "rate:400"]);
+  assert.deepEqual(read("the 02:45 truck, 15 minutes, 20 replications, 400 picks per hour"), ["rate:400"]);
+  const known = F.collectFigures({ per_thousand_eur: 32.4885, labour_hours: 2.7225, robot_picks_per_cell_hour: 455, extra_labour_eur: 0 });
+  const bad = (t) => F.unknownFigures(t, known).map((f) => f.raw);
+  assert.deepEqual(bad("€32.49, €32.5, 32,49 €, 2.72 h, 455 picks per cell hour, €0.00"), []);
+  assert.deepEqual(bad("€33, €32.59, 2.9 h, 470 picks per cell hour"), ["€33", "€32.59", "2.9 h", "470 picks per cell hour"]);
+  const ledger = new G.FigureLedger();
+  ledger.addFacts({ units: 3000 });
+  ledger.addEngine("sim_kpis", { per_1000: { hybrid_eur: 45.645 } }, { what_if: true });
+  const costing = { do_nothing: { expected_total_eur: 462.5 } };
+  ledger.addEngine("sim_cost_options", costing);
+  ledger.setOptionsSource(costing);
+  assert.equal(ledger.unknown("€45.65", "narration").length, 0, "narration may quote a what-if");
+  assert.equal(ledger.unknown("€45.65", "draft").length, 1, "a draft may not");
+  assert.equal(ledger.unknown("€45.65", "report").length, 1, "the summary may not");
+  assert.equal(ledger.unknown("€462.50", "draft").length, 0, "a draft may quote the costing the options rest on");
+});
+
+await test("rules in code: applying, drafts per option, the summary's outcome, and no tool that raises or lifts an escalation", () => {
+  const night = NS.buildNight(WORLD, scenario(1).night);
+  const variants = REFERENCE_CASES["SC1-EXPRESS"].options.variants;
+  const levers = (id) => variants.find((v) => v.variant_id === id).levers;
+  const approved = (id) => ({ id, label: `Option ${id}` });
+  assert.match(G.applyError({ autonomy: "advise", approved: approved("B"), optionId: "B" }), /Advise mode/);
+  assert.match(G.applyError({ autonomy: "approve", approved: null, optionId: "B" }), /No option has been approved/);
+  assert.match(G.applyError({ autonomy: "approve", approved: approved("B"), optionId: "A" }), /Only the approved option/);
+  assert.match(G.applyError({ autonomy: "approve", approved: { id: "baseline" }, optionId: "baseline" }), /chose to do nothing/);
+  assert.equal(G.applyError({ autonomy: "approve", approved: approved("B"), optionId: "B" }), null);
+  const draft = (type, recipient, id) => G.draftError({ type, recipient, approved: id ? approved(id) : null, levers: id && id !== "baseline" ? levers(id) : [], stores: WORLD.stores, night });
+  assert.match(draft("email", "Ruhrkorb Dortmund", null), /follow a person's decision/);
+  assert.equal(draft("call_in", "On-call picker pool", "B"), null, "B calls in a picker");
+  assert.match(draft("call_in", "On-call picker pool", "A"), /calls in nobody/);
+  assert.equal(draft("email", "Ruhrkorb Dortmund, store manager", "B"), null, "the express order belongs to Dortmund");
+  assert.match(draft("email", "Ruhrkorb DC Unna, warehouse office", "B"), /email goes to a store/);
+  assert.match(draft("email", "Ruhrkorb Lünen, store manager", "B"), /changes nothing for Lünen/);
+  assert.equal(draft("email", "Carrier dispatch, Soest route", "C"), null, "C moves an order: the carrier may hear of it");
+  assert.match(draft("email", "Carrier dispatch", "B"), /email goes to a store/);
+  assert.equal(draft("memo", "Shift handover", "baseline"), null);
+  assert.match(draft("email", "Ruhrkorb Soest, store manager", "baseline"), /chose to do nothing/);
+  assert.deepEqual(G.reportOutcome({ approved: approved("B") }), { outcome: "option_decided" });
+  assert.deepEqual(G.reportOutcome({ approved: { id: "baseline" } }), { outcome: "baseline_accepted" });
+  assert.match(G.reportOutcome({ requested: "baseline_accepted", approved: approved("B") }).error, /option_decided/);
+  assert.match(G.reportOutcome({ optionsShown: true }).error, /ui_await_decision/);
+  assert.deepEqual(G.reportOutcome({ corrections: 1, escalations: 0 }), { outcome: "correction_only" });
+  assert.deepEqual(G.reportOutcome({ corrections: 1, escalations: 2 }), { outcome: "escalation_only" });
+  assert.match(G.reportOutcome({ requested: "escalation_only", corrections: 1, escalations: 0 }).error, /does not fit/);
+  // Escalations are the night's: no tool raises, cancels or overrides one, or returns a unit to the cell.
+  assert.equal(T.TOOL_NAMES.length, 24);
+  assert.ok(!T.TOOL_NAMES.some((n) => /escalat|override|return|unroute|cancel/.test(n)), `tools: ${T.TOOL_NAMES.join(", ")}`);
+  const route = T.toolDefinitions().find((d) => d.name === "cell_route_to_manual");
+  assert.deepEqual(Object.keys(route.input_schema.properties).sort(), ["fragile_only", "reason", "sku_id"]);
+});
+
+await test("the tools on the night: guardrails refuse, decisions bind to their option set, a refusal is marked", async () => {
+  const ses = sessionAt(1, "W4");
+  const drafts = new Map();
+  const events = [];
+  const queue = [];
+  const tb = T.createToolbox({
+    session: ses, getInputs: () => E.defaults(), mode: "simulation", drafts, autonomy: () => "approve", pause: async () => {},
+    emit: (type, p) => { events.push({ type, p }); if (type === "options") { queue.push({ payload: { option_id: "B", decision: "approved", options_seq: p.options_seq - 1 } }); queue.push({ payload: { option_id: "B", decision: "approved", options_seq: p.options_seq } }); } },
+    waitUntil: async (test) => { const v = test(); if (!v) throw new Error("waits"); return v; },
+    takeOptionDecision: (pred) => { const i = queue.findIndex(pred); return i >= 0 ? queue.splice(i, 1)[0] : null; },
+    takeConfirmation: () => null, advance: async () => null, lookup: null
+  });
+  const run = (name, input = {}) => tb.execute(name, input);
+  const opts = { recommended_variant_id: "B", baseline_description: "Hamm and Soest miss their trucks.", options: ["A", "B", "C"].map((id) => ({ variant_id: id, title: `Option ${id}`, description: "d", residual_risk: "r" })) };
+  let r = await run("ui_propose_options", opts);
+  assert.ok(r.isError && r.result.refused && /No costed options/.test(r.result.error), "options before a costing are refused");
+  r = await run("wms_apply_option", { option_id: "B" });
+  assert.ok(r.isError && r.result.refused, "applying before an approval is refused");
+  r = await run("ui_draft_action", { type: "memo", recipient: "Shift handover", subject: "x", body: "y" });
+  assert.ok(r.isError && /follow a person's decision/.test(r.result.error), "a draft before a decision is refused");
+  r = await run("sim_cost_options", { variants: [{ variant_id: "A", name: "x", levers: [{ type: "close_tote", store_ids: ["ESS"] }] }] });
+  assert.ok(r.isError && /exactly three variants/.test(r.result.error) && /unknown lever close_tote/.test(r.result.error), "a safety lever is not an option");
+  r = await run("sim_cost_options", REFERENCE_CASES["SC1-EXPRESS"].options);
+  assert.ok(!r.isError && r.result.variants.length === 3);
+  r = await run("ui_propose_options", { ...opts, options: opts.options.map((o) => (o.variant_id === "A" ? { ...o, description: "Costs €140.00." } : o)) });
+  assert.ok(r.isError && r.result.refused && /€140\.00/.test(r.result.error), "an amount the engine did not produce is refused");
+  r = await run("ui_propose_options", opts);
+  assert.equal(r.result.decision, "approved", "the decision on the older option set is ignored, the one on this set counts");
+  assert.equal(r.result.option_id, "B");
+  r = await run("wms_apply_option", { option_id: "A" });
+  assert.ok(r.isError && /Only the approved option/.test(r.result.error));
+  r = await run("sim_advance");
+  assert.ok(r.isError && /not applied yet/.test(r.result.error), "the night waits for the approved option to be applied");
+  r = await run("wms_apply_option", { option_id: "B" });
+  assert.ok(!r.isError && r.result.applied);
+  assert.ok(events.some((e) => e.type === "plan_update" && e.p.option_id === "B"));
+  r = await run("ui_draft_action", { type: "call_in", recipient: "On-call picker pool", subject: "Call-in", body: "One picker from 02:00 at €134.25." });
+  assert.ok(!r.isError, r.result.error);
+  r = await run("sim_advance");
+  assert.ok(r.isError && /wait/.test(r.result.error), "the night waits for the drafts");
+  r = await run("ui_final_report", { markdown: "## Summary\n\nA summary that is long enough to publish." });
+  assert.ok(r.isError && /closes the night/.test(r.result.error), "no summary before night end");
+});
+
+await test("scenario 1's script passes the checker on every decision path; a typed amount fails it, a right one too", async () => {
+  const sc = scenario(1);
+  const r = await SC.checkScript(WORLD, sc, SIM_RUNS[sc.id], REFERENCE_CASES[sc.id]);
+  assert.deepEqual(r.errors, []);
+  assert.deepEqual(Object.keys(r.paths).sort(), ["approve A", "approve B", "approve C", "approve baseline", "reject B, approve A"]);
+  assert.deepEqual([...r.paths["approve B"].late], []);
+  assert.deepEqual([...r.paths["approve baseline"].late].sort(), ["HAM", "SOE"]);
+  assert.equal(r.paths["approve baseline"].outcome, "baseline_accepted");
+  const tampered = JSON.parse(JSON.stringify(SIM_RUNS[sc.id]).replace("Expected {{B.total}}.", "Expected €140.00."));
+  const bad = await SC.checkScript(WORLD, sc, tampered, REFERENCE_CASES[sc.id]);
+  assert.ok(bad.errors.some((e) => /€140\.00 is typed/.test(e)), bad.errors.join(" | "));
+  // A typed figure that is right tonight passes the narration audit, but would not follow a changed input:
+  // the checker refuses it from the script's text.
+  assert.deepEqual(SC.typedFigures(SIM_RUNS[sc.id]), [], "the shipped script types no figure");
+  const typedRight = JSON.parse(JSON.stringify(SIM_RUNS[sc.id]).replace("Expected {{B.total}}.", "Expected €134.25."));
+  const caught = await SC.checkScript(WORLD, sc, typedRight, REFERENCE_CASES[sc.id]);
+  assert.ok(caught.errors.some((e) => /"€134\.25" is typed; take it from a \{\{placeholder\}\}/.test(e)), caught.errors.join(" | "));
 });
 
 console.log(failures.length ? `\n${failures.length} engine test(s) failed: ${failures.join("; ")}` : `\nAll ${passed} engine tests passed.`);
