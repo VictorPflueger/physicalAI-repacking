@@ -180,3 +180,14 @@
   .intro-value { grid-template-columns: 1fr; }
   .intro-real { grid-template-columns: 1fr; }
 }
+
+/* The autonomy gate (js/autonomy_view.js): each criterion against the shadow record. */
+.gate-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
+.gate-list li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--paper); }
+.gate-list li[data-ok="false"] { border-color: var(--danger-mid); background: var(--danger-fill); }
+.gate-list .gate-label { font-weight: 600; }
+.gate-list .gate-text { color: var(--text-muted); font-family: var(--font-figures); text-align: right; }
+.gate-list li[data-ok="false"] .gate-text { color: var(--danger-text); }
+.gate-record, .gate-policy { margin: 0 0 8px; color: var(--text-muted); }
+.gate-quote { margin: 12px 0 0; padding: 8px 12px; border-left: 3px solid var(--brand-line); color: var(--text); }
+.gate-quote cite { display: block; margin-top: 4px; color: var(--text-muted); font-style: normal; font-size: var(--fs-sm); }

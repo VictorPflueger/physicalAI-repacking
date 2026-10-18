@@ -232,6 +232,8 @@
 
 .entry[data-type="run"] .entry-body { color: var(--text-muted); }
 .entry[data-type="run"] .run-title { color: var(--text); font-weight: 700; font-size: var(--fs-lg); }
+.entry[data-type="run"] .run-autonomy { margin-top: 2px; }
+.entry[data-type="run"] .run-autonomy strong { color: var(--brand-text); }
 .entry[data-type="run"] .seed { margin-top: 6px; padding: 8px 12px; border-radius: var(--r-md); background: var(--porcelain); border: 1px dashed var(--line-strong); color: var(--text); }
 
 /* Reasoning summaries ---------------------------------------------------------------------------- */
@@ -310,3 +312,6 @@
 .night-report dt { color: var(--text-muted); }
 .night-report dd { margin: 0; font-weight: 600; }
 .night-report-note { margin: 8px 0 0; color: var(--text-muted); font-size: var(--fs-sm); }
+/* Open Food Facts' attribution under a lookup (ODbL; brief, "Data and licences"). */
+.entry-body .attribution { margin: 4px 0 0; color: var(--text-muted); font-size: var(--fs-sm); }
+.entry-body .attribution a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }

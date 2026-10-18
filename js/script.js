@@ -13,12 +13,26 @@
 //                                  ui_propose_options, then the person's decision: a rejection says its line
 //                                  and waits again (ui_await_decision); an approval runs its steps
 //   { when: { id | "baseline" | "default": [steps] } }   steps for the decision taken earlier tonight
+//   { confirm: { input, confirmed: [steps], rejected: [steps] } }
+//                                  ui_request_confirmation, then the steps for the person's answer
+//   { end: text }                  a recorded run (js/recorder.js) only: says why the replay stops here,
+//                                  on a path the live run did not take
 // Every wake-up but the last ends with { tool: "sim_advance" }, whose result is the next wake-up.
+//
+// Texts and inputs that differ by path are maps: keyed by the approved option ("B", "baseline"), else by
+// the answer to a confirmation ("confirmed", "rejected"), else "default" (js/sim_vars.js pick()).
+//
+// Autonomy (PLAN.md §e.3): in Advise mode the person's click applies an approved option in the
+// interface, so a { tool: "wms_apply_option" } step makes no call there; its placeholders ({{applied.from}})
+// come from the application the decision brought back. Scripts word what follows for both levels.
 
-import { varsFrom, decisionVars, pick, pickDeep, fillTemplate, fillDeep } from "./sim_vars.js";
+import { varsFrom, decisionVars, pick, pickDeep, fillTemplate, fillDeep, rawFigures } from "./sim_vars.js";
 import { defaults as engineDefaults, NIGHT_INPUTS, nightParams } from "./engine.js";
 
-export const STEP_KINDS = ["say", "think", "tool", "tools", "propose", "when"];
+export const STEP_KINDS = ["say", "think", "tool", "tools", "propose", "when", "confirm", "end"];
+
+/** Thrown by an { end } step: a recorded run holds only the path the live run took. */
+export const REPLAY_END = Symbol("replay end");
 
 /**
  * The inputs of a scripted replay (TECH_NOTES D34): a script is written and checked for its scenario's
@@ -56,26 +70,37 @@ export function sameKinds(expected = [], actual = []) {
  *   say(text, step), think(text, step) → Promise
  *   fail(message) → never returns normally (throws)
  *   onWake?(wake, def, index), onText?(raw, filled, label, step, where, scope)  (the checker audits what is written)
+ *   autonomy?() → "advise" | "approve" | "bounded"   (default "approve")
+ *   describeWake?(wake) → the wake-up as sim_advance describes it (placeholders of the night-start wake-up)
  * }
  * Resolves with { decisionId } once the last wake-up's steps are done.
  */
 export async function interpretScript(script, env) {
-  const state = { decisionId: null, wake: null };
+  const state = { decisionId: null, confirmation: null, applied: null, wake: null, counts: {} };
   const vars = env.vars;
+  const keys = () => [state.decisionId, state.confirmation].filter(Boolean);
+  const advise = () => (env.autonomy ? env.autonomy() : "approve") === "advise";
   const wakes = Array.isArray(script?.wakes) ? script.wakes : [];
   if (!wakes.length) env.fail("the script has no wake-ups");
   state.wake = await env.first();
-  for (const [i, def] of wakes.entries()) {
-    const where = `wake ${i + 1}`;
-    if (!state.wake) env.fail(`${where}: the night ended before this wake-up`);
-    if (!sameKinds(def.kinds, state.wake.kinds)) env.fail(`${where}: the script expects ${def.kinds.join(" + ")}, the night is at ${state.wake.kinds.join(" + ")} (${state.wake.clock})`);
-    env.onWake?.(state.wake, def, i);
-    const advanced = await runSteps(def.steps || [], `${where}`);
-    const last = i === wakes.length - 1;
-    if (!last && !advanced) env.fail(`${where}: the steps do not end with sim_advance`);
-    if (last && advanced) env.fail(`${where}: the last wake-up must not call sim_advance`);
+  // The night-start wake-up arrives without a sim_advance: its placeholders come from its description.
+  if (state.wake && env.describeWake) Object.assign(vars, varsFrom("sim_advance", {}, env.describeWake(state.wake)));
+  try {
+    for (const [i, def] of wakes.entries()) {
+      const where = `wake ${i + 1}`;
+      if (!state.wake) env.fail(`${where}: the night ended before this wake-up`);
+      if (!sameKinds(def.kinds, state.wake.kinds)) env.fail(`${where}: the script expects ${def.kinds.join(" + ")}, the night is at ${state.wake.kinds.join(" + ")} (${state.wake.clock})`);
+      env.onWake?.(state.wake, def, i);
+      const advanced = await runSteps(def.steps || [], `${where}`);
+      const last = i === wakes.length - 1;
+      if (!last && !advanced) env.fail(`${where}: the steps do not end with sim_advance`);
+      if (last && advanced) env.fail(`${where}: the last wake-up must not call sim_advance`);
+    }
+  } catch (e) {
+    if (e !== REPLAY_END) throw e;
+    return { decisionId: state.decisionId, confirmation: state.confirmation, ended: true, endText: state.endText };
   }
-  return { decisionId: state.decisionId };
+  return { decisionId: state.decisionId, confirmation: state.confirmation };
 
   /** Runs steps; returns true when the last step advanced the night (state.wake is then the next wake-up). */
   async function runSteps(steps, where) {
@@ -90,12 +115,18 @@ export async function interpretScript(script, env) {
         const text = fill(step[kind], `${kind === "say" ? "narration" : "reasoning"}`, step, at);
         await (kind === "say" ? env.say(text, step) : env.think(text, step));
       } else if (kind === "tool") {
-        const input = step.ref !== undefined ? refInput(step.ref, at) : fillDeep(vars, pickDeep(step.input || {}, state.decisionId));
+        const input = step.ref !== undefined ? refInput(step.ref, at) : fillDeep(vars, pickDeep(step.input || {}, keys()));
+        if (step.tool === "wms_apply_option" && advise()) {
+          // Advise: the person applied the option with their click; the agent does not act on the plan.
+          if (!state.applied) env.fail(`${at}: in Advise mode the approval brought no application of ${input.option_id}`);
+          Object.assign(vars, varsFrom("wms_apply_option", input, state.applied));
+          continue;
+        }
         const out = await env.callTool(step.tool, input, step);
         took(step.tool, input, out, at);
         if (step.tool === "sim_advance") { state.wake = out.result; advanced = true; }
       } else if (kind === "tools") {
-        const list = (step.tools || []).map((t) => ({ name: t.tool, input: t.ref !== undefined ? refInput(t.ref, at) : fillDeep(vars, pickDeep(t.input || {}, state.decisionId)) }));
+        const list = (step.tools || []).map((t) => ({ name: t.tool, input: t.ref !== undefined ? refInput(t.ref, at) : fillDeep(vars, pickDeep(t.input || {}, keys())) }));
         if (list.some((t) => t.name === "sim_advance")) env.fail(`${at}: sim_advance cannot run in parallel`);
         const outs = await env.callTools(list, step);
         outs.forEach((out, j) => took(list[j].name, list[j].input, out, `${at}.${j + 1}`));
@@ -118,6 +149,7 @@ export async function interpretScript(script, env) {
           }
           if (r.decision !== "approved") env.fail(`${at}: no decision came back (${JSON.stringify(r).slice(0, 120)})`);
           state.decisionId = r.option_id;
+          state.applied = r.applied_by_person || null;
           Object.assign(vars, decisionVars({ id: r.option_id, letter: r.refer_to_it_as ? r.refer_to_it_as.replace(/^option /, "") : null, title: (r.option || "").replace(/^Option [A-C]: /, "") }));
           const branch = p.approved?.[r.option_id] || p.approved?.default;
           if (!branch) env.fail(`${at}: no steps for approving ${r.option_id}`);
@@ -125,16 +157,33 @@ export async function interpretScript(script, env) {
           break;
         }
       } else if (kind === "when") {
-        const branch = step.when?.[state.decisionId || "none"] || step.when?.default;
-        if (branch) advanced = await runSteps(branch, `${at} (${state.decisionId || "no decision"})`);
+        const key = keys().find((k) => step.when?.[k]) || (keys().length ? null : "none");
+        const branch = (key && step.when?.[key]) || step.when?.default;
+        if (branch) advanced = await runSteps(branch, `${at} (${keys().join(", ") || "no decision"})`);
+      } else if (kind === "end") {
+        // A recorded run reaches a path its live run did not take: say so and stop the replay here.
+        state.endText = fill(step.end, "end note", step, at);
+        await env.say(state.endText, step);
+        throw REPLAY_END;
+      } else if (kind === "confirm") {
+        // A provisional entry or another handover the person confirms or rejects; the night stands still.
+        const c = step.confirm || {};
+        const input = fillDeep(vars, pickDeep(c.input || {}, keys()));
+        [input.subject, input.reason].forEach((t, j) => env.onText?.([c.input?.subject, c.input?.reason][j], t, "confirmation", step, at, "confirmation"));
+        const out = await env.callTool("ui_request_confirmation", input, step);
+        took("ui_request_confirmation", input, out, at);
+        state.confirmation = out.result?.choice === "confirm" ? "confirmed" : "rejected";
+        const branch = c[state.confirmation];
+        if (!Array.isArray(branch)) env.fail(`${at}: no steps for a ${state.confirmation} entry`);
+        advanced = await runSteps(branch, `${at} (${state.confirmation})`);
       }
     }
     return advanced;
   }
 
   function fill(text, label, step, at) {
-    const picked = pick(text, state.decisionId);
-    if (picked === undefined || picked === null) env.fail(`${at}: no ${label} for ${state.decisionId || "this path"}`);
+    const picked = pick(text, keys());
+    if (picked === undefined || picked === null) env.fail(`${at}: no ${label} for ${keys().join(", ") || "this path"}`);
     const filled = fillTemplate(vars, picked);
     env.onText?.(picked, filled, label, step, at, "narration");
     return filled;
@@ -149,5 +198,8 @@ export async function interpretScript(script, env) {
   function took(name, input, out, at) {
     if (out.isError) env.fail(`${at}: ${name} was refused: ${out.result?.error || "error"}`);
     Object.assign(vars, varsFrom(name, input, out.result));
+    // The n-th successful call of each tool: the figures a recorded run's text points at.
+    state.counts[name] = (state.counts[name] || 0) + 1;
+    Object.assign(vars, rawFigures(name, state.counts[name], out.result));
   }
 }

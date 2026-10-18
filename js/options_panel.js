@@ -12,6 +12,9 @@ import { renderInline } from "./md.js";
 import { aiLabel } from "./ai_label.js";
 
 const lateText = (n) => (n === 0 ? "none" : `${upTo(n, 2)} expected`);
+// Extra labour against doing nothing: negative when an option saves manual picks (a maintenance stop that
+// ends failed grasps, TECH_NOTES D48), shown as a saving rather than as a cost.
+const labourText = (x) => (x < -0.005 ? `${eur2(x)} saved` : eur2(x));
 
 export function createOptionsPanel(panel, { onDecision, onCount, orderName = (id) => id } = {}) {
   let current = null;           // the last options payload
@@ -32,7 +35,9 @@ export function createOptionsPanel(panel, { onDecision, onCount, orderName = (id
     if (!current) return empty();
     const { baseline, options = [], replications = 20, late_cost_eur: lateCost } = current;
     const pending = !locked && !ended && options.some((o) => !status.has(o.id));
-    const max = Math.max(1, baseline?.expected_total_eur || 0, ...options.map((o) => o.expected_total_eur || 0));
+    // Bars start at zero: a saving shows as no bar, its total (below zero) as the figure beside it.
+    const max = Math.max(1, baseline?.expected_total_eur || 0, ...options.map((o) => Math.max(0, o.extra_labour_eur || 0) + (o.late_orders_eur || 0)));
+    const pctOf = (x) => `${(Math.max(0, x) / max) * 100}%`;
 
     const rows = [
       ...options.map((o) => ({ key: o.letter, name: `Option ${o.letter}: ${o.title}`, spend: o.extra_labour_eur || 0, late: o.late_orders_eur || 0, total: o.expected_total_eur || 0, recommended: !!o.recommended })),
@@ -42,15 +47,16 @@ export function createOptionsPanel(panel, { onDecision, onCount, orderName = (id
       h("div", { class: "options-summary-head" },
         h("h3", {}, pending ? "Decide how to respond" : locked ? "Decision taken" : ended ? "Run ended before a decision" : "Options"),
         aiLabel("options")),
-      h("p", {}, `Expected total at ${current.at}: extra labour plus ${lateCost !== undefined ? eur2(lateCost) : "the cost"} for each store order that misses its truck, over ${int(replications)} seeded replications of tonight. Every figure comes from the engine and the night simulation.`),
+      current.autonomy === "advise" ? h("p", { class: "options-advise" }, h("strong", {}, "Advise: "), "the agent only recommends. Your click on Apply applies the option; the agent does not act on the plan.") : null,
+      h("p", {}, `Expected total at ${current.at}: extra labour against doing nothing${options.some((o) => o.extra_labour_eur < -0.005) ? " (a saving counts below zero)" : ""} plus ${lateCost !== undefined ? eur2(lateCost) : "the cost"} for each store order that misses its truck, over ${int(replications)} seeded replications of tonight. Every figure comes from the engine and the night simulation.`),
       h("div", { class: "compare", role: "img", "aria-label": `Expected total per option against doing nothing: ${rows.map((r) => `${r.name} ${eur2(r.total)}`).join("; ")}` },
         rows.map((r) => h("div", { class: "compare-row", dataset: { recommended: String(!!r.recommended) }, title: r.name },
           h("span", { class: "compare-key", "aria-hidden": "true" }, r.key),
           h("span", { class: "compare-track" },
             r.base !== undefined
-              ? h("span", { class: "compare-bar baseline", style: { width: `${(r.base / max) * 100}%` } })
-              : [h("span", { class: "compare-bar mitigation", style: { width: `${(r.spend / max) * 100}%` } }),
-                h("span", { class: "compare-bar residual", style: { left: `${(r.spend / max) * 100}%`, width: `${(r.late / max) * 100}%` } })]),
+              ? h("span", { class: "compare-bar baseline", style: { width: pctOf(r.base) } })
+              : [h("span", { class: "compare-bar mitigation", style: { width: pctOf(r.spend) } }),
+                h("span", { class: "compare-bar residual", style: { left: pctOf(r.spend), width: pctOf(r.late) } })]),
           h("span", { class: "compare-value num" }, eur2(r.total))))),
       h("div", { class: "compare-legend" },
         h("span", { class: "k-mit" }, "Extra labour"),
@@ -93,7 +99,7 @@ export function createOptionsPanel(panel, { onDecision, onCount, orderName = (id
         o.recommended ? h("span", { class: "chip", dataset: { tone: "recommended" } }, "Recommended") : null),
       o.description ? renderInline(o.description, h("p", { class: "option-desc" })) : null,
       h("dl", { class: "option-figures" },
-        h("dt", {}, "Extra labour"), h("dd", {}, eur2(o.extra_labour_eur)),
+        h("dt", {}, "Extra labour"), h("dd", o.extra_labour_eur < -0.005 ? { title: "Fewer manual picks than doing nothing: a saving" } : {}, labourText(o.extra_labour_eur)),
         h("dt", {}, "Late store orders"), h("dd", { title: lateBy(o.late_by_order, reps) }, lateText(o.expected_late_orders)),
         h("dt", {}, "Their cost"), h("dd", {}, eur2(o.late_orders_eur)),
         h("dt", {}, "Tonight's seed"), h("dd", {}, tonight(o.tonight))),
@@ -119,7 +125,7 @@ export function createOptionsPanel(panel, { onDecision, onCount, orderName = (id
   }
 
   function actionsFor(o, st, isBaseline = false) {
-    if (st === "approved") return h("div", { class: "option-status mark-pass" }, icon("check", 20), isBaseline ? "Plan kept" : "Approved");
+    if (st === "approved") return h("div", { class: "option-status mark-pass" }, icon("check", 20), isBaseline ? "Plan kept" : current?.autonomy === "advise" ? "Applied by you" : "Approved");
     if (st === "rejected") return h("div", { class: "option-status mark-fail" }, icon("x", 20), "Rejected");
     if (st === "not_selected") return h("div", { class: "option-status mark-skip" }, "Not selected");
     if (st === "expired") return h("div", { class: "option-status mark-skip" }, "No decision: the run ended");
@@ -127,10 +133,12 @@ export function createOptionsPanel(panel, { onDecision, onCount, orderName = (id
       return h("div", { class: "option-actions" },
         h("button", { class: "btn", type: "button", on: { click: () => decide(o, "approved") } }, "Do nothing"));
     }
+    const advise = current?.autonomy === "advise";
     return h("div", { class: "option-actions" },
       // The recommended option's Approve is the one solid brand button; the others stay available as
-      // outlined brand buttons. Reject is a neutral decision, not an alarm.
-      h("button", { class: `btn btn-approve${o.recommended ? "" : " btn-brand-outline"}`, type: "button", on: { click: () => decide(o, "approved") } }, icon("check", 18), "Approve"),
+      // outlined brand buttons. Reject is a neutral decision, not an alarm. In Advise mode the click
+      // applies the option itself (the person acts in the interface).
+      h("button", { class: `btn btn-approve${o.recommended ? "" : " btn-brand-outline"}`, type: "button", ...(advise ? { title: "Advise: your click applies this option" } : {}), on: { click: () => decide(o, "approved") } }, icon("check", 18), advise ? "Apply" : "Approve"),
       h("button", { class: "btn btn-reject", type: "button", on: { click: () => decide(o, "rejected") } }, "Reject"));
   }
 

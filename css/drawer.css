@@ -245,3 +245,6 @@
   .drawer[data-open="true"] .drawer-body { height: auto; max-height: none; }
   .drawer-note { display: none; }
 }
+
+/* Advise mode: the person applies the option; the note stays when a short drawer hides the others. */
+.options-summary > p.options-advise { display: block; color: var(--brand-text); }

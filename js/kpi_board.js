@@ -8,6 +8,7 @@ import { h, clear } from "./dom.js";
 import { plan as enginePlan, night as engineNight, defaults, PARAMETERS, tonightEuros } from "./engine.js";
 import { tonightSoFar, visibleOrders, laneState } from "./cell_data.js";
 import { eur2, eur0, hours, int, upTo, fixed } from "./format.js";
+import { aiLabel } from "./ai_label.js";
 
 const basis = (...keys) => h("span", { class: "kb-basis" }, keys.map((k) => h("span", { class: "kb-key", dataset: { kind: k === "Assumption" || k === "Synthetic" ? k.toLowerCase() : "source" } }, k)));
 
@@ -16,6 +17,7 @@ export function createKpiBoard(panel, { getInputs, getNightState = () => null } 
   panel.append(root);
   let night = null;      // { seed, volume, final: figures | null }
   let pending = 0;
+  let whatIf = null;     // the agent's latest labelled what-if (sim_kpis with what_if), for this run
 
   function render() {
     pending = 0;
@@ -65,6 +67,7 @@ export function createKpiBoard(panel, { getInputs, getNightState = () => null } 
           row("Exceptions", dash.cloneNode(true), tonightOr((t) => `${plural(t.failures, "failed grasp")} · ${plural(t.escalations, "escalation")} · ${plural(t.corrections, "correction")}`), basis("Synthetic")),
           row("Break-even all-in cell cost", `${eur2(p.per_cell_hour.break_even_eur)} per operating hour`, dash.cloneNode(true), basis("IML", "EUROSTAT_LC", "Assumption"))
         )),
+      whatIf ? whatIfRow(whatIf) : null,
       h("section", { class: "kb-annual", "aria-label": "Annual figure" },
         h("div", { class: "kb-annual-main" },
           h("span", { class: "kb-big" }, `${eur0(p.per_year.eur_avoided)} a year`),
@@ -79,6 +82,17 @@ export function createKpiBoard(panel, { getInputs, getNightState = () => null } 
     ].filter(Boolean));
   }
 
+  /**
+   * The agent's what-if (violet: the AI), kept apart from the plan and tonight: in scenario 4 the cost of
+   * gripper wear if it lasted all night, golden case G2. No option, draft or summary may quote it.
+   */
+  function whatIfRow(w) {
+    return h("section", { class: "kb-whatif", "aria-label": "The agent's what-if" },
+      h("div", { class: "kb-whatif-head" }, aiLabel("what-if"), h("strong", {}, "The agent's what-if"), h("span", { class: "kb-whatif-tag" }, "labelled what-if, not tonight's plan")),
+      h("p", {}, `${w.label}: labour ${hours(w.per_1000.hybrid_hours)} · ${eur2(w.per_1000.hybrid_eur)} per 1,000 units hybrid, against ${hours(w.per_1000.by_hand_hours)} · ${eur2(w.per_1000.by_hand_eur)} by hand; ${int(w.per_cell_hour.robot_picks_per_cell_hour)} robot picks per cell hour; break-even ${eur2(w.per_cell_hour.break_even_eur_per_cell_hour)} per operating hour.`),
+      h("p", { class: "kb-whatif-note" }, "The engine at the changed input, everything else as in the Plan column. It explains an exception; no option, draft or management summary quotes it."));
+  }
+
   function row(label, planCell, tonightCell, basisCell) {
     return h("tr", {}, h("th", { scope: "row" }, label), h("td", { class: "kb-plan" }, planCell), h("td", { class: "kb-tonight" }, tonightCell), h("td", {}, basisCell));
   }
@@ -87,8 +101,16 @@ export function createKpiBoard(panel, { getInputs, getNightState = () => null } 
   bus.on("night_plan", (ev) => { night = { seed: ev.payload.seed, volume: ev.payload.volume, final: null }; render(); });
   for (const t of ["grasp_attempt", "manual_pick", "dispatch", "late_complete", "escalation", "world_model_correction", "order_new", "plan_update"]) bus.on(t, () => { if (night && !night.final) later(); });
   bus.on("night_end", (ev) => { if (night) night.final = ev.payload.figures; render(); });
+  bus.on("tool_result", (ev) => {
+    const p = ev.payload;
+    if (p.name !== "sim_kpis" || p.ok === false || p.result?.basis !== "what_if") return;
+    const changes = String(p.result.what_if || "").split(",").map((x) => x.trim()).filter(Boolean);
+    const words = changes.map((c) => { const [k, val] = c.split(/\s+/); const def = PARAMETERS.find((x) => x.id === k); return def ? `${def.label.charAt(0).toLowerCase()}${def.label.slice(1)} ${k === "p" || k === "s" ? `${upTo(Number(val) * 100, 1)} %` : val}` : c; });
+    whatIf = { ...p.result, label: `At ${words.join(", ") || "changed inputs"}` };
+    render();
+  });
 
-  function reset() { night = null; render(); }
+  function reset() { night = null; whatIf = null; render(); }
   render();
   return { render, reset };
 }

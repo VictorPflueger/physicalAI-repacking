@@ -14,13 +14,18 @@
 //   budget  one response whose usage costs more than €3 stops the run at the cost cap
 //   abort   Abort while a model call is in flight: the run stops at once and no further call is made
 //   key     the API rejects the key (401) mid-run: the key is removed from this tab, the run ends in Error
+//   recorder  scenario 1 live, then "Save run as simulation": the file stores the seed, the versions, the
+//           model and the night's hash, types no figure, passes the script checker, and replays in Node
+//           and in Chromium (labelled as a recorded run) with the live run's tool calls in order and its
+//           night; a choice the live run did not make ends the replay with a note
 // Usage: node tests/live.mjs [case…]
 import path from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { APP_ROOT, outDir, wanted, launchBrowser, serveStatic, NETWORK_NOISE, SKIP_INTRO, CORS, MOCK_KEY, KEYS } from "./lib/harness.mjs";
 import { createFakeClaude, lastResults } from "./lib/fake-claude.mjs";
-import { replayScenario1, liveConversation, usageCost } from "./lib/scenario1.mjs";
+import { replayScenario1, liveConversation, usageCost, loadData } from "./lib/scenario1.mjs";
+import vm from "node:vm";
 import { contrastShortfalls, settle } from "./lib/contrast.mjs";
 
 const mod = (p) => import(pathToFileURL(path.join(APP_ROOT, p)).href);
@@ -81,6 +86,8 @@ async function startLive(page) {
   await page.waitForFunction(() => /Live agent on/.test(document.querySelector('#console .entry[data-type="run"]')?.textContent || ""), null, { timeout: 10000 });
 }
 const statusText = (page) => page.textContent(".status-pill .text").then((t) => t.trim());
+/** Plays the night at ×16, a test speed the control bar does not offer: the logic, not the pace, is tested. */
+const fastNight = (page) => page.evaluate(() => import("./js/state.js").then((m) => m.setState({ speed: 16 })));
 const waitEnded = (page, timeout = 300000) => page.waitForFunction(() => ["Done", "Error", "Stopped", "Aborted"].includes(document.querySelector(".status-pill .text")?.textContent.trim()), null, { timeout });
 const lastLines = (page, n = 3) => page.$$eval("#console .entry .entry-body", (els, k) => els.slice(-k).map((e) => e.textContent.replace(/\s+/g, " ").trim()), n);
 async function exportAudit(page) {
@@ -196,6 +203,129 @@ if (wanted("full")) {
     [checks.offRequests === 0 && t.external.length === 0, "no Open Food Facts request and no other host"],
     [checks.keyInExport === false && checks.keyInConsole === false && /-LIVE-audit\.json$/.test(checks.file || "") && checks.mode === "live", `the audit export (${checks.file}) and the console carry no key`],
     [checks.contrastMeasured > 50 && (checks.contrastBelow || []).length === 0, `the end state meets its contrast duty (${checks.contrastMeasured} measured; ${JSON.stringify(checks.contrastBelow)})`]
+  ]);
+}
+
+// ---- recorder: a live run saved as a simulation, replayed ------------------------------------------------------
+if (wanted("recorder")) {
+  const script = liveConversation({ v: SC1_B.vars, variants: SC1_B.variants, lastResults });
+  const fake = createFakeClaude(script);
+  const t = await newLivePage(fake);
+  const { page } = t;
+  const checks = {};
+  const SC = await mod("js/sim_check.js");
+  const E = await mod("js/engine.js");
+  const data = await loadData();
+  const sc1 = data.SCENARIOS.find((x) => x.id === "SC1-EXPRESS");
+  let fileText = null;
+  try {
+    await startLive(page);
+    await fastNight(page);
+    await page.waitForSelector('#panel-options:not([hidden]) .option-card[data-id="B"] .btn-approve', { timeout: 180000 });
+    await page.click('.option-card[data-id="B"] .btn-approve');
+    await page.waitForSelector("#btn-approve-all", { timeout: 120000 });
+    await page.click("#btn-approve-all");
+    await waitEnded(page);
+    checks.status = await statusText(page);
+    checks.consoleSave = await page.isVisible("#btn-console-save-simulation");
+    const { audit } = await exportAudit(page);
+    checks.liveHash = audit.run?.night_hash;
+    const ok = new Set((audit.events || []).filter((e) => e.type === "tool_result" && e.payload.ok !== false).map((e) => e.payload.call_id));
+    checks.liveCalls = (audit.events || []).filter((e) => e.type === "tool_call" && ok.has(e.payload.call_id)).map((e) => e.payload.name);
+    const downloaded = page.waitForEvent("download", { timeout: 30000 }).catch(() => null);
+    await page.click("#btn-save-simulation");
+    const download = await downloaded;
+    checks.saveStatus = (await page.textContent("#panel-audit .audit-status")).trim();
+    if (!download) throw new Error(`no download: ${checks.saveStatus}`);
+    checks.fileName = download.suggestedFilename();
+    fileText = await readFile(await download.path(), "utf8");
+    await writeFile(path.join(OUT, checks.fileName), fileText);
+    await page.waitForFunction(() => /^Saved /.test(document.querySelector("#panel-audit .audit-status")?.textContent || ""), null, { timeout: 5000 }).catch(() => {});
+    checks.saveStatus = (await page.textContent("#panel-audit .audit-status")).trim();
+  } catch (err) {
+    checks.FAILED = String(err.message).split("\n")[0];
+    await page.screenshot({ path: path.join(OUT, "recorder-fail.png") }).catch(() => {});
+  }
+  await t.context.close().catch(() => {});
+  // The file, read as the page would: appended to data/sim_runs.js.
+  let def = null;
+  if (fileText) {
+    const box = { window: { SIM_RUNS: {} } };
+    vm.createContext(box);
+    vm.runInContext(fileText, box);
+    def = JSON.parse(JSON.stringify(box.window.SIM_RUNS["SC1-EXPRESS"] || null));
+    checks.header = fileText.split("\n").slice(0, 4).join(" ");
+    checks.recorded = def?.recorded;
+    checks.typed = SC.typedFigures(def);
+    checks.placeholders = (fileText.match(/\{\{@/g) || []).length;
+    checks.keyInFile = fileText.includes("MOCKKEY");
+    const r = await SC.checkScript(data.WORLD, sc1, def, data.REFERENCE_CASES[sc1.id]);
+    checks.checker = r.errors;
+    checks.paths = Object.keys(r.paths).sort();
+    const d = def.recorded.decisions;
+    const rep = await SC.replayScript(def, { world: data.WORLD, scenario: sc1, refs: data.REFERENCE_CASES[sc1.id], plan: { option: d.option, reject: d.reject, drafts: d.drafts } });
+    checks.nodeErrors = rep.errors;
+    checks.nodeHash = rep.session?.run.hash;
+    checks.nodeCalls = rep.calls.filter((n) => n !== "ui_await_decision");
+    // A money input changed by the presenter reprices the recorded figures: the €134.25 is computed again.
+    const priced = await SC.replayScript(def, { world: data.WORLD, scenario: sc1, refs: data.REFERENCE_CASES[sc1.id], plan: { option: "B", drafts: d.drafts }, inputs: { ...E.defaults(), c: 40 } });
+    checks.repriced = priced.ok && !priced.texts.some((x) => /€134\.25/.test(x.text)) && priced.texts.some((x) => /€150\.00/.test(x.text));
+  }
+  // The same file in the browser: the recorded run replaces the authored script of scenario 1.
+  const replay = async (option) => {
+    const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+    await ctx.addInitScript(SKIP_INTRO);
+    const external = [];
+    await ctx.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => { external.push(route.request().url()); return route.abort("blockedbyclient"); });
+    const original = await readFile(path.join(APP_ROOT, "data/sim_runs.js"), "utf8");
+    await ctx.route("**/data/sim_runs.js", (route) => route.fulfill({ status: 200, headers: { "content-type": "text/javascript; charset=utf-8" }, body: `${original}\n${fileText}` }));
+    const pg = await ctx.newPage();
+    const errors = [];
+    pg.on("pageerror", (e) => errors.push(String(e.message || e)));
+    const out = { errors, external };
+    try {
+      await pg.goto(BASE);
+      await pg.waitForSelector('html[data-boot="ready"]', { timeout: 20000 });
+      await pg.click("#btn-start");
+      await pg.waitForSelector(".mode-card", { timeout: 5000 });
+      await pg.click('.mode-card[data-mode="simulation"] .mode-cta button');
+      await fastNight(pg);
+      await pg.waitForSelector(`#panel-options:not([hidden]) .option-card[data-id="${option}"] .btn-approve`, { timeout: 180000 });
+      await pg.click(`.option-card[data-id="${option}"] .btn-approve`);
+      if (option === "B") { await pg.waitForSelector("#btn-approve-all", { timeout: 60000 }); await pg.click("#btn-approve-all"); }
+      await pg.waitForFunction(() => ["Done", "Stopped", "Error"].includes(document.querySelector(".status-pill .text")?.textContent.trim()), null, { timeout: 240000 });
+      out.status = (await pg.textContent(".status-pill .text")).trim();
+      out.meta = (await pg.textContent('#console .entry[data-type="run"]')).replace(/\s+/g, " ");
+      out.badgeTitle = await pg.getAttribute("#mode-badge", "title");
+      out.lines = await pg.$$eval("#console .entry .entry-body", (els) => els.slice(-4).map((e) => e.textContent.replace(/\s+/g, " ").trim()));
+      await pg.click("#tab-audit");
+      const [dl] = await Promise.all([pg.waitForEvent("download"), pg.click("#btn-export-audit")]);
+      const audit = JSON.parse(await readFile(await dl.path(), "utf8"));
+      out.hash = audit.run?.night_hash;
+      out.source = audit.run?.sim_source;
+      const okIds = new Set(audit.events.filter((e) => e.type === "tool_result" && e.payload.ok !== false).map((e) => e.payload.call_id));
+      out.calls = audit.events.filter((e) => e.type === "tool_call" && okIds.has(e.payload.call_id)).map((e) => e.payload.name).filter((n) => n !== "ui_await_decision");
+    } catch (err) { out.FAILED = String(err.message).split("\n")[0]; }
+    await ctx.close();
+    return out;
+  };
+  if (fileText) {
+    checks.browserB = await replay("B");
+    checks.browserA = await replay("A");
+  }
+  const liveCalls = (checks.liveCalls || []).filter((n) => n !== "ui_await_decision");
+  const b = checks.browserB || {};
+  const a = checks.browserA || {};
+  await finish("recorder: a live run saved as a simulation replays its calls and its night", t, checks, [
+    [checks.status === "Done" && checks.consoleSave === true, `the live run is done and offers Save run as simulation (${checks.status})`],
+    [/^sim-run-SC1-EXPRESS-recorded-\d{8}\.js$/.test(checks.fileName || "") && /Saved sim-run-SC1-EXPRESS-recorded-/.test(checks.saveStatus || ""), `the download and its status (${checks.fileName}; ${checks.saveStatus})`],
+    [def?.source === "recorded" && checks.recorded?.seed === 7 && checks.recorded?.engine_version === E.ENGINE_VERSION && checks.recorded?.world_version === data.WORLD.meta.world_version && checks.recorded?.model && checks.recorded?.night_hash === checks.liveHash, `the file stores the seed, the versions, the model and the live night's hash (${JSON.stringify(checks.recorded && { seed: checks.recorded.seed, engine: checks.recorded.engine_version, world: checks.recorded.world_version, model: checks.recorded.model, hash: checks.recorded.night_hash })})`],
+    [(checks.typed || []).length === 0 && checks.placeholders > 10 && checks.keyInFile === false, `no figure typed: ${checks.placeholders} figures bound to recorded tool results (typed: ${JSON.stringify(checks.typed)})`],
+    [(checks.checker || []).length === 0 && JSON.stringify(checks.paths) === JSON.stringify(["approve A, not recorded", "approve C, not recorded", "approve baseline, not recorded", "the recorded path"]), `the script checker passes it on every path (${JSON.stringify(checks.checker)}; ${JSON.stringify(checks.paths)})`],
+    [(checks.nodeErrors || []).length === 0 && checks.nodeHash === checks.liveHash && JSON.stringify(checks.nodeCalls) === JSON.stringify(liveCalls), `the Node replay makes the live run's ${liveCalls.length} tool calls in order on its night (${checks.nodeHash}; ${JSON.stringify(checks.nodeErrors)})`],
+    [checks.repriced === true, "a changed labour cost reprices the recorded figures (the call-in no longer reads €134.25 at €40 an hour)"],
+    [b.status === "Done" && b.hash === checks.liveHash && b.source === "recorded" && JSON.stringify(b.calls) === JSON.stringify(liveCalls) && /replay of a recorded live run/i.test(b.meta || "") && /recorded live run/i.test(b.badgeTitle || "") && !b.errors?.length && !b.external?.length, `the browser replays it as a recorded run, with the live calls and night (${JSON.stringify({ status: b.status, hash: b.hash, source: b.source, FAILED: b.FAILED, errors: b.errors })})`],
+    [a.status === "Stopped" && (a.lines || []).some((x) => /holds only the path of the live run of .* where option B was approved/.test(x)) && !a.errors?.length, `approving option A, which the live run did not take, ends the replay with a note (${a.status}; ${JSON.stringify(a.lines)})`]
   ]);
 }
 

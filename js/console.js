@@ -18,7 +18,7 @@ import { clock } from "./format.js";
 import { createProgressRail } from "./progress.js";
 import { runStateLabel } from "./handover.js";
 import { LABELS, splitParagraphs } from "./labels.js";
-import { STORAGE } from "./config.js";
+import { STORAGE, OPEN_FOOD_FACTS } from "./config.js";
 import { clockOf } from "./nightsim.js";
 import { attachNightLog } from "./console_night.js";
 import { aiLabel } from "./ai_label.js";
@@ -33,7 +33,7 @@ const TEXT_SIZE_KEY = STORAGE.consoleText;
  * opts: { getInputs() → the engine's inputs (the night report's euros), onOpenOptions(), onOpenOutbox(),
  * onOpenReport(markdown), onConfirm({ request_id, choice, subject }) }.
  */
-export function createConsole(panel, { getInputs = () => null, onOpenOptions, onOpenOutbox, onOpenReport, onConfirm } = {}) {
+export function createConsole(panel, { getInputs = () => null, onOpenOptions, onOpenOutbox, onOpenReport, onConfirm, onSaveSimulation } = {}) {
   const count = h("span", { class: "count num" }, "");
   const jumpBtn = h("button", { class: "btn btn-sm", type: "button", hidden: true }, icon("chevronDown", 16), "Jump to latest");
   // Larger text for projectors, remembered per browser (a convenience; storage may be unavailable).
@@ -147,14 +147,23 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
       : SCRIPTED;
     log.dataset.sim = String(p.mode === "simulation");
     const meta = p.mode === "preview"
-      ? "Night preview: this scenario has no scripted replay yet (M4), so the engine and the simulated cell play tonight without the agent. No API key, no model calls, no cost."
+      ? "Night preview: this scenario has no scripted replay, so the engine and the simulated cell play tonight without the agent. No API key, no model calls, no cost."
       : p.mode === "simulation"
         ? recorded ? "Simulation: replay of a recorded live run, no API key, no cost." : "Simulation: scripted replay through the agent's own tools; the engine computes every figure now. No API key, no cost."
         : `Live agent on ${p.model_label || p.model || "Claude"}. Real model reasoning and real tool calls against the simulated cell.`;
+    const autonomy = p.mode === "preview" ? null : AUTONOMY_WORDS[p.autonomy] || null;
     add(entry("run", ev, "play", [
       h("div", { class: "run-title" }, p.title || "Agent run"),
-      h("div", {}, meta)
+      h("div", {}, meta),
+      autonomy ? h("div", { class: "run-autonomy" }, h("strong", {}, `Autonomy: ${autonomy[0]}. `), autonomy[1]) : null
     ]));
+  });
+
+  // An option the person applied themselves (Advise): the plan change is theirs, not the agent's.
+  bus.on("plan_update", (ev) => {
+    const p = ev.payload;
+    if (p.source !== "person") return;
+    add(entry("decision", ev, "user", h("p", {}, h("strong", {}, "You applied "), `option ${p.letter || p.option_id}`, (p.levers_text || []).length ? `: ${p.levers_text.join("; ")}` : "", ". The agent did not act on the plan (Advise).")));
   });
 
   bus.on("state_change", (ev) => {
@@ -228,6 +237,12 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
     });
     result.append(toggle, pre);
     body.appendChild(result);
+    // Open Food Facts data carries its licence's attribution wherever it is shown (brief, "Data and
+    // licences"); no product image is used.
+    if (p.name === "open_lookup_barcode" && p.result?.attribution) {
+      body.appendChild(h("p", { class: "attribution" }, `${String(p.result.attribution).replace(/Open Food Facts, ODbL$/, "")}`,
+        h("a", { href: OPEN_FOOD_FACTS.origin, target: "_blank", rel: "noopener noreferrer" }, "Open Food Facts"), ", ODbL"));
+    }
     if (refused) {
       el.dataset.guard = p.name;
       guardLine(ev, p.name, String(p.result?.error || "").trim());
@@ -287,7 +302,7 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
 
   bus.on("provisional_entry", (ev) => {
     const p = ev.payload;
-    add(entry("correction", ev, "memo", [h("strong", {}, "Provisional entry: "), `${p.name}${p.net_content ? `, ${p.net_content}` : ""} for barcode ${p.barcode} (${p.source === "open_food_facts" ? "from Open Food Facts" : "from the scale and the camera"}), unverified until a person confirms it.`]));
+    add(entry("correction", ev, "memo", [h("strong", {}, "Provisional entry: "), `${p.name}${p.net_content ? `, ${p.net_content}` : ""} for barcode ${p.barcode} (${p.source === "open_food_facts" ? "from Open Food Facts" : "from the cell's own sensors"}), unverified until a person confirms it.`]));
   });
 
   bus.on("confirmation_request", (ev) => {
@@ -353,9 +368,14 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
     if (runMode && runMode !== "preview") {
       try { facts = describeRunFacts(computeRunFacts(auditRows(), ev)); } catch (e) { console.error("[Repack Pilot] run facts failed:", e); }
     }
+    // A Live run that reached its summary can replace its scenario's scripted replay (js/recorder.js).
+    const save = runMode === "live" && status === "done" && onSaveSimulation
+      ? h("button", { class: "btn btn-sm", type: "button", id: "btn-console-save-simulation", title: "Download this run as a simulation script that can replace the scripted replay of this scenario", on: { click: () => onSaveSimulation() } }, icon("download", 16), "Save run as simulation")
+      : null;
     add(entry("notice", ev, status === "done" ? "check" : "stop", h("div", {},
       h("span", {}, h("strong", {}, text), reason ? ` ${reason}` : ""),
-      facts ? h("div", { class: "run-facts" }, h("strong", {}, runMode === "simulation" ? "Replay facts: " : "Run facts: "), facts) : null),
+      facts ? h("div", { class: "run-facts" }, h("strong", {}, runMode === "simulation" ? "Replay facts: " : "Run facts: "), facts) : null,
+      save ? h("div", { class: "entry-actions" }, save) : null),
     { level: status === "error" ? "error" : "info", end: status }));
     for (const el of byMsg.values()) { el.classList.remove("streaming"); el.removeAttribute("aria-busy"); }
     runMode = null;
@@ -447,6 +467,13 @@ function formatJson(value) {
   }
   return s.length > 9000 ? `${s.slice(0, 9000)}\n… (shortened for display; the full result is in the audit log)` : s;
 }
+
+/** The autonomy level a run started with, as the run line names it. */
+const AUTONOMY_WORDS = {
+  advise: ["Advise", "The agent recommends; you apply an approved option yourself."],
+  approve: ["Approve", "The agent applies an option after your click."],
+  bounded: ["Bounded", "The agent acts inside set limits; anything outside them escalates."]
+};
 
 const GUARD_LABEL = {
   sim_advance: "Letting the night run on was", ui_propose_options: "The options were", ui_await_decision: "The wait was",

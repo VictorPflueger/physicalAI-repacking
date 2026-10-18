@@ -96,6 +96,7 @@ export const STORAGE = {
   model: `${P}model`,                   // sessionStorage
   speed: `${P}speed`,                   // sessionStorage
   scenario: `${P}scenario`,             // sessionStorage
+  autonomy: `${P}autonomy`,             // sessionStorage: the dial's level (Advise or Approve)
   sessionCost: `${P}sessionCostEur`,    // sessionStorage: live spend in this tab
   assumptions: `${P}assumptions`,       // sessionStorage: the presenter's changed engine inputs
   introSeen: `${P}introSeen`,           // localStorage: the intro opens by itself only on a first visit

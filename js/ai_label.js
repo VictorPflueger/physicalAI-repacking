@@ -7,10 +7,10 @@ import { bus } from "./events.js";
 import { h } from "./dom.js";
 import { icon } from "./icons.js";
 
-let run = { mode: null, model: null };
+let run = { mode: null, model: null, recorded: false };
 bus.on("run_start", (ev) => {
   const p = ev.payload || {};
-  run = { mode: p.mode, model: p.model_label || p.model || null };
+  run = { mode: p.mode, model: p.model_label || p.model || null, recorded: p.sim_source === "recorded", recordedModel: p.recorded_model || null, recordedOn: p.recorded_on || null };
 });
 
 // What the code guarantees, stated exactly: card and tile figures are engine output; free text is
@@ -20,6 +20,7 @@ const CHECKED = "Every euro amount, number of hours and rate in this text was ch
 
 function author() {
   if (run.mode === "live") return `Written by the live agent${run.model ? ` (Claude ${run.model})` : ""} during this run.`;
+  if (run.recorded) return `Written by the live agent in a run recorded${run.recordedOn ? ` on ${run.recordedOn}` : ""}${run.recordedModel ? ` (${run.recordedModel})` : ""}, and replayed now with every figure computed again by the engine. No model was called.`;
   return "Scripted replay: the words were written in advance for the simulation, with every figure filled in by the engine now. No model was called.";
 }
 
@@ -35,6 +36,10 @@ const KINDS = {
   report: () => ({
     heading: "AI-written summary",
     lines: [author(), CHECKED, "The sources are named under How we know, and the audit export holds every model call and tool result."]
+  }),
+  "what-if": () => ({
+    heading: "AI-requested what-if",
+    lines: [author(), "The agent chose which input to change; the deterministic engine computed every figure.", "A labelled what-if is not tonight's plan: no option, draft or summary may quote it."]
   })
 };
 
@@ -48,7 +53,7 @@ for (const type of ["wheel", "touchmove"]) document.addEventListener(type, close
 
 let counter = 0;
 
-/** An AI label for `kind` ("options" | "draft" | "report"). The explanation reflects the current run. */
+/** An AI label for `kind` ("options" | "draft" | "report" | "what-if"). The explanation reflects the current run. */
 export function aiLabel(kind) {
   const id = `ai-tip-${++counter}`;
   const button = h("button", {

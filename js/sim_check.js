@@ -10,8 +10,9 @@
 // every euro amount, number of hours and rate written in narration matches a figure a tool returned by
 // then (as in live mode, option cards, drafts and the summary are audited by the tools themselves); no
 // text shows "undefined" or "NaN"; the summary is marked as a simulated run, never as a live one; and
-// the night ends with the summary published. Paths: each option approved, doing nothing, and the
-// recommended option rejected before another is approved. Before any replay it reads the script itself:
+// the night ends with the summary published. Paths: each option approved, doing nothing, the
+// recommended option rejected before another is approved, the recommendation approved in Advise mode
+// (the person applies it), and both answers to a confirmation. Before any replay it reads the script itself:
 // a euro amount, number of hours or rate typed into a text, even a right one, is an error, because the
 // figure would not follow a changed input at playback (the browser does not audit the narration).
 
@@ -20,12 +21,12 @@ import { createToolbox, TOOL_NAMES } from "./tools.js";
 import { interpretScript, replayInputs, REPLAY_PARAMS } from "./script.js";
 import { unresolvedKeys, stringsIn } from "./sim_vars.js";
 import { createOffLookup } from "./openfoodfacts.js";
-import { defaults as engineDefaults } from "./engine.js";
+import { defaults as engineDefaults, ENGINE_VERSION } from "./engine.js";
 import { extractFigures } from "./figures.js";
 
 const BROKEN = /\b(undefined|NaN)\b|\[object Object\]/;
-/** Scenarios whose script must exist in this build (the others arrive with M4). */
-export const SCRIPTS_REQUIRED = Object.freeze(["SC1-EXPRESS"]);
+/** Scenarios whose script must exist in this build: all six (M4). */
+export const SCRIPTS_REQUIRED = Object.freeze(["SC1-EXPRESS", "SC2-GLASS", "SC3-UNKNOWN", "SC4-WEAR", "SC5-EARLY", "SC6-PEAK"]);
 
 class ScriptError extends Error {}
 
@@ -41,7 +42,8 @@ function headlessBridge(session) {
 
 /**
  * A person who decides by plan: plan { option: "B" | "baseline", reject: ["A"] (rejected first, in
- * order), drafts: "approve" | "reject" | ["approve", "reject", …], confirm: "confirm" | "reject" }.
+ * order), drafts: "approve" | "reject" | ["approve", "reject", …], confirm: "confirm" | "reject",
+ * autonomy: "approve" (default) | "advise" }.
  */
 function plannedPerson(plan) {
   const drafts = new Map();
@@ -104,7 +106,7 @@ export async function replayScript(script, { world, scenario, refs = {}, plan = 
     emit: (type, payload) => { events.push({ type, payload }); person.onEvent(type, payload); },
     waitUntil: person.waitUntil, takeOptionDecision: person.takeOptionDecision, takeConfirmation: person.takeConfirmation,
     drafts: person.drafts, onPhase: (state) => events.push({ type: "state_change", payload: { state } }),
-    advance: () => bridge.advance(), autonomy: () => "approve", lookup, pause: async () => {}
+    advance: () => bridge.advance(), autonomy: () => plan.autonomy || "approve", lookup, pause: async () => {}
   });
   const vars = {};
   const calls = [];
@@ -126,9 +128,12 @@ export async function replayScript(script, { world, scenario, refs = {}, plan = 
     return out;
   };
   let decisionId = null;
+  let ended = false;
   try {
     const res = await interpretScript(script, {
       refs, vars, fail,
+      autonomy: () => plan.autonomy || "approve",
+      describeWake: (w) => toolbox.describeWake(w),
       first: () => bridge.first(),
       callTool: (name, input, step) => call(name, input, step?.where),
       callTools: (list) => Promise.all(list.map((t) => call(t.name, t.input))),
@@ -147,20 +152,26 @@ export async function replayScript(script, { world, scenario, refs = {}, plan = 
       }
     });
     decisionId = res.decisionId;
+    ended = !!res.ended;
     const st = toolbox.state();
-    if (!st.nightOver) errors.push("the script ends before the night does");
-    if (!st.reported) errors.push("the script publishes no management summary");
-    if (plan.option && decisionId !== plan.option) errors.push(`the decision plan approves ${plan.option}, the script took ${decisionId || "no decision"}`);
+    // A recorded run's path the live run did not take ends with its note: no night end, no summary.
+    if (!ended) {
+      if (!st.nightOver) errors.push("the script ends before the night does");
+      if (!st.reported) errors.push("the script publishes no management summary");
+      if (plan.option && decisionId !== plan.option) errors.push(`the decision plan approves ${plan.option}, the script took ${decisionId || "no decision"}`);
+    }
+    if (plan.autonomy === "advise" && calls.includes("wms_apply_option")) errors.push("in Advise mode the script calls wms_apply_option: the person applies the option");
   } catch (e) {
     if (e instanceof ScriptError) errors.push(e.message);
     else errors.push(`the replay failed: ${e?.message || e}`);
   }
-  return { ok: errors.length === 0, errors, events, session, toolbox, vars, decisionId, calls, texts };
+  return { ok: errors.length === 0, errors, events, session, toolbox, vars, decisionId, calls, texts, ended };
 }
 
-/** The decision points of a script: each propose step with its option ids and recommendation. */
+/** The decision points of a script: each propose step with its option ids and recommendation, and each confirmation. */
 function decisionPoints(script) {
   const out = [];
+  const confirms = [];
   const walk = (steps = []) => {
     for (const s of steps) {
       if (s.propose) {
@@ -169,9 +180,15 @@ function decisionPoints(script) {
         for (const b of Object.values(s.propose.approved || {})) walk(b);
       }
       if (s.when) for (const b of Object.values(s.when)) walk(b);
+      if (s.confirm) {
+        confirms.push(s.confirm);
+        walk(s.confirm.confirmed);
+        walk(s.confirm.rejected);
+      }
     }
   };
   for (const w of script?.wakes || []) walk(w.steps);
+  out.confirms = confirms;
   return out;
 }
 
@@ -199,45 +216,69 @@ export function typedFigures(script) {
 export async function checkScript(world, scenario, script, refs = {}, { cache = createSessionCache(), inputs = null } = {}) {
   const errors = [];
   if (!script || !Array.isArray(script.wakes) || !script.wakes.length) return { errors: ["the script has no wake-ups"], summary: "", paths: {} };
+  // A recorded live run (js/recorder.js): it holds the path the live run took, and every other choice
+  // ends its replay with a note. It must have been recorded on this engine and this world.
+  const recorded = script.source === "recorded";
+  const rec = recorded ? script.recorded || {} : null;
   if (script.scenario && script.scenario !== scenario.id) errors.push(`the script is for ${script.scenario}, not ${scenario.id}`);
-  if (script.world_version && world.meta?.world_version && script.world_version !== world.meta.world_version) errors.push(`written for world ${script.world_version}, this app has world ${world.meta.world_version}`);
+  if (script.world_version && world.meta?.world_version && script.world_version !== world.meta.world_version) errors.push(`${recorded ? "recorded" : "written"} for world ${script.world_version}, this app has world ${world.meta.world_version}${recorded ? ": record the run again" : ""}`);
+  if (recorded && rec.engine_version !== ENGINE_VERSION) errors.push(`recorded with engine ${rec.engine_version || "unknown"}, this app has engine ${ENGINE_VERSION}: record the run again`);
   for (const f of typedFigures(script)) errors.push(`${f.where}: "${f.raw}" is typed; take it from a {{placeholder}}`);
   const points = decisionPoints(script);
   if (points.length > 1) errors.push("more than one decision per script is not supported yet");
-  const plans = [];
-  if (points.length) {
+  if (points.confirms.length > 1) errors.push("more than one confirmation per script is not supported yet");
+  for (const c of points.confirms) for (const k of ["confirmed", "rejected"]) if (!Array.isArray(c[k])) errors.push(`no steps for a ${k} entry`);
+  let plans = [];
+  if (recorded) {
+    const d = rec.decisions || {};
+    const main = { option: d.option ?? null, reject: d.reject || [], drafts: d.drafts || "approve", ...(d.confirm ? { confirm: d.confirm } : {}) };
+    plans.push({ name: "the recorded path", plan: main });
+    if (points.length) for (const id of [...points[0].ids, "baseline"]) if (id !== d.option) plans.push({ name: `approve ${id}, not recorded`, plan: { option: id }, expectEnd: true });
+    if (points.confirms.length && d.confirm) plans.push({ name: `${d.confirm === "confirm" ? "reject" : "confirm"} the entry, not recorded`, plan: { ...main, confirm: d.confirm === "confirm" ? "reject" : "confirm" }, expectEnd: true });
+  } else if (points.length) {
     const p = points[0];
     if (p.ids.length !== 3) errors.push(`the options name ${p.ids.length} variants, not 3`);
     for (const id of [...p.ids, "baseline"]) if (!p.approved[id] && !p.approved.default) errors.push(`no path for approving ${id}`);
     for (const id of p.ids) if (!p.rejected[id]) errors.push(`no line for rejecting ${id}`);
     for (const id of [...p.ids, "baseline"]) plans.push({ name: `approve ${id}`, plan: { option: id } });
     const other = p.ids.find((id) => id !== p.recommended) || "baseline";
-    if (p.recommended) plans.push({ name: `reject ${p.recommended}, approve ${other}`, plan: { option: other, reject: [p.recommended] } });
+    if (p.recommended) {
+      plans.push({ name: `reject ${p.recommended}, approve ${other}`, plan: { option: other, reject: [p.recommended] } });
+      // Advise: the person's click applies the recommendation; the script must not apply it itself.
+      plans.push({ name: `advise, approve ${p.recommended}`, plan: { option: p.recommended, autonomy: "advise" } });
+    }
   } else {
     plans.push({ name: "no decision", plan: { option: null } });
   }
+  // A confirmation doubles every path: the person confirms, or rejects.
+  if (points.confirms.length && !recorded) plans = plans.flatMap(({ name, plan }) => ["confirm", "reject"].map((c) => ({ name: `${name}, ${c} the entry`, plan: { ...plan, confirm: c } })));
   const paths = {};
   let first = null;
   // Tool calls as the console lists them (and the run facts count them): ui_* tools show as their
   // effects and sim_advance as the wake-up.
   const visibleOf = (r) => r.calls.filter((n) => !n.startsWith("ui_") && n !== "sim_advance").length;
   const visible = [];
-  for (const { name, plan } of plans) {
+  for (const { name, plan, expectEnd } of plans) {
     const r = await replayScript(script, { world, scenario, refs, plan, cache, inputs });
     for (const e of r.errors) errors.push(`${name}: ${e}`);
+    if (expectEnd && r.ok && !r.ended) errors.push(`${name}: the replay does not end with a note on a path the live run did not take`);
+    if (!expectEnd && r.ended) errors.push(`${name}: the replay ends early (${r.texts.at(-1)?.text || "an end step"})`);
     const res = r.session?.run;
-    paths[name] = r.ok ? { hash: res.hash, on_time: res.orders.filter((o) => o.on_time).length, orders: res.orders.length, late: res.orders.filter((o) => !o.on_time).map((o) => o.id), calls: r.calls.length, visible_calls: visibleOf(r), outcome: r.toolbox.state().outcome } : { failed: true };
-    if (r.ok) visible.push(visibleOf(r));
+    paths[name] = r.ok ? { hash: res.hash, on_time: res.orders.filter((o) => o.on_time).length, orders: res.orders.length, late: res.orders.filter((o) => !o.on_time).map((o) => o.id), calls: r.calls.length, visible_calls: visibleOf(r), outcome: r.toolbox.state().outcome, ...(r.ended ? { ended: true } : {}) } : { failed: true };
+    if (r.ok && !r.ended) visible.push(visibleOf(r));
     if (!first) first = r;
+    // The recorded path replays the live night itself (D34: a recording is made on the brief's night).
+    if (recorded && !expectEnd && r.ok && rec.night_hash && res.hash !== rec.night_hash) errors.push(`${name}: the replay's night (hash ${res.hash}) is not the recorded live night (${rec.night_hash}): record the run again`);
   }
-  const stats = first?.ok ? {
+  const stats = first?.ok && !recorded ? {
     revised: first.texts.some((t) => /(^|\n)\s*Revised:/.test(t.text)),
     recommendation: first.texts.some((t) => /(^|\n)\s*Recommendation:/.test(t.text))
   } : null;
   if (stats && points.length && !stats.recommendation) errors.push("no \"Recommendation:\" narration before the decision");
   const lo = Math.min(...visible), hi = Math.max(...visible);
-  const calls = visible.length === plans.length ? `${lo === hi ? lo : `${lo} to ${hi}`} tool calls on screen` : "replay failed";
-  const summary = `${script.wakes.length} wake-ups, ${calls}, ${plans.length} decision path${plans.length === 1 ? "" : "s"}`;
+  const full = plans.filter((x) => !x.expectEnd).length;
+  const calls = visible.length === full ? `${lo === hi ? lo : `${lo} to ${hi}`} tool calls on screen` : "replay failed";
+  const summary = `${recorded ? `recorded live run of ${rec.recorded_on || rec.at?.slice(0, 10) || "an earlier day"}, ` : ""}${script.wakes.length} wake-ups, ${calls}, ${plans.length} decision path${plans.length === 1 ? "" : "s"}${recorded && plans.length > 1 ? ` (${plans.length - full} end with a note)` : ""}`;
   return { errors: [...new Set(errors)], summary, paths };
 }
 
@@ -256,7 +297,7 @@ export async function checkSimRuns(world, simRuns = {}, scenarios = [], referenc
       continue;
     }
     const r = await checkScript(world, sc, def, referenceCases[sc.id] || {}, { cache });
-    out.push({ name: `Simulation ${sc.number}: script valid under the live guardrails`, ok: r.errors.length === 0, detail: r.errors.length ? r.errors.slice(0, 3).join(" | ") : r.summary, paths: r.paths });
+    out.push({ name: `Simulation ${sc.number}: ${def.source === "recorded" ? "recorded live run" : "script"} valid under the live guardrails`, ok: r.errors.length === 0, detail: r.errors.length ? r.errors.slice(0, 3).join(" | ") : r.summary, paths: r.paths, recorded: def.source === "recorded" });
   }
   return out;
 }

@@ -12,7 +12,8 @@ const state = {
   scenarioId: readSession(STORAGE.scenario) || UI.defaultScenario,
   model: readSession(STORAGE.model) || DEFAULT_MODEL,
   speed: UI.speeds.includes(Number(readSession(STORAGE.speed))) ? Number(readSession(STORAGE.speed)) : 1,
-  autonomy: DEFAULT_LEVEL, // "advise" | "approve" | "bounded" (the dial arrives with M4)
+  // "advise" | "approve" (Bounded stays locked by the shadow-mode gate, so it is never stored)
+  autonomy: ["advise", "approve"].includes(readSession(STORAGE.autonomy)) ? readSession(STORAGE.autonomy) : DEFAULT_LEVEL,
   keyPresent: false,
   simSource: null,         // "authored" | "recorded" while a simulation runs
   drawerOpen: false,
@@ -34,6 +35,7 @@ export function setState(patch) {
   if (patch.model) writeSession(STORAGE.model, patch.model);
   if (patch.speed) writeSession(STORAGE.speed, String(patch.speed));
   if (patch.scenarioId) writeSession(STORAGE.scenario, patch.scenarioId);
+  if (patch.autonomy && ["advise", "approve"].includes(patch.autonomy)) writeSession(STORAGE.autonomy, patch.autonomy);
   if (patch.assumptions) writeSession(STORAGE.assumptions, JSON.stringify(patch.assumptions));
   if (changed) for (const fn of listeners) fn(getState());
 }

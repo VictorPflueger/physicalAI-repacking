@@ -11,9 +11,13 @@ import { bus } from "./events.js";
 import { tonightFigures, clockOf, clockUp, MINUTE, WEIGHT_TOLERANCE } from "./nightsim.js";
 import { createNightSession } from "./night_session.js";
 
-export const SIM_MS_PER_REAL_MS = (6 * MINUTE) / 1000; // ×1: six simulated minutes per real second
+export const SIM_MS_PER_REAL_MS = (3 * MINUTE) / 1000; // ×1: three simulated minutes per real second (M4, D49)
 export const IDLE_GAP_MS = 4 * MINUTE;                  // a longer gap between events is fast-forwarded
 export const IDLE_FACTOR = 12;                          // how much faster an idle stretch passes
+// The night's opening plays at a watching pace, so the room sees the camera, the rehearsals and the
+// first picks before the night speeds up (the brief's "Perceive and plan", 1:00 to 2:30 of the demo).
+export const OPENING_MS = 15 * MINUTE;
+export const OPENING_FACTOR = 0.1;
 
 /**
  * Events the audit keeps as one compact unit log instead of one envelope each (PLAN.md §d.1 "Audit
@@ -87,7 +91,7 @@ export function createNightPlayer(hooks = {}) {
         const dt = Math.min(250, Math.max(0, n - run.last)); // a hidden tab or a slow frame never jumps the night
         run.last = n;
         const next = ses.peek();
-        const advance = dt * SIM_MS_PER_REAL_MS * (getSpeed() || 1);
+        const advance = dt * SIM_MS_PER_REAL_MS * (getSpeed() || 1) * (run.t < OPENING_MS ? OPENING_FACTOR : 1);
         // A long quiet stretch passes faster, but never beyond the next event.
         const idle = next && next.t - run.t > IDLE_GAP_MS;
         const target = idle ? Math.min(run.t + advance * IDLE_FACTOR, next.t) : run.t + advance;

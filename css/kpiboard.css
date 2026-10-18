@@ -52,3 +52,10 @@
 .as-night dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 16px; margin: 0; }
 .as-night dt { color: var(--text-muted); font-weight: 600; }
 .as-night dd { margin: 0; }
+
+/* The agent's labelled what-if (violet: the AI), apart from the Plan and Tonight columns. */
+.kb-whatif { margin: 12px 0; padding: 10px 14px; border: 1px dashed var(--violet-line); border-radius: var(--r-md); background: var(--violet-fill); }
+.kb-whatif-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; color: var(--violet-text); }
+.kb-whatif-tag { color: var(--text-muted); font-size: var(--fs-sm); }
+.kb-whatif p { margin: 0; color: var(--text); }
+.kb-whatif .kb-whatif-note { margin-top: 4px; color: var(--text-muted); font-size: var(--fs-sm); }

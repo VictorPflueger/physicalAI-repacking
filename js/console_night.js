@@ -175,7 +175,7 @@ export function attachNightLog(ctx) {
     add("report", ev, "check", h("div", { class: "night-report" },
       h("div", { class: "night-report-title" }, `Night over at ${clockOf(ev.payload.sim_t ?? 8 * HOUR)}. ${verdict}`),
       h("dl", {}, rows.flatMap(([k, val]) => [h("dt", {}, k), h("dd", {}, val)])),
-      h("p", { class: "night-report-note" }, `Labour counts the base picker's picks at ${int(v.r_m)} an hour (IML) and any called-in hours; euros at ${eur2(v.c)} an hour (EUROSTAT_LC). Simulated, synthetic night.`)),
+      h("p", { class: "night-report-note" }, `Labour counts the base picker's picks at ${int(v.r_m)} an hour (IML) and any called-in hours; euros at ${eur2(v.c)} an hour (EUROSTAT_LC)${f.called_in_hours > 0 ? `, called-in hours with the ${Math.round(v.callin_premium * 100)} % night premium (Assumption)` : ""}. Simulated, synthetic night.`)),
     { state: late.length ? "late" : "on-time" });
   });
 

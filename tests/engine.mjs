@@ -665,7 +665,8 @@ await test("scenario 1's script passes the checker on every decision path; a typ
   const sc = scenario(1);
   const r = await SC.checkScript(WORLD, sc, SIM_RUNS[sc.id], REFERENCE_CASES[sc.id]);
   assert.deepEqual(r.errors, []);
-  assert.deepEqual(Object.keys(r.paths).sort(), ["approve A", "approve B", "approve C", "approve baseline", "reject B, approve A"]);
+  assert.deepEqual(Object.keys(r.paths).sort(), ["advise, approve B", "approve A", "approve B", "approve C", "approve baseline", "reject B, approve A"]);
+  assert.equal(r.paths["advise, approve B"].hash, r.paths["approve B"].hash, "Advise gives the same night: the person applied what the agent would have");
   assert.deepEqual([...r.paths["approve B"].late], []);
   assert.deepEqual([...r.paths["approve baseline"].late].sort(), ["HAM", "SOE"]);
   assert.equal(r.paths["approve baseline"].outcome, "baseline_accepted");
@@ -678,6 +679,98 @@ await test("scenario 1's script passes the checker on every decision path; a typ
   const typedRight = JSON.parse(JSON.stringify(SIM_RUNS[sc.id]).replace("Expected {{B.total}}.", "Expected €134.25."));
   const caught = await SC.checkScript(WORLD, sc, typedRight, REFERENCE_CASES[sc.id]);
   assert.ok(caught.errors.some((e) => /"€134\.25" is typed; take it from a \{\{placeholder\}\}/.test(e)), caught.errors.join(" | "));
+});
+
+await test("golden option cases of scenarios 4 and 6: a maintenance stop saves labour, a call-in with the split saves Hamm and Soest", () => {
+  // Scenario 4 at E3 (23:43), after the safety action that sends fragile items to the manual station.
+  const s4 = sessionAt(4, "W3");
+  assert.deepEqual([...s4.wake().kinds], ["escalation"]);
+  s4.apply([{ type: "route_to_manual", fragile_only: true }], { source: "safety" });
+  const r4 = s4.cost(REFERENCE_CASES["SC4-WEAR"].options.variants, E.defaults());
+  const b4 = Object.fromEntries([r4.baseline, ...r4.variants].map((v) => [v.variant_id, v]));
+  const want4 = { do_nothing: [0, 0, 0], A: [-20.37, -20.37, 0], B: [134.25, 134.25, 0], C: [-13.38, -13.38, 0] };
+  for (const [id, [total, labour, late]] of Object.entries(want4)) {
+    near(b4[id].expected_total_eur, total, `scenario 4 ${id} expected total`);
+    near(b4[id].extra_labour_eur, labour, `scenario 4 ${id} extra labour`);
+    near(b4[id].expected_late_orders, late, `scenario 4 ${id} late orders`);
+  }
+  assert.equal(eur2(b4.A.extra_labour_eur), "−€20.37");
+  assert.ok(b4.A.extra_manual_picks < -200, `the stop saves failed grasps (${b4.A.extra_manual_picks} picks)`);
+  // Scenario 6 at night start: Hamm and Soest late with doing nothing.
+  const s6 = sessionAt(6, "W1");
+  assert.deepEqual([...s6.wake().kinds].sort(), ["cutoff_risk", "night_start"]);
+  const r6 = s6.cost(REFERENCE_CASES["SC6-PEAK"].options.variants, E.defaults());
+  const b6 = Object.fromEntries([r6.baseline, ...r6.variants].map((v) => [v.variant_id, v]));
+  const want6 = { do_nothing: [500, 0, 2, { HAM: 20, SOE: 20 }], A: [166.94, 166.94, 0, {}], B: [181.16, 181.16, 0, {}], C: [500, 0, 2, { HAM: 20, SOE: 20 }] };
+  for (const [id, [total, labour, late, by]] of Object.entries(want6)) {
+    near(b6[id].expected_total_eur, total, `scenario 6 ${id} expected total`);
+    near(b6[id].extra_labour_eur, labour, `scenario 6 ${id} extra labour`);
+    near(b6[id].expected_late_orders, late, `scenario 6 ${id} late orders`);
+    assert.deepEqual(b6[id].late_by_order, by, `scenario 6 ${id} late by order`);
+  }
+  assert.ok(b6.B.tonight.smallest_slack_min > b6.A.tonight.smallest_slack_min, "option B buys more margin than option A");
+});
+
+await test("an order moved to tomorrow's wave saves no labour; a stop's saving is credited (TECH_NOTES D48)", () => {
+  // Scenario 1's option C moves Soest: its work is deferred, not saved, so its extra labour stays zero.
+  const ses = sessionAt(1, "W4");
+  const r = ses.cost(REFERENCE_CASES["SC1-EXPRESS"].options.variants, E.defaults());
+  const c = r.variants.find((v) => v.variant_id === "C");
+  assert.equal(c.extra_manual_picks, 0, `moving Soest counts its manual picks on neither side (${c.extra_manual_picks})`);
+  // Control: counted the old way, against doing nothing with Soest's own picks in it, moving Soest would read as a saving.
+  const nightSoest = ses.night;
+  const NOW = ses.now() + 1;
+  const base = NS.simulate(nightSoest, { seed: 7, levers: ses.levers(), events: false });
+  const moved = NS.simulate(nightSoest, { seed: 7, levers: [...ses.levers(), ...O.leversFrom(c.levers, NOW)], events: false });
+  assert.ok(moved.stats.manual_picks < base.stats.manual_picks, "control: the raw manual picks do drop when Soest leaves tonight's work");
+});
+
+await test("Tonight's labour euros carry the call-in premium (TECH_NOTES D46): option B's night costs €69.55 per 1,000 units", async () => {
+  const sc = scenario(1);
+  const r = await SC.replayScript(SIM_RUNS[sc.id], { world: WORLD, scenario: sc, refs: REFERENCE_CASES[sc.id], plan: { option: "B" } });
+  assert.ok(r.ok, r.errors.join(" | "));
+  const f = r.session.figures();
+  near(f.called_in_hours, 3, "the called-in hours as billed");
+  const v = E.defaults();
+  assert.equal(eur2(E.tonightEuros(v, f).per_thousand_eur), "€69.55");
+  near(E.tonightEuros(v, f).labour_eur, (f.labour_hours - 3) * 35.8 + 3 * 35.8 * 1.25, "base hours at c, called-in hours with the premium");
+  assert.equal(eur2(E.tonightEuros({ ...v, callin_premium: 0 }, f).per_thousand_eur), "€61.65", "control: without the premium, M3's figure");
+  const report = r.events.filter((e) => e.type === "tool_result" && e.payload.name === "sim_night_report").at(-1).payload.result;
+  assert.equal(eur2(report.labour_eur_per_1000), "€69.55", "the night report the agent reads");
+  assert.equal(r.vars["night.per1000_eur"], "€69.55", "the placeholder the script shows");
+});
+
+await test("every scenario's script passes the checker on every path a person can take, and types no figure", async () => {
+  const want = {
+    "SC2-GLASS": { paths: ["no decision"], outcome: "correction_only" },
+    "SC3-UNKNOWN": { paths: ["no decision, confirm the entry", "no decision, reject the entry"], outcome: "escalation_only" },
+    "SC4-WEAR": { paths: ["advise, approve A", "approve A", "approve B", "approve C", "approve baseline", "reject A, approve B"], outcome: "option_decided" },
+    "SC5-EARLY": { paths: ["no decision"], outcome: "correction_only" },
+    "SC6-PEAK": { paths: ["advise, approve A", "approve A", "approve B", "approve C", "approve baseline", "reject A, approve B"], outcome: "option_decided" }
+  };
+  for (const [id, w] of Object.entries(want)) {
+    const sc = SCENARIOS.find((x) => x.id === id);
+    const r = await SC.checkScript(WORLD, sc, SIM_RUNS[id], REFERENCE_CASES[id] || {});
+    assert.deepEqual(r.errors, [], `${id}: ${r.errors.slice(0, 2).join(" | ")}`);
+    assert.deepEqual(Object.keys(r.paths).sort(), w.paths, `${id} paths`);
+    assert.deepEqual(SC.typedFigures(SIM_RUNS[id]), [], `${id} types no figure`);
+    const main = r.paths[w.paths.find((p) => /approve A$|no decision/.test(p))];
+    assert.equal(main.outcome, w.outcome, `${id} outcome`);
+    assert.deepEqual([...main.late], [], `${id}: every truck on time on the main path`);
+  }
+  // Scenario 6 doing nothing: Hamm and Soest late, as the brief's N2 calibration has it.
+  const r6 = await SC.checkScript(WORLD, scenario(6), SIM_RUNS["SC6-PEAK"], REFERENCE_CASES["SC6-PEAK"]);
+  assert.deepEqual([...r6.paths["approve baseline"].late].sort(), ["HAM", "SOE"]);
+  assert.equal(r6.paths["advise, approve A"].hash, r6.paths["approve A"].hash, "Advise plays the same night as Approve");
+  // Controls: a script missing its rejection path, and a confirmation without a branch, both fail.
+  const noReject = JSON.parse(JSON.stringify(SIM_RUNS["SC4-WEAR"]));
+  delete noReject.wakes[2].steps.find((x) => x.propose).propose.rejected.B;
+  assert.ok((await SC.checkScript(WORLD, scenario(4), noReject, REFERENCE_CASES["SC4-WEAR"])).errors.some((e) => /no line for rejecting B/.test(e)));
+  const noBranch = JSON.parse(JSON.stringify(SIM_RUNS["SC3-UNKNOWN"]));
+  delete noBranch.wakes[2].steps.find((x) => x.confirm).confirm.rejected;
+  assert.ok((await SC.checkScript(WORLD, scenario(3), noBranch, {})).errors.some((e) => /no steps for a rejected entry/.test(e)));
+  // A script that applies the option itself in Advise mode is caught (the person applies it there).
+  assert.equal(SC.SCRIPTS_REQUIRED.length, 6, "all six scripts are required");
 });
 
 console.log(failures.length ? `\n${failures.length} engine test(s) failed: ${failures.join("; ")}` : `\nAll ${passed} engine tests passed.`);

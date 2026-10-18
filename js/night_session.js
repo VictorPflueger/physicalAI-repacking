@@ -31,7 +31,8 @@ export function createNightSession({ world, scenario, params = {}, seed, cache =
   const closedAt = [];      // the moments of the wake-ups played so far
   const compute = (list) => {
     if (!cache) return runNight(night, { seed: s, levers: list, closedAt });
-    const key = JSON.stringify([s, night.P, list, closedAt]);
+    // The scenario is part of the key: every scenario's night has seed 7 and the same rates.
+    const key = JSON.stringify([scenario.id, s, night.P, list, closedAt]);
     if (!cache.runs.has(key)) cache.runs.set(key, runNight(night, { seed: s, levers: list, closedAt }));
     return cache.runs.get(key);
   };
@@ -149,7 +150,7 @@ export function createNightSession({ world, scenario, params = {}, seed, cache =
       const at = (wake ? wake.t : lastT) + 1;
       const args = { seed: s, now_ms: at, variants, inputs, base_levers: levers };
       if (!cache) return costOptions(night, args);
-      const key = JSON.stringify([s, night.P, at, variants, inputs, levers]);
+      const key = JSON.stringify([scenario.id, s, night.P, at, variants, inputs, levers]);
       if (!cache.costs.has(key)) cache.costs.set(key, costOptions(night, args));
       return cache.costs.get(key);
     },

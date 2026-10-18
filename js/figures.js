@@ -139,6 +139,35 @@ export function collectFigures(value, known = new FigureSet()) {
   return known;
 }
 
+/**
+ * Figure leaves of a tool result with their paths, for the recorder (js/recorder.js): every number under
+ * a euro, hour or rate field name, as collectFigures() counts them. [{ path: ["variants", 1,
+ * "expected_total_eur"], kind, value }]. Numbers written inside strings are left out: the same values
+ * are numbers elsewhere in the results.
+ */
+export function figureLeaves(value) {
+  const out = [];
+  const walk = (v, key, p, depth) => {
+    if (depth > 16 || v === null || v === undefined) return;
+    if (typeof v === "number") {
+      const k = String(key ?? "");
+      const kind = EUR_KEY.test(k) ? "eur" : RATE_KEY.test(k) ? "rate" : HOURS_KEY.test(k) ? "hours" : null;
+      if (kind && Number.isFinite(v)) out.push({ path: p, kind, value: v });
+      return;
+    }
+    if (Array.isArray(v)) { v.forEach((x, i) => walk(x, key, [...p, i], depth + 1)); return; }
+    if (typeof v === "object") for (const [k, x] of Object.entries(v)) walk(x, k, [...p, k], depth + 1);
+  };
+  walk(value, null, [], 0);
+  return out;
+}
+
+/** Where the number sits in a written figure ("€134.25" → { start: 1, end: 7, text: "134.25" }), or null. */
+export function numberSpan(raw) {
+  const m = new RegExp(NUM).exec(String(raw || ""));
+  return m ? { start: m.index, end: m.index + m[0].length, text: m[0] } : null;
+}
+
 /** Figures in `text` that match no known figure of their kind (known: a FigureSet or a list of them). */
 export function unknownFigures(text, known) {
   const sets = Array.isArray(known) ? known : [known];
