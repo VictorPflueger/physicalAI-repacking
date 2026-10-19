@@ -18,7 +18,7 @@ import { worth } from "./worth.js";
 const STEPS = [
   { tone: "know", title: "Knows", text: "Every item on the pallet: weight, size, fragility and how to grip it." },
   { tone: "check", title: "Checks", text: "Camera and scale compare each item with the model; the robot rehearses every grasp against it first." },
-  { tone: "learn", title: "Learns", text: "A reading that differs is written back for every unit of that item." },
+  { tone: "learn", title: "Learns", text: "A reading that clearly differs is written back for every unit of that item." },
   { tone: "ask", title: "Asks", text: "What the model does not know, or the robot cannot grip safely, goes to a person. You decide." }
 ];
 

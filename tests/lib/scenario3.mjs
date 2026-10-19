@@ -47,7 +47,7 @@ export async function replayScenario3(plan = { option: null, confirm: "confirm" 
     // What it is worth at night end, as the panel words it (js/worth_panel.js).
     tonight: {
       units: `${F.int(fig.units_repacked)} of ${F.int(fig.units_repacked)}: ${F.int(fig.successes)} by the robot, ${F.int(fig.manual_picks - setAside)} by hand`,
-      labour: `${F.hours(fig.labour_hours)} · ${F.eur2(eur.labour_eur)} with the cell; by hand ${F.hours(byHand.manual_h)} · ${F.eur2(byHand.manual_eur)}`,
+      labour: `${F.hours(fig.labour_hours)} · ${F.eur2(eur.labour_eur)} with the cell${setAside ? ` (${F.int(fig.manual_picks - setAside)} + ${F.int(setAside)} set aside)` : ""}; by hand ${F.hours(byHand.manual_h)} · ${F.eur2(byHand.manual_eur)}`,
       per1000: `${F.eur2(eur.per_thousand_eur)} with the cell`,
       orders: `${F.int(fig.orders_on_time)} of ${F.int(fig.orders)} on their trucks`
     },

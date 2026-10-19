@@ -176,8 +176,8 @@ export function createWorthPanel(root, { getInputs, getRunInputs = () => null, g
       const n = engineNight(rv, units);
       set(tonightHead, "Tonight, as planned");
       rows.push(["Units", `${int(units)}: the robot may take ${int(st?.info.totals.cell_units ?? Math.round(units * rv.s))}, people ${int(st?.info.totals.manual_units ?? units - Math.round(units * rv.s))}`]);
-      rows.push(["Labour", `${hours(n.hybrid_h)} · ${eur2(n.hybrid_eur)} with the cell; by hand ${hours(n.manual_h)} · ${eur2(n.manual_eur)}`]);
-      rows.push(["Store orders", `${int(st ? visibleOrders(st).length : 12)}, each with its truck`]);
+      rows.push(["Labour", [`${hours(n.hybrid_h)} · ${eur2(n.hybrid_eur)} with the cell`, `by hand ${hours(n.manual_h)} · ${eur2(n.manual_eur)}`]]);
+      rows.push(["Store orders", `${int(st ? visibleOrders(st).length : 12)}, each with its truck`, "wp-orders"]);
     } else {
       const f = tonightSoFar(st);
       const eur = tonightEuros(rv, f);
@@ -186,9 +186,12 @@ export function createWorthPanel(root, { getInputs, getRunInputs = () => null, g
       const done = ended || st.ended;
       set(tonightHead, done ? "Tonight" : "Tonight so far");
       const total = [...st.orders.values()].reduce((n, o) => n + o.units, 0);
-      const repackedByHand = Math.max(0, st.manual.picks - st.manual.set_aside);
+      const aside = st.manual.set_aside || 0;
+      const repackedByHand = Math.max(0, st.manual.picks - aside);
       rows.push(["Units repacked", `${int(f.units_packed)} of ${int(total)}: ${int(st.cell.successes)} by the robot, ${int(repackedByHand)} by hand`]);
-      rows.push(["Labour", `${hours(f.labour_hours)} · ${eur2(eur.labour_eur)} with the cell; by hand ${hours(byHand.manual_h)} · ${eur2(byHand.manual_eur)}`]);
+      // Tonight's labour counts the units a person set aside too, so the line names them (D69). Two parts:
+      // where the line breaks, "by hand …" moves whole to the next line.
+      rows.push(["Labour", [`${hours(f.labour_hours)} · ${eur2(eur.labour_eur)} with the cell${aside ? ` (${int(repackedByHand)} + ${int(aside)} set aside)` : ""}`, `by hand ${hours(byHand.manual_h)} · ${eur2(byHand.manual_eur)}`]]);
       const caught = [];
       const nFix = st.corrections.length;
       caught.push(`${int(nFix)} ${nFix === 1 ? "weight" : "weights"} corrected`);
@@ -205,15 +208,22 @@ export function createWorthPanel(root, { getInputs, getRunInputs = () => null, g
       const late = states.filter((s) => s === "late").length;
       const risk = states.filter((s) => s === "at-risk").length;
       const onTrack = list.length - onTruck - late - risk;
+      // At the tight size the store orders stay in the header's store-order tile (css/stage.css).
       rows.push(["Store orders", done
         ? `${int(onTruck)} of ${int(list.length)} on their trucks${late ? `; ${int(late)} late` : ""}`
-        : `${int(onTruck)} of ${int(list.length)} on their trucks so far, ${int(onTrack)} on track${risk ? `, ${int(risk)} at risk` : ""}${late ? `, ${int(late)} late` : ""}`]);
-      if (done && f.units_packed) rows.push(["Per 1,000 units tonight", `${eur2(eur.per_thousand_eur)} with the cell${f.called_in_hours > 0 ? `, ${hours(f.called_in_hours)} called in` : ""}`]);
+        : `${int(onTruck)} of ${int(list.length)} on their trucks so far, ${int(onTrack)} on track${risk ? `, ${int(risk)} at risk` : ""}${late ? `, ${int(late)} late` : ""}`, "wp-orders"]);
+      // Tonight's labour over the units repacked (the set-aside ones are not repacked).
+      if (done && f.units_packed) rows.push(["Per 1,000 repacked", `${eur2(eur.per_thousand_eur)} with the cell${f.called_in_hours > 0 ? `, ${hours(f.called_in_hours)} called in` : ""}`]);
     }
-    const key = rows.map((r) => r.join("|")).join("\n");
+    // A value is a text, or two parts joined by "; " whose second part keeps together.
+    const text = (val) => (Array.isArray(val) ? val.join("; ") : val);
+    const key = rows.map(([k, val, cls]) => [k, text(val), cls || ""].join("|")).join("\n");
     if (tonight.dataset.key === key) return;
     tonight.dataset.key = key;
-    tonight.replaceChildren(...rows.flatMap(([k, val]) => [h("dt", {}, k), h("dd", {}, val)]));
+    tonight.replaceChildren(...rows.flatMap(([k, val, cls]) => {
+      const attrs = cls ? { class: cls } : {};
+      return [h("dt", attrs, k), Array.isArray(val) ? h("dd", attrs, `${val[0]}; `, h("span", { class: "wp-keep" }, val[1])) : h("dd", attrs, val)];
+    }));
     remeasure();
   }
 

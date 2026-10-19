@@ -44,7 +44,7 @@ About 100 words, 40 seconds: say it, do not read the window out.
 
 Point at the four steps: *Knows, Checks, Learns, Asks*.
 
-> "It knows each item's weight, size and grip. Camera and scale check every item against it, and the robot rehearses each grasp first. A reading that differs is learned for every unit. What it does not know goes to a person."
+> "It knows each item's weight, size and grip. Camera and scale check every item against it, and the robot rehearses each grasp first. A reading that clearly differs is learned for every unit. What it does not know goes to a person."
 
 Point at **Why it pays off**:
 
@@ -72,11 +72,11 @@ Click **Confirm entry**.
 
 | Moment | You say |
 |---|---|
-| **2:05, the decision.** *Entry confirmed*: the barcode is in the model from now on, still without weight or grip; the tile says *confirmed by you* | "Now the barcode is in the model, as a provisional entry. It has no weight or grip yet, so tonight's six units stay with the person: the robot only picks what it can rehearse." |
-| **06:00, night over.** *Night over*: the model learned 2 things tonight. What it is worth, Tonight: 2.74 h · €98.00 of labour with the cell; by hand 7.52 h · €269.04; per 1,000 units €32.67; 12 of 12 store orders on their trucks | "Every truck on time. Labour came to 2.74 hours where the same work takes 7.52 by hand: €98 instead of €269 tonight. The model learned two things along the way." |
+| **23:10, the decision** (call time 2:05). *Entry confirmed*: the barcode is in the model from now on, still without weight or grip; the tile says *confirmed by you* | "Now the barcode is in the model, as a provisional entry. It has no weight or grip yet, so tonight's six units stay with the person: the robot only picks what it can rehearse." |
+| **06:00, night over.** *Night over*: the model learned 2 things tonight. What it is worth, Tonight: 2.74 h · €98.00 of labour with the cell (1,089 + 6 set aside); by hand 7.52 h · €269.04; per 1,000 repacked €32.67; 12 of 12 store orders on their trucks | "Every truck on time. Labour came to 2.74 hours where the same work takes 7.52 by hand: €98 instead of €269 tonight. The model learned two things along the way." |
 | **The management summary**: its card sits in the agent's column, and the console's last line, **Run complete**, carries **Open management summary** too | "And a summary for the morning: what happened, what we decided, what it is worth." |
 
-If a customer asks why tonight is €32.67 per 1,000 units and the plan €32.49: the six units the model did not know went to a person. Labour counts every unit a person handled, those six included, and so does the comparison by hand (3,006 units).
+If a customer asks why tonight is €32.67 per 1,000 units and the plan €32.49: the six units the model did not know went to a person. Labour counts every unit a person handled, those six included, and the figure per 1,000 divides it by the 3,000 units repacked; the comparison by hand counts the same 3,006 units.
 
 ## 4. What it is worth for you (2:45–4:15)
 

@@ -467,7 +467,8 @@ if (wanted("diag")) {
   try {
     await boot(page);
     await page.click("#btn-diagnostics");
-    await page.waitForSelector(".diag-table", { timeout: 5000 });
+    // 15 s, not 5: on a loaded machine the panel once took longer to open (19 Oct 2026), never on an idle one.
+    await page.waitForSelector(".diag-table", { timeout: 15000 });
     await page.click("#btn-run-tests");
     await page.waitForFunction(() => document.querySelectorAll('.diag-status[data-s="pass"]').length === 4 && !document.querySelector('.diag-status[data-s="running"]'), null, { timeout: 30000 });
     checks.rows = await page.$$eval(".diag-table tbody tr", (rows) => rows.map((r) => `${r.dataset.test}:${r.querySelector(".diag-status")?.dataset.s}`));
@@ -1107,7 +1108,7 @@ if (wanted("worldnight")) {
       `Confirm entry in the world model decides the console's request once (${JSON.stringify({ console: checks.consoleStatus, kind: checks.decided?.kind, tile: checks.decided?.tiles?.[`unknown:${barcode}`], decisions: checks.audit?.decisions })})`],
     [checks.end?.log?.[1] === `${NS.clockOf(sc3.e1?.sim_t ?? 0)} Barcode ${barcode}: confirmed by you; its ${sc3.e1?.units} units went to a person` && checks.end?.kind === "end",
       `what the model learned at night end (${JSON.stringify(checks.end?.log)}; ${checks.end?.kind})`],
-    [checks.tonight?.["Units repacked"] === sc3.tonight.units && checks.tonight?.Labour === sc3.tonight.labour && checks.tonight?.["Per 1,000 units tonight"] === sc3.tonight.per1000 && checks.tonight?.["Store orders"] === sc3.tonight.orders
+    [checks.tonight?.["Units repacked"] === sc3.tonight.units && checks.tonight?.Labour === sc3.tonight.labour && checks.tonight?.["Per 1,000 repacked"] === sc3.tonight.per1000 && checks.tonight?.["Store orders"] === sc3.tonight.orders
       && checks.tonight?.["Caught by the model"] === `1 weight corrected · 1 unknown item, ${sc3.e1?.units} units to a person`,
       `What it is worth at night end equals the night in Node (${JSON.stringify(checks.tonight)}; Node ${JSON.stringify(sc3.tonight)})`],
     [doneOk && Object.keys(checks.end?.tiles || {}).length === sc3.info.items.length + 1, `every item's done count equals its robot and hand picks in Node (${Object.keys(checks.end?.tiles || {}).length} tiles)`],

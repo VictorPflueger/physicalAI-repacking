@@ -278,8 +278,11 @@ body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) 
 .worth-panel[data-size="tight"] .wp-list { line-height: 1.3; }
 .worth-panel[data-size="tight"] .wp-bars { gap: 1px 8px; }
 .worth-panel[data-size="tight"] .wp-headline { align-items: start; }
-/* The saving stays in the header's labour tile ("planned · €89.50 by hand · −64 %"). */
-.worth-panel[data-size="tight"] .wp-saving { display: none; }
+/* The saving stays in the header's labour tile ("planned · €89.50 by hand · −64 %"), the store orders in its
+   store-order tile ("12 of 12"). */
+.worth-panel[data-size="tight"] .wp-saving, .worth-panel[data-size="tight"] .wp-orders { display: none; }
+/* A value's second part ("by hand 7.52 h · €269.04") keeps together when its line breaks. */
+.wp-keep { white-space: nowrap; }
 .worth-panel[data-size="hidden"] { display: none; }
 
 /* A short window (a 720 px laptop): the console drops its progress rail in the Customer view; the world

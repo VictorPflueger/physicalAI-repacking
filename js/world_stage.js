@@ -246,7 +246,9 @@ export function createWorldStage(root, { getState = () => null, onConfirm = () =
     }
     const aside = st.manual.set_aside;
     const unsure = unsureCount(st);
-    setNode("people", `${int(byHand(st))} units by hand`, aside ? `${int(aside)} unknown, set aside` : unsure ? `${int(unsure)} unsure ${unsure === 1 ? "grasp" : "grasps"}` : "as planned", tone);
+    // The grasps the robot missed go to a person too, so "as planned" only while it has missed none.
+    const missed = Math.max(0, st.cell.attempts - st.cell.successes);
+    setNode("people", `${int(byHand(st))} units by hand`, aside ? `${int(aside)} unknown, set aside` : unsure ? `${int(unsure)} unsure ${unsure === 1 ? "grasp" : "grasps"}` : missed ? `${int(missed)} ${missed === 1 ? "grasp" : "grasps"} missed` : "as planned", tone);
   }
 
   function renderFlow(st, m) {
