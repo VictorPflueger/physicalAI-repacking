@@ -133,7 +133,7 @@ export async function interpretScript(script, env) {
       } else if (kind === "propose") {
         const p = step.propose || {};
         const input = fillDeep(vars, p.input || {});
-        const texts = (x) => [x.baseline_description, ...(x.options || []).flatMap((o) => [o.title, o.description, o.residual_risk])];
+        const texts = (x) => [x.baseline_description, ...(x.recommendation_reason !== undefined ? [x.recommendation_reason] : []), ...(x.options || []).flatMap((o) => [o.title, o.description, o.residual_risk])];
         const raw = texts(p.input || {});
         texts(input).forEach((t, j) => env.onText?.(raw[j], t, "option text", step, at, "options"));
         let out = await env.callTool("ui_propose_options", input, step);

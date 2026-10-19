@@ -143,7 +143,7 @@ function summarize(ev) {
     case "late_complete": return `${p.store}: last unit by ${clockUp(p.t)}`;
     case "night_end": return `${int(p.figures?.orders_on_time)} of ${int(p.figures?.orders)} orders on time; ${int(p.figures?.units_repacked)} units; labour ${upTo(p.figures?.labour_hours, 2)} h; seed ${p.figures?.seed}`;
     case "unit_log": return `${int((p.rows || []).length)} units${p.partial ? `, stopped at ${p.until}` : ""}; seed ${p.seed}, night hash ${p.hash}`;
-    case "assumption_change": return `${p.id}: ${p.from} → ${p.to}${p.reset ? " (reset)" : ""}${p.applies && p.applies !== "now" ? `, ${p.applies}` : ""}`;
+    case "assumption_change": return `${p.id}: ${p.from} → ${p.to}${p.reset ? " (reset)" : ""}${p.via === "your_dc" ? " (Your DC)" : ""}${p.applies && p.applies !== "now" ? `, ${p.applies}` : ""}`;
     case "autonomy_change": return `${p.from} → ${p.to} by the person${p.gate ? `; Bounded ${p.gate.met ? "unlocked" : `locked (${(p.gate.failing || []).join(", ")})`}` : ""}`;
     case "plan_update": return `${p.source}${p.option_id ? ` ${p.option_id}` : ""}: ${(p.levers || []).map((l) => l.type).join(", ")}${p.from ? ` from ${p.from}` : ""}`;
     default: return trim(JSON.stringify(p), 200);

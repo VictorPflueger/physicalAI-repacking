@@ -25,14 +25,34 @@
 .kb-key[data-kind="synthetic"] { font-family: var(--font-ui); border-style: dashed; color: var(--text-muted); }
 .kb-key[data-kind="brief"] { font-family: var(--font-ui); color: var(--text-muted); }
 
-.kb-annual { padding: 12px 14px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--porcelain); }
-.kb-annual-main { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.kb-big { font-family: var(--font-figures); font-weight: 800; font-size: var(--fs-xl); color: var(--text); }
+/* What it is worth (TECH_NOTES D50): the yearly figure first, with the customer's own inputs beside it.
+   The Your DC inputs are the presenter's settings, so they take the burgundy of a person's input. */
+.kb-worth { padding: 12px 14px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--porcelain); }
+.kb-worth-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.kb-worth-head h3 { margin: 0; font-family: var(--font-figures); font-size: var(--fs-lg); }
+.kb-worth-main { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; margin-top: 4px; }
+.kb-worth-figure { display: flex; flex-direction: column; gap: 0; }
+.kb-big { font-family: var(--font-figures); font-weight: 800; font-size: var(--fs-xl); line-height: 1.1; color: var(--text); }
+.kb-worth-sub { color: var(--text-muted); font-weight: 600; }
 .kb-qual { color: var(--text-muted); font-weight: 600; }
-.kb-annual ul { margin: 6px 0 0; padding-left: 18px; }
-.kb-annual li { margin: 2px 0; }
+.kb-worth-list { margin: 8px 0 0; padding-left: 18px; }
+.kb-worth-list li { margin: 2px 0; }
 .kb-inputs { margin: 8px 0 0; color: var(--text-muted); font-size: var(--fs-sm); }
 .kb-note { margin: 0; color: var(--text-muted); font-size: var(--fs-sm); max-width: 110ch; }
+.kb-held { margin: 6px 0 0; color: var(--brand-text); font-weight: 600; }
+
+.kb-dc { display: flex; align-items: flex-end; gap: 6px 14px; flex-wrap: wrap; padding: 8px 10px; border-radius: var(--r-md); border: 1px solid var(--brand-line); background: var(--brand-wash); }
+.kb-dc-title { align-self: center; font-family: var(--font-figures); font-size: 1.05rem; color: var(--brand-text); }
+.kb-dc-field { display: flex; flex-direction: column; gap: 2px; }
+.kb-dc-label { color: var(--text-muted); font-size: var(--fs-xs); font-weight: 600; }
+.kb-dc-row { display: inline-flex; align-items: center; gap: 6px; }
+.kb-dc-input { width: 8.5em; min-height: 40px; font-family: var(--font-figures); font-weight: 600; font-variant-numeric: tabular-nums; }
+#kb-dc-c { width: 5.5em; }
+.kb-dc-input[aria-invalid="true"] { border-color: var(--danger-line); }
+.kb-dc-unit { color: var(--text-muted); white-space: nowrap; }
+.kb-dc-msg { color: var(--danger-text); font-size: var(--fs-xs); min-height: 0; }
+.kb-dc-msg:empty { display: none; }
+.kb-dc .btn { align-self: flex-end; min-height: 40px; }
 
 .as-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .as-head .btn { flex: none; }

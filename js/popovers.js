@@ -67,7 +67,7 @@ export function stationPopover(st, kind) {
         ["In the item master", d ? (d.known ? "yes" : "no: handed to a person (E1)") : "—"],
         ["Items seen", int(st.camera.detections)]
       ]),
-      h("p", { class: "pop-note" }, "Simulated sensor: readings come from the night simulation, seeded and reproducible."));
+      h("p", { class: "pop-note" }, "Simulated sensor: its readings come from the night simulation, which plays the same every time."));
   }
   if (kind === "cell") {
     const c = st.cell.current;

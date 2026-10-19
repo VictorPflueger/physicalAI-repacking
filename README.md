@@ -1,15 +1,15 @@
 # Repack Pilot — a Physical AI repacking showcase
 
-A browser-only showcase of Physical AI in logistics. Repack Pilot shows one night shift in a retail distribution centre: a simulated robot cell, planned by an AI agent, repacks mixed pallets into 12 store orders, and a deterministic engine prices every 1,000 units in labour hours and euros, manual baseline against a hybrid cell. In eight minutes the audience sees the robot meet a surprise, the world model learn from it, the agent replan, a person decide and the euro figure move.
+A browser-only showcase of Physical AI in logistics. Repack Pilot shows one night shift in a retail distribution centre: a simulated robot cell, planned by an AI agent, repacks mixed pallets into 12 store orders, and a deterministic engine prices every 1,000 units in labour hours and euros, manual baseline against a hybrid cell. In a five-minute call a customer sees what it does, how it works and what it is worth: the robot meets a surprise, the world model learns from it, the agent replans, a person decides, and labour per 1,000 units falls from €89.50 by hand to €32.49 with the cell (`DEMO_SCRIPT.md`).
 
-**Version 0.3.0: the agent (milestone M3).** Static website, no backend, no build step. Live at **https://victorpflueger.github.io/physicalAI-repacking/** (GitHub Pages from `main`).
+**Version 0.4.0: the five-minute customer case and six scenarios (milestone M4).** Static website, no backend, no build step. Live at **https://victorpflueger.github.io/physicalAI-repacking/** (GitHub Pages from `main`).
 
 | Milestone | What it adds | Status |
 |---|---|---|
 | M1 Shell (0.1.0) | The screen, the two modes and the key handling, Diagnostics, the intro with "what is real", the synthetic world with its checks, CI | Done |
 | M2 Physical layer (0.2.0) | The engine with the brief's golden cases, the seeded night simulation, the cell board, the world-model panel, the header tiles, the KPI board and the assumptions; a night that plays without the agent | Done |
-| M3 Agent (0.3.0) | The live agent and its 24 tools, guardrails in code, options, outbox, summary, run facts, the Open Food Facts lookup (on the bundled snapshot), the scripted replay and its checker; scenario 1 end to end in both modes | This version |
-| M4 Scenarios (0.4.0) | Scenarios 2 to 6, the recorder, the autonomy dial with its gate, the eight-minute demo script | Planned |
+| M3 Agent (0.3.0) | The live agent and its 24 tools, guardrails in code, options, outbox, summary, run facts, the Open Food Facts lookup (on the bundled snapshot), the scripted replay and its checker; scenario 1 end to end in both modes | Done |
+| M4 Customer case and scenarios (0.4.0) | Scenarios 2 to 6 with their scripted replays, the recorder, the autonomy dial with its gate, the acceptance suite; the five-minute customer case: How it works as the opener with the engine's figures, a simple console, plain words, option cards that open with the trucks, the closing card on what it is worth, Your DC on the KPI board, the five-minute demo script | This version |
 | M5 Hardening (1.0.0) | Layout and design suites, complete documents, an independent review, release | Planned |
 
 `PLAN.md` holds the build plan Victor approved on 16 October 2026; each milestone lands as one pull request with green CI.
@@ -83,13 +83,13 @@ On Windows, use `py -m http.server 8000`. Then open `http://localhost:8000`. Liv
 
 ## First visit
 
-On a first visit, a short window explains what Repack Pilot does, how it works (perceive, plan, pick, replan, prepare), why it pays off and **what is real**. **How it works** in the header opens it again at any time.
+On a first visit, the **How it works** window opens: one sentence on what Repack Pilot does, how it works in five steps (perceive, plan, pick, replan, prepare), why it pays off in three figures from the engine at your inputs (€32.49 per 1,000 units with the cell instead of €89.50 by hand, −64 %; €342,069 a year for a site repacking six million units, on 4.2 cells; a cell pays while it costs less than €40.72 an operating hour) and **what is real**. **How it works** in the header opens it again at any time; it is the opener of the five-minute call.
 
 **Start agent** asks how the agent should run: **Simulation** (no key) or **Live** (your own key).
 
-**Scenario 1, the main run.** At 22:00 the agent reads the night and plans it. At 22:17 the scale finds the glass jar heavier than master data: the world model writes the weight back and the agent closes Essen's tote. At 22:41 two fragile bottles go to a person. At 02:00 an express order for the Dortmund flagship puts Hamm and Soest at risk: the agent prices three options against doing nothing, recommends one, and the night stands still until you decide in the **Options** tab. After your approval the agent applies the option, drafts what it needs (a call-in, a note to the store) and waits until you approve or reject each draft in the **Outbox**; nothing is sent. At 06:00 a management summary closes the night. In Simulation the run takes about 35 s at ×4, 65 s at ×2 and two minutes at ×1, plus your decisions.
+**Scenario 1, the main run.** At 22:00 the agent reads the night and plans it. At 22:17 the scale finds the glass jar heavier than master data: the world model writes the weight back and the agent closes Essen's tote. At 22:41 two fragile bottles go to a person. At 02:00 an express order for the Dortmund flagship puts Hamm and Soest at risk: the agent prices three options against doing nothing, recommends one, and the night stands still until you decide in the **Options** tab. After your approval the agent applies the option, drafts what it needs (a call-in, a note to the store) and waits until you approve or reject each draft in the **Outbox**; nothing is sent. At 06:00 a closing card sets tonight's labour against the same units by hand and says what the cell is worth; **Your DC: the business case** opens the KPI board, where you type the customer's yearly volume. A management summary closes the night. In Simulation the run takes about 30 s at ×4, 55 s at ×2 and 110 s at ×1, plus your decisions; at ×1 it fits the five-minute call (`DEMO_SCRIPT.md`).
 
-**Scenarios 2 to 6** get their scripted replays in M4. Until then Simulation plays their nights without the agent, a *night preview* with its own badge, and Live runs the agent on them.
+**The other five scenarios**, each a scripted replay in Simulation and the live agent in Live: **2**, the glass jar on its own (the world model learns, nothing to decide); **3**, an unknown item on the pallet (a rule in code hands it to a person, a barcode lookup, a provisional entry you confirm or reject); **4**, gripper wear (fragile items go to a person, three options with a maintenance stop); **5**, a store closing early on 24 December (the plan absorbs it, nothing to decide); **6**, a peak night of 4,200 units with the usual staff (three options for the two stores that would miss their trucks).
 
 ## Reading the screen
 
@@ -99,8 +99,9 @@ On a first visit, a short window explains what Repack Pilot does, how it works (
 - **Red, amber and green are the store orders against their trucks:** late, at risk, on time. A word or an icon always says the same thing.
 - **The cell board** carries a neutral **Simulated cell** tag in both modes. The hazard-style **SIMULATION** badge, tape and watermark mark scripted replays only; a live run carries **LIVE**. Generated data carries a dashed **Synthetic** chip. Along the top, the cell line: the inbound pallet, the camera, the robot cell, the scale and the manual station. Below, a lane per store order filling against its truck cut-off, and the world-model card: expected against observed, and the corrections log. Every station, lane and the world model opens its details with a click or Enter. With the drawer open the board folds down to a strip of store chips.
 - **The header tiles:** labour per 1,000 units (the manual baseline, then the hybrid plan), store orders on time, the night clock (with what the night waits for: *the agent's turn*, *your decision*, *your approval*) and the session cost.
-- **The progress rail** above the console shows the agent's plan in five steps: Perceive, Plan, Pick, Replan, Prepare. The console logs the night's moments by the night clock, the agent's narration and tool calls, every **Guardrail** refusal, your decisions, and at the end the run facts.
-- **The drawer** has five tabs: **Options** (three costed options and doing nothing, each with its expected total; the recommended one framed in burgundy), **Outbox** (the drafts that wait for your approval), the **KPI board** (Plan against Tonight, the annual figure with the cells it needs, every figure with its source), **Assumptions** (every input, editable, every change in the audit) and **Audit**, which exports as JSON.
+- **The progress rail** above the console shows the agent's plan in five steps: Perceive, Plan, Pick, Replan, Prepare. The console opens in a **simple view**: the agent's words and the night's moments by the night clock, your decisions, the closing card and the run facts. **Details** in its head adds every tool call, phase, wake-up and hourly line, and every **Guardrail** refusal stays visible.
+- **The autonomy dial** in the control bar: **Advise** (you apply an approved option yourself), **Approve** (the default: the agent applies it after your click) and **Bounded**, locked until the shadow-mode record meets its gate; click it to see why.
+- **The drawer** has five tabs: **Options** (three costed options and doing nothing, each opening with what happens to the trucks over 20 simulated nights, then extra labour, late orders and the expected total; the recommended one framed in burgundy, with why), **Outbox** (the drafts that wait for your approval), the **KPI board** (what it is worth first, with **Your DC** for the customer's volume and labour cost; then Plan against Tonight, every figure with its source), **Assumptions** (every input, editable, every change in the audit) and **Audit**, which exports as JSON.
 
 Every colour is generated from the one burgundy and checked for contrast and colour blindness. `DESIGN.md` explains the system, which Repack Pilot shares with Rebate Hunter and the Navigator.
 
@@ -108,7 +109,7 @@ Every colour is generated from the one burgundy and checked for contrast and col
 
 | | **Simulation** | **Live agent** |
 |---|---|---|
-| What runs | A scripted replay of a representative agent run, played through the agent's own tools (scenario 1 in this version) | Claude with real tool calls on the same tools |
+| What runs | A scripted replay of a representative agent run, played through the agent's own tools (all six scenarios), or a recorded live run saved with **Save run as simulation** | Claude with real tool calls on the same tools |
 | Figures | Computed by the engine and the night simulation at playback; the script types none | Computed by the engine and the night simulation |
 | Key and cost | None | Your own Anthropic API key; at most 40 model calls and €3 per run, with a live cost meter |
 | Network | None; works fully offline | api.anthropic.com only |
@@ -158,14 +159,13 @@ Repack Pilot is Detecon's flagship use case made clickable, run under T-Systems'
 | `PLAN.md` | The approved build plan: architecture, world, engine, events and tools, guardrails, scenarios, screen, tests, milestones |
 | `TECH_NOTES.md` | Verified facts with dates (models and prices, the API's request fields, CORS probes, Open Food Facts, the world, the security policy), the engine, the night simulation and the golden option cases, the decision log (D-numbers), the live agent's guardrails, the simulation scripts, verification log and acceptance checklist |
 | `DATA_SOURCES.md` | Every source key, the engine's parameters, what is synthetic and what is real, the Open Food Facts licence |
-| `DESIGN.md` | The design system: colour grammar, palette, checks, agentic patterns, the cell board, the KPI board |
+| `DESIGN.md` | The design system: colour grammar, palette, checks, agentic patterns, the cell board, the KPI board, the console's two views |
+| `DEMO_SCRIPT.md` | The five-minute customer call: the one sentence, the timing, what to say at each moment, questions and answers |
 | `tests/README.md` | The test suites and how to run them |
-
-`DEMO_SCRIPT.md`, the eight-minute script, follows with the scenarios (M4).
 
 ## Tests
 
-`node tests/run-all.mjs` runs the eight suites of this version: the colour system (`tokens`), the synthetic world, the night calibration and the script checker (`world`), the client, formatting and checks (`unit`), the engine, the night simulation and the agent's tools (`engine`), and, in Chromium through Playwright, the workspace and the scripted replay (`smoke`), the nights and the replay in the browser against Node (`sims`), the live loop against a fake Claude (`live`) and the layout at five window sizes (`layout`). GitHub Actions runs them on every push and pull request. No test calls a real API or spends money. Setup and details: `tests/README.md`.
+`node tests/run-all.mjs` runs the nine suites of this version: the colour system (`tokens`), the synthetic world, the night calibration and the script checker (`world`), the client, formatting and checks (`unit`), the engine, the night simulation and the agent's tools (`engine`), and, in Chromium through Playwright, the workspace and the scripted replay (`smoke`), the nights and the replay in the browser against Node (`sims`), the live loop against a fake Claude for all six scenarios (`live`), the acceptance tests: the key, Diagnostics, Abort and Reset, every scenario offline (`accept`), and the layout at five window sizes (`layout`). GitHub Actions runs them on every push and pull request. No test calls a real API or spends money. Setup and details: `tests/README.md`.
 
 ## Sister prototypes
 

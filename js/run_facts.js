@@ -81,7 +81,8 @@ export function describeRunFacts(f) {
     : `${mins(f.agent_time_s)} agent time${f.waiting_time_s ? ` plus ${mins(f.waiting_time_s)} waiting for you` : ""}`;
   const parts = [
     time,
-    `${f.wakeups} wake-up${f.wakeups === 1 ? "" : "s"}`,
+    // The night's wake-ups, in plain words for the room (TECH_NOTES D50): the agent's turns.
+    `${f.wakeups} agent turn${f.wakeups === 1 ? "" : "s"}`,
     `${f.tool_calls} tool call${f.tool_calls === 1 ? "" : "s"}${kinds ? ` (${kinds})` : ""}`,
     f.guardrail_refusals ? `${f.guardrail_refusals} guardrail refusal${f.guardrail_refusals === 1 ? "" : "s"}` : null,
     f.mode === "live" ? `${f.model_calls} of ${AGENT.maxSteps} model calls` : null,

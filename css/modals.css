@@ -160,9 +160,11 @@
   list-style: none; margin: 0; padding: 0;
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 28px;
 }
-.intro-value li { display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 3px solid var(--brand-mid); }
-.intro-value strong { font-family: var(--font-figures); font-size: 1.35rem; font-weight: 700; line-height: 1.15; color: var(--brand); }
-.intro-value span { color: var(--text-muted); line-height: 1.4; }
+.intro-value li { display: flex; flex-direction: column; gap: 2px; padding-top: 10px; border-top: 3px solid var(--brand-mid); }
+/* Each item: what the figure is, the engine's figure large, then what it means. */
+.intro-value .intro-value-label { font-family: var(--font-figures); font-size: 1.05rem; font-weight: 600; color: var(--text); line-height: 1.25; }
+.intro-value .intro-value-figure { font-family: var(--font-figures); font-size: 1.75rem; font-weight: 700; line-height: 1.15; color: var(--brand); }
+.intro-value .intro-value-text { color: var(--text-muted); line-height: 1.4; }
 .intro-value { margin-bottom: 26px; }
 
 /* What is real: the simulated side in quiet ink with a dashed edge (like the Synthetic chip), the real

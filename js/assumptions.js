@@ -15,11 +15,49 @@ import { WEIGHT_TOLERANCE } from "./nightsim.js";
 
 export { NIGHT_INPUTS };
 
+/** Display decimals of an input in an editable field. */
+export function inputDecimals(p) { return p.step < 0.01 ? 3 : p.step < 1 ? 2 : p.step < 10 && p.value % 1 ? 1 : 0; }
+
+/**
+ * A typed number as the presenter may write it: "6,000,000", "6 000 000" and "6000000" for a count;
+ * "35.80" or "35,80" for an amount (a comma before one or two last digits is a decimal comma). NaN when
+ * it is not a number.
+ */
+export function parseInput(raw, { integer = false } = {}) {
+  const s = String(raw ?? "").trim().replace(/[\s   ']/g, "");
+  if (!/^[+-]?[\d.,]+$/.test(s) || !/\d/.test(s)) return NaN;
+  if (integer) return /^[+-]?\d{1,3}([.,]\d{3})+$/.test(s) || /^[+-]?\d+$/.test(s) ? Number(s.replace(/[.,]/g, "")) : NaN;
+  const dot = s.lastIndexOf(".");
+  const comma = s.lastIndexOf(",");
+  let t = s;
+  if (dot >= 0 && comma >= 0) t = dot > comma ? s.replace(/,/g, "") : s.replace(/\./g, "").replace(",", ".");
+  else if (comma >= 0) t = /,\d{1,2}$/.test(s) && (s.match(/,/g) || []).length === 1 ? s.replace(",", ".") : s.replace(/,/g, "");
+  else if (dot >= 0 && (s.match(/\./g) || []).length > 1) t = s.replace(/\./g, "");
+  return Number(t);
+}
+
+/**
+ * Commits one input from any view (the Assumptions tab, or Your DC on the KPI board): checks its range,
+ * stores it and records it in the audit as "assumption_change". Returns { ok, message } with the range
+ * as the message when the value is refused, and ok without a change when the value is the same.
+ */
+export function commitInput({ id, value, getOverrides, setOverrides, isRunning = () => false, via = "assumptions" }) {
+  const p = PARAMETERS.find((x) => x.id === id);
+  if (!p) return { ok: false, message: `Unknown input ${id}.` };
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < p.min || n > p.max) return { ok: false, message: `Between ${fixed(p.min, inputDecimals(p))} and ${fixed(p.max, inputDecimals(p))}.` };
+  const cur = { ...getOverrides() };
+  const from = cur[p.id] ?? p.value;
+  if (n === from) return { ok: true, changed: false };
+  if (n === p.value) delete cur[p.id]; else cur[p.id] = n;
+  setOverrides(cur);
+  bus.emit("assumption_change", { id: p.id, label: p.label, from, to: n, by: "user", ...(via !== "assumptions" ? { via } : {}), applies: NIGHT_INPUTS.includes(p.id) && isRunning() ? "plan now, night from the next one" : "now" });
+  return { ok: true, changed: true };
+}
+
 export function createAssumptions(panel, { getOverrides, setOverrides, getNightInfo = () => null, getScenario = () => null, isRunning = () => false } = {}) {
   const root = h("div", { class: "assumptions" });
   panel.append(root);
-
-  function decimals(p) { return p.step < 0.01 ? 3 : p.step < 1 ? 2 : p.step < 10 && p.value % 1 ? 1 : 0; }
 
   function render() {
     const over = getOverrides();
@@ -48,20 +86,15 @@ export function createAssumptions(panel, { getOverrides, setOverrides, getNightI
           const msg = h("span", { class: "as-msg", role: "status" });
           const commit = () => {
             const raw = input.value.trim();
-            const n = Number(raw);
-            if (raw === "" || !Number.isFinite(n) || n < p.min || n > p.max) {
-              msg.textContent = `Between ${fixed(p.min, decimals(p))} and ${fixed(p.max, decimals(p))}.`;
+            const r = commitInput({ id: p.id, value: raw === "" ? NaN : Number(raw), getOverrides, setOverrides, isRunning });
+            if (!r.ok) {
+              msg.textContent = r.message;
               input.setAttribute("aria-invalid", "true");
               return;
             }
             input.removeAttribute("aria-invalid");
             msg.textContent = "";
-            const cur = { ...getOverrides() };
-            const from = cur[p.id] ?? p.value;
-            if (n === from) return;
-            if (n === p.value) delete cur[p.id]; else cur[p.id] = n;
-            setOverrides(cur);
-            bus.emit("assumption_change", { id: p.id, label: p.label, from, to: n, by: "user", applies: NIGHT_INPUTS.includes(p.id) && isRunning() ? "plan now, night from the next one" : "now" });
+            if (!r.changed) return;
             render();
             document.getElementById(`as-${p.id}`)?.focus();
           };

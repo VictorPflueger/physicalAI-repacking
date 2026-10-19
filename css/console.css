@@ -11,7 +11,18 @@
 .console-title .count { color: var(--text-faint); font-size: var(--fs-sm); }
 .console-head-actions { display: flex; align-items: center; gap: 6px; }
 .console-head-actions .btn { min-height: 40px; }
-.text-size[aria-pressed="true"] { color: var(--brand); background: var(--brand-soft); border-color: var(--brand-mid); }
+.console-title h2 { white-space: nowrap; }
+/* A narrow console keeps its title on one line next to Details and Larger text: the jump button
+   shows its arrow only. */
+@media (max-width: 1400px) {
+  .jump-latest .btn-text { display: none; }
+  .jump-latest { padding-inline: 10px; min-width: 40px; justify-content: center; }
+}
+.text-size[aria-pressed="true"], .view-toggle[aria-pressed="true"] { color: var(--brand); background: var(--brand-soft); border-color: var(--brand-mid); }
+/* The simple view (default; TECH_NOTES D50) leaves tool calls, phases, wake-ups, hourly lines and the
+   trucks that leave on time to Details, and short technical asides inside a line (a seed, a rule's code). */
+#console[data-view="simple"] .entry[data-detail="true"] { display: none; }
+#console[data-view="simple"] .detail-only { display: none; }
 /* Larger text for projectors: only the log grows; timestamps and marks keep their size. */
 #console[data-text="large"] .log { font-size: 1.18rem; line-height: 1.5; }
 #console[data-text="large"] .entry { grid-template-columns: 3.6em 28px minmax(0, 1fr); }
@@ -312,6 +323,9 @@
 .night-report dt { color: var(--text-muted); }
 .night-report dd { margin: 0; font-weight: 600; }
 .night-report-note { margin: 8px 0 0; color: var(--text-muted); font-size: var(--fs-sm); }
+/* The closing card's two parts: tonight, then what it is worth (TECH_NOTES D50). */
+.night-report-head { margin: 8px 0 4px; font-family: var(--font-figures); font-size: 1.02rem; font-weight: 700; color: var(--text); }
+.night-report .entry-actions { margin-top: 8px; }
 /* Open Food Facts' attribution under a lookup (ODbL; brief, "Data and licences"). */
 .entry-body .attribution { margin: 4px 0 0; color: var(--text-muted); font-size: var(--fs-sm); }
 .entry-body .attribution a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }

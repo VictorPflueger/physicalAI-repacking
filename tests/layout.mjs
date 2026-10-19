@@ -1,9 +1,10 @@
 // Layout suite (Chromium): the five window sizes from a 1080p projector down to a small laptop
-// (1920×1080, 1600×900, 1536×864, 1366×768, 1280×720), each in seven states of scenario 1's scripted
+// (1920×1080, 1600×900, 1536×864, 1366×768, 1280×720), each in eight states of scenario 1's scripted
 // replay: idle; idle with the drawer open; the glass jar's correction (22:17); the express order (02:00,
 // thirteen lanes, two stores at risk); that moment with the drawer open on the KPI board (the board's
-// smallest sizes, strip mode at 1280×720); the three costed options in the drawer; and, option B
-// approved, its drafts in the Outbox. All but the idle ones are taken while the night stands still for
+// smallest sizes, strip mode at 1280×720); the three costed options in the drawer; option B approved,
+// its drafts in the Outbox; and the night's end with the KPI board open on what it is worth, whose Your
+// DC inputs are in view and at least 40 px high. All but the idle ones are taken while the night stands still for
 // the agent's turn or the presenter's decision, so the clock carries its pause ("· paused", or a pause
 // mark in the short and strip sizes).
 // In every state: no horizontal overflow, the header tiles in view and never covered, the header at
@@ -111,7 +112,10 @@ const measure = () => {
     if (cardBoxes.some((o, j) => j !== i && overlap(b, o))) cardProblems.push(`${c.dataset.id || i} overlaps another card`);
     if (c.scrollWidth > c.clientWidth + 1) cardProblems.push(`${c.dataset.id || i} clips its content`);
   });
+  // Your DC on the KPI board: both inputs shown inside the drawer's panel, at least 40 px high.
+  const dc = [...document.querySelectorAll(".kb-dc-input")].filter(shown).map((e) => ({ h: Math.round(r(e).height), inside: openPanel ? inside(r(e), r(openPanel)) : false }));
   return {
+    dc,
     cards: cards.length, cardProblems, panelId: openPanel?.id || null,
     size: board.dataset.size, legend: board.dataset.legend, clock: board.querySelector(".cell-clock")?.textContent, viewH: innerHeight,
     hOverflow: document.documentElement.scrollWidth > innerWidth,
@@ -132,7 +136,7 @@ function verdict(m, state) {
   const bad = (list) => list.length ? `: ${list.join(", ")}` : "";
   const tileProblems = (m.tiles || []).filter((t) => !t.inView || t.covered || t.clipped).map((t) => `${t.id}${t.covered ? " covered" : ""}${t.inView ? "" : " out of view"}${t.clipped ? " clipped" : ""}`);
   const laneProblems = (m.lanes || []).filter((l) => !l.shown || !l.whole).map((l) => l.id);
-  const lanesWanted = state.startsWith("02:00") ? 13 : 12;
+  const lanesWanted = state.startsWith("02:00") || state.startsWith("06:00") ? 13 : 12;
   return [
     [m.hOverflow === false, "no horizontal overflow"],
     [m.oneRow, "one-row control bar"],
@@ -146,6 +150,7 @@ function verdict(m, state) {
     [m.synthetic && m.tagShown, "the Synthetic label and the Simulated cell tag in view"],
     [(m.smallTargets || []).length === 0, `targets at least 40 px, 44 px on the board${bad(m.smallTargets || [])}`],
     ...(state.endsWith("options") ? [[m.panelId === "panel-options" && m.cards === 4 && m.cardProblems.length === 0 && (m.buttonsInView || []).length === 4 && m.buttonsInView.every(Boolean), `three option cards and "Do nothing" in the Options panel, whole, clear of each other, their buttons in view when scrolled to (${m.panelId}, ${m.cards}${bad(m.cardProblems)}; ${JSON.stringify(m.buttonsInView)})`]] : []),
+    ...(state.endsWith("worth") ? [[m.panelId === "panel-kpiboard" && (m.dc || []).length === 2 && m.dc.every((x) => x.h >= 40 && x.inside), `the KPI board opens with Your DC, both inputs in view and at least 40 px high (${JSON.stringify(m.dc)})`]] : []),
     ...(state.endsWith("drafts") ? [[m.panelId === "panel-outbox" && m.cards === 2 && m.cardProblems.length === 0 && (m.buttonsInView || []).length === 2 && m.buttonsInView.every(Boolean), `two drafts in the Outbox, whole, clear of each other, their buttons in view when scrolled to (${m.panelId}, ${m.cards}${bad(m.cardProblems)}; ${JSON.stringify(m.buttonsInView)})`]] : [])
   ];
 }
@@ -238,7 +243,12 @@ for (const [w, hgt] of VIEWPORTS) {
     await page.click('.option-card[data-id="B"] .btn-approve');
     if (!await until(page, () => document.querySelectorAll("#panel-outbox:not([hidden]) .action-card").length === 2 && !!document.querySelector("#btn-approve-all"))) throw new Error("no drafts after option B");
     await snap("02:00, drafts", "07-outbox", 400);
-    await page.click("#btn-abort");
+    // The night's end: the drafts approved, the night runs on to 06:00, the KPI board opens on what it
+    // is worth (the closing card's button).
+    await page.click("#btn-approve-all");
+    if (!await until(page, () => document.querySelector(".status-pill .text")?.textContent.trim() === "Done", 240000)) throw new Error("the night did not end");
+    await page.click("#btn-console-your-dc");
+    await snap("06:00, what it is worth", "08-worth", 400);
   } catch (err) {
     failed = String(err.message).split("\n")[0];
     await page.screenshot({ path: path.join(OUT, `fail-${name}.png`) }).catch(() => {});
@@ -250,7 +260,7 @@ for (const [w, hgt] of VIEWPORTS) {
   }
   const extra = [];
   if (failed) extra.push(`exception: ${failed}`);
-  if (Object.keys(states).length !== 7) extra.push(`${Object.keys(states).length} of 7 states measured`);
+  if (Object.keys(states).length !== 8) extra.push(`${Object.keys(states).length} of 8 states measured`);
   if (!dispatchAtCutoff) extra.push("the simulation does not dispatch every order at its cut-off on a whole minute");
   // The tile at both states; the KPI board's row once its panel is open (it renders 250 ms after a change).
   for (const [when, got] of figures) {
@@ -260,7 +270,7 @@ for (const [w, hgt] of VIEWPORTS) {
   if (figures.length !== 2 && !failed) extra.push(`${figures.length} of 2 store-order readings`);
   if (errors.length) extra.push(`page errors: ${errors.join(" | ")}`);
   if (external.length) extra.push(`external requests: ${external.join(", ")}`);
-  results.push({ name: `${name}: seven states, store orders at 02:00 as the replay's night, no error, no external request`, ok: extra.length === 0, problems: extra, figures, expected: AT_0200 });
+  results.push({ name: `${name}: eight states, store orders at 02:00 as the replay's night, no error, no external request`, ok: extra.length === 0, problems: extra, figures, expected: AT_0200 });
   await context.close();
 }
 

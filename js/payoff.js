@@ -33,7 +33,7 @@ export function baselineFigures(res, description = "") {
 }
 
 /** The options event: what the cards, the comparison bars and the audit show. */
-export function optionsPayload({ seq, res, options, recommended, baselineText, replications, inputs, now_ms }) {
+export function optionsPayload({ seq, res, options, recommended, recommendationReason = "", baselineText, replications, inputs, now_ms }) {
   return {
     options_seq: seq,
     at: clockOf(now_ms ?? res.now_ms),
@@ -41,6 +41,7 @@ export function optionsPayload({ seq, res, options, recommended, baselineText, r
     seed: res.seed,
     late_cost_eur: inputs?.late_cost,
     recommended,
+    ...(recommendationReason ? { recommendation_reason: recommendationReason } : {}),
     options,
     baseline: baselineFigures(res, baselineText)
   };

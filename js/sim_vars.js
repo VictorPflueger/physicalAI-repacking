@@ -45,15 +45,15 @@ export function varsFrom(name, input, r) {
       v["risk.names"] = risk.length ? listJoin(risk.map((o) => o.name)) : "no order";
       v["risk.list"] = risk.length ? listJoin(risk.map((o) => `${o.name} (${slackText(o.slack_min)})`)) : "no order";
       v["risk.sentence"] = risk.length
-        ? `${listJoin(risk.map((o) => o.name))} ${risk.length === 1 ? "is" : "are"} inside the ${r.band_minutes}-minute band of ${risk.length === 1 ? "its truck" : "their trucks"}`
-        : `every open order is projected to make its truck with more than ${r.band_minutes} minutes to spare`;
+        ? `${listJoin(risk.map((o) => o.name))} ${risk.length === 1 ? "is" : "are"} at risk, with less than ${r.band_minutes} minutes to spare before ${risk.length === 1 ? "its truck" : "their trucks"}`
+        : `every store order is on track for its truck, with more than ${r.band_minutes} minutes to spare`;
       const late = risk.filter((o) => o.slack_min < 0);
       const band = risk.filter((o) => o.slack_min >= 0);
       Object.assign(v, {
         "risk.late_count": int(late.length), "risk.late_names": late.length ? listJoin(late.map((o) => o.name)) : "no order",
         "risk.band_count": int(band.length), "risk.band_names": band.length ? listJoin(band.map((o) => o.name)) : "no order",
         "risk.band_list": band.length ? listJoin(band.map((o) => `${o.name} (${slackText(o.slack_min)})`)) : "no order",
-        "risk.band": `${int(r.band_minutes)}-minute band`
+        "risk.band": `${int(r.band_minutes)}-minute band`, "risk.band_minutes": `${int(r.band_minutes)} minutes`
       });
       const open = r.orders.filter((o) => o.projected_last_unit);
       if (open.length) {
@@ -76,7 +76,9 @@ export function varsFrom(name, input, r) {
         v[`${key}.late`] = upTo(x.expected_late_orders, 2);
         v[`${key}.late_eur`] = eur2(x.late_orders_eur);
         const lateIn = x.late_in_replications || [];
-        v[`${key}.late_text`] = lateIn.length ? listJoin(lateIn.map((l) => `${l.name} in ${l.late}`)) : `no order in any of the ${int(reps)} replications`;
+        v[`${key}.late_text`] = lateIn.length ? listJoin(lateIn.map((l) => `${l.name} in ${l.late}`)) : `no order in any of the ${int(reps)} simulated nights`;
+        // What happens to the trucks, in words a customer reads (TECH_NOTES D50).
+        v[`${key}.trucks`] = lateIn.length ? `${listJoin(lateIn.map((l) => `${l.name} late in ${l.late}`))} simulated nights` : `every truck on time in all ${int(reps)} simulated nights`;
         v[`${key}.late_names`] = lateIn.length ? listJoin(lateIn.map((l) => l.name)) : "no order";
         for (const l of lateIn) v[`${key}.late.${l.order}`] = l.late;
         v[`${key}.tonight`] = x.tonight.late.length ? `${listJoin(x.tonight.late)} late` : "every truck on time";
@@ -112,6 +114,8 @@ export function varsFrom(name, input, r) {
         "night.failures": int(r.failed_grasps), "night.escalations": int(r.escalations), "night.corrections": int(r.corrections),
         "night.manual": int(r.manual_picks), "night.called_in_h": hours(r.called_in_hours), "night.seed": String(r.seed),
         "night.plan_h": hours(r.plan_per_1000.hybrid_hours), "night.plan_eur": eur2(r.plan_per_1000.hybrid_eur),
+        "night.by_hand_1000_eur": eur2(r.plan_per_1000.by_hand_eur),
+        ...(r.same_units_by_hand_hours !== undefined ? { "night.by_hand_h": hours(r.same_units_by_hand_hours), "night.by_hand_eur": eur2(r.same_units_by_hand_eur) } : {}),
         ...(r.called_in_eur !== undefined ? { "night.called_in_eur": eur2(r.called_in_eur) } : {}),
         ...(r.heaviest_tote_kg !== undefined ? { "night.heaviest_tote": `${upTo(r.heaviest_tote_kg, 2)} kg`, "night.tote_limit": `${upTo(r.tote_limit_kg, 2)} kg` } : {})
       });
@@ -127,6 +131,9 @@ export function varsFrom(name, input, r) {
         [`${k}.saving_eur`]: eur2(r.per_1000.saving_eur),
         [`${k}.picks`]: int(r.per_cell_hour.robot_picks_per_cell_hour), [`${k}.break_even`]: eur2(r.per_cell_hour.break_even_eur_per_cell_hour),
         [`${k}.year_eur`]: eur0(r.per_year.avoided_eur), [`${k}.year_h`]: int(r.per_year.hours_avoided),
+        [`${k}.cells`]: upTo(r.per_year.cells_on_night_shift, 1),
+        ...(typeof r.per_1000.saving_share === "number" ? { [`${k}.saving_pct`]: `${roundHalfUp(r.per_1000.saving_share * 100, 0)} %` } : {}),
+        ...((r.inputs || []).find((x) => x.id === "N") ? { [`${k}.units_year`]: int(r.inputs.find((x) => x.id === "N").value) } : {}),
         ...(p ? { [`${k}.p`]: pct(p.value) } : {})
       });
       if (r.what_if) v["whatif.label"] = r.what_if;
@@ -169,7 +176,8 @@ export function varsFrom(name, input, r) {
     case "world_list_corrections": {
       const list = r.corrections || [];
       v["corrections.count"] = int(list.length);
-      v["corrections.list"] = list.length ? listJoin(list.map((c) => `${c.time} ${c.sku} ${grams(c.old)} → ${grams(c.new)} by the ${c.sensor}`)) : "none";
+      // In the item's name, not its SKU id: the console speaks to a customer (js/prompt.js).
+      v["corrections.list"] = list.length ? listJoin(list.map((c) => `${c.name || c.sku}, ${grams(c.old)} → ${grams(c.new)} by the ${c.sensor} at ${c.time}`)) : "none";
       for (const c of list) v[`corrections.${c.sku}`] = int(list.filter((x) => x.sku === c.sku).length);
       break;
     }

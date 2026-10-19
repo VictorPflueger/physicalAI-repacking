@@ -9,7 +9,9 @@
 // passes the live guardrails (a refusal is an error); every {{placeholder}} resolves where it is used;
 // every euro amount, number of hours and rate written in narration matches a figure a tool returned by
 // then (as in live mode, option cards, drafts and the summary are audited by the tools themselves); no
-// text shows "undefined" or "NaN"; the summary is marked as a simulated run, never as a live one; and
+// text shows "undefined" or "NaN"; what a written script says, drafts and publishes is in plain words,
+// without tool names, rule codes, SKU ids or seeds (NOT_PLAIN, D50); the summary is marked as a
+// simulated run, never as a live one; and
 // the night ends with the summary published. Paths: each option approved, doing nothing, the
 // recommended option rejected before another is approved, the recommendation approved in Advise mode
 // (the person applies it), and both answers to a confirmation. Before any replay it reads the script itself:
@@ -25,10 +27,25 @@ import { defaults as engineDefaults, ENGINE_VERSION } from "./engine.js";
 import { extractFigures } from "./figures.js";
 
 const BROKEN = /\b(undefined|NaN)\b|\[object Object\]/;
+
+/**
+ * Words a customer should not meet in what a written script says, drafts or publishes (TECH_NOTES
+ * D50, js/prompt.js): tool names, rule codes, SKU ids, seeds, replications, wake-ups, rolling success
+ * and payload. The reasoning lines are exempt (they show only under Details), and so is a recorded live
+ * run, whose words are the model's.
+ */
+export const NOT_PLAIN = /\b(?:wms|cell|world|sim|ui|open)_[a-z_]+|\bsku_id\b|\bE[1-4]\b|\bS\d{2}\b|\bseed(?:ed|s)?\b|\breplications?\b|\bwake-ups?\b|\brolling success\b|\bpayload\b/i;
 /** Scenarios whose script must exist in this build: all six (M4). */
 export const SCRIPTS_REQUIRED = Object.freeze(["SC1-EXPRESS", "SC2-GLASS", "SC3-UNKNOWN", "SC4-WEAR", "SC5-EARLY", "SC6-PEAK"]);
 
 class ScriptError extends Error {}
+
+/**
+ * A pause for the event loop between replays and wake-ups: in the browser, Diagnostics checks six
+ * scripts on 28 decision paths (about 9 s in Chromium), and without these pauses the page froze for the
+ * whole check (found in M4). In Node it adds about a millisecond per pause.
+ */
+const breathe = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /** Plays a session headless from wake-up to wake-up (the night player's job in the browser). */
 function headlessBridge(session) {
@@ -37,7 +54,7 @@ function headlessBridge(session) {
     for (let ev = session.take(); ev; ev = session.take()) if (ev.type === "wake") return { ...ev.payload, t: ev.t };
     return null;
   };
-  return { first: async () => toNextWake(), advance: async () => toNextWake() };
+  return { first: async () => { await breathe(); return toNextWake(); }, advance: async () => { await breathe(); return toNextWake(); } };
 }
 
 /**
@@ -110,6 +127,7 @@ export async function replayScript(script, { world, scenario, refs = {}, plan = 
   });
   const vars = {};
   const calls = [];
+  const plain = audit && script?.source !== "recorded";
   const fail = (msg) => { throw new ScriptError(msg); };
   const call = async (name, input, where) => {
     if (!TOOL_NAMES.includes(name)) fail(`${where || "a step"}: unknown tool "${name}"`);
@@ -121,6 +139,13 @@ export async function replayScript(script, { world, scenario, refs = {}, plan = 
       if (!/simulated run/i.test(md)) errors.push(`${where || name}: the summary lacks the "Simulated run" marker`);
     }
     for (const s of stringsIn(input)) if (BROKEN.test(s)) errors.push(`${where || name}: the input shows "${BROKEN.exec(s)[0]}"`);
+    if (plain) {
+      const words = name === "ui_final_report" ? [input.markdown] : name === "ui_draft_action" ? [input.subject, input.body] : [];
+      for (const s of words) {
+        const m = NOT_PLAIN.exec(String(s ?? ""));
+        if (m) errors.push(`${where || name}: ${name === "ui_final_report" ? "the summary" : "a draft"} says "${m[0]}", not a word for a customer (D50)`);
+      }
+    }
     calls.push(name);
     events.push({ type: "tool_call", payload: { name, input } });
     const out = await toolbox.execute(name, input);
@@ -145,6 +170,10 @@ export async function replayScript(script, { world, scenario, refs = {}, plan = 
         if (left.length) { errors.push(`${at} ${label}: {{${left[0]}}} does not resolve here`); return; }
         if (BROKEN.test(filled)) errors.push(`${at} ${label}: shows "${BROKEN.exec(filled)[0]}"`);
         texts.push({ at, label, text: filled });
+        if (plain && label !== "reasoning") {
+          const m = NOT_PLAIN.exec(filled);
+          if (m) errors.push(`${at} ${label}: "${m[0]}" is not a word for a customer (D50)`);
+        }
         if (scope === "narration") {
           const bad = toolbox.ledger().unknown(filled, "narration");
           if (bad.length) errors.push(`${at} ${label}: ${bad[0].raw} is typed, not taken from a tool result (use a placeholder)`);
@@ -259,6 +288,7 @@ export async function checkScript(world, scenario, script, refs = {}, { cache = 
   const visibleOf = (r) => r.calls.filter((n) => !n.startsWith("ui_") && n !== "sim_advance").length;
   const visible = [];
   for (const { name, plan, expectEnd } of plans) {
+    await breathe();
     const r = await replayScript(script, { world, scenario, refs, plan, cache, inputs });
     for (const e of r.errors) errors.push(`${name}: ${e}`);
     if (expectEnd && r.ok && !r.ended) errors.push(`${name}: the replay does not end with a note on a path the live run did not take`);

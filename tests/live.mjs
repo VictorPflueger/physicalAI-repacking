@@ -18,6 +18,10 @@
 //           model and the night's hash, types no figure, passes the script checker, and replays in Node
 //           and in Chromium (labelled as a recorded run) with the live run's tool calls in order and its
 //           night; a choice the live run did not make ends the replay with a note
+//   sc2 … sc6  each scenario live against a fake Claude that makes the scripted replay's turns
+//           (tests/lib/script_fake.mjs) with the decisions of its Simulation: every tool result equals the
+//           replay's in Node, the same night's hash, every lane and the tile, the same tool calls in order,
+//           at most 40 model calls, the protocol kept
 // Usage: node tests/live.mjs [case…]
 import path from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
@@ -25,12 +29,15 @@ import { pathToFileURL } from "node:url";
 import { APP_ROOT, outDir, wanted, launchBrowser, serveStatic, NETWORK_NOISE, SKIP_INTRO, CORS, MOCK_KEY, KEYS } from "./lib/harness.mjs";
 import { createFakeClaude, lastResults } from "./lib/fake-claude.mjs";
 import { replayScenario1, liveConversation, usageCost, loadData } from "./lib/scenario1.mjs";
+import { conversationFromReplay } from "./lib/script_fake.mjs";
+import { driveDecisions } from "./lib/drive.mjs";
 import vm from "node:vm";
 import { contrastShortfalls, settle } from "./lib/contrast.mjs";
 
 const mod = (p) => import(pathToFileURL(path.join(APP_ROOT, p)).href);
 const { MODELS, DEFAULT_MODEL, FX_USD_EUR, AGENT } = await mod("js/config.js");
 const F = await mod("js/format.js");
+const { replayScript } = await mod("js/sim_check.js");
 
 const OUT = await outDir("live");
 const { base: BASE, close } = await serveStatic(APP_ROOT, 8868);
@@ -69,10 +76,11 @@ async function newLivePage(fake, { viewport = { width: 1920, height: 1080 } } = 
   return { context, page, log, external, seen };
 }
 
-/** Boot, ×4, Start agent → Live → the key → the run starts. */
-async function startLive(page) {
+/** Boot, ×4, Start agent → Live → the key → the run starts (on scenario `id`, else the default). */
+async function startLive(page, id = null) {
   await page.goto(BASE);
   await page.waitForSelector('html[data-boot="ready"]', { timeout: 20000 });
+  if (id) { await page.click("#dd-scenario"); await page.click(`.menu-item[data-id="${id}"]`); }
   await page.click('button[aria-label="Night speed ×4"]');
   await page.click("#btn-start");
   await page.waitForSelector(".mode-card", { timeout: 5000 });
@@ -144,7 +152,7 @@ if (wanted("full")) {
     checks.guardrail = await page.$$eval('#console .entry[data-guard="ui_draft_action"] .entry-body', (els) => els.map((e) => e.textContent.replace(/\s+/g, " ").trim()));
     checks.notices = await page.$$eval('#console .entry[data-type="notice"]:not([data-guard]) .entry-body', (els) => els.map((e) => e.textContent.replace(/\s+/g, " ").trim()));
     checks.discarded = await page.$$eval("#console .entry[data-discarded='true'] .discarded-note", (els) => els.length);
-    checks.facts = (await page.$$eval("#console .entry .entry-body", (els) => els.map((e) => e.textContent.trim()).find((x) => /wake-ups; /.test(x)) || ""));
+    checks.facts = (await page.$$eval("#console .entry .entry-body", (els) => els.map((e) => e.textContent.trim()).find((x) => /agent turns; /.test(x)) || ""));
     await page.click("#btn-open-report");
     await page.waitForSelector(".report-modal", { timeout: 5000 });
     checks.report = (await page.innerText(".report-modal")).replace(/\s+/g, " ");
@@ -205,6 +213,59 @@ if (wanted("full")) {
     [checks.contrastMeasured > 50 && (checks.contrastBelow || []).length === 0, `the end state meets its contrast duty (${checks.contrastMeasured} measured; ${JSON.stringify(checks.contrastBelow)})`]
   ]);
 }
+
+// ---- sc2 … sc6: every scenario live, against a fake that makes the scripted replay's turns ------------------------
+async function liveScenarioCase(name, id, plan, label) {
+  const data = await loadData();
+  const sc = data.SCENARIOS.find((x) => x.id === id);
+  const node = await replayScript(data.SIM_RUNS[id], { world: data.WORLD, scenario: sc, refs: data.REFERENCE_CASES[id] || {}, plan });
+  const script = conversationFromReplay(node);
+  const fake = createFakeClaude(script);
+  const t = await newLivePage(fake);
+  const { page } = t;
+  const checks = {};
+  const started = Date.now();
+  try {
+    await startLive(page, id);
+    await fastNight(page);
+    const run = await driveDecisions(page, plan);
+    checks.end = run.end;
+    checks.decided = run.decided;
+    checks.badge = (await page.textContent("#mode-badge")).trim();
+    checks.lanes = Object.fromEntries(await page.$$eval(".lane", (els) => els.map((e) => [e.dataset.order, e.dataset.state])));
+    checks.tile = (await page.textContent("#kpi-ontime-value")).trim();
+    if ((await page.getAttribute("#drawer", "data-open")) === "true") await page.click(".drawer-end .btn");
+    const { audit } = await exportAudit(page);
+    checks.hash = audit.run?.night_hash;
+    checks.runStatus = audit.run?.status;
+    checks.calls = (audit.events || []).filter((e) => e.type === "tool_call").map((e) => e.payload.name);
+    checks.modelCalls = audit.counts?.model_calls;
+  } catch (err) {
+    checks.FAILED = String(err.message).split("\n")[0];
+    await page.screenshot({ path: path.join(OUT, `${name}-fail.png`) }).catch(() => {});
+  }
+  checks.seconds = Math.round((Date.now() - started) / 1000);
+  checks.violations = fake.violations;
+  checks.requests = fake.requests.length;
+  checks.remaining = fake.remaining();
+  const res = node.session?.run;
+  const states = res ? Object.fromEntries(res.orders.map((o) => [o.id, o.on_time ? "dispatched" : o.moved ? "moved" : "late"])) : {};
+  const onTime = res ? res.orders.filter((o) => o.on_time).length : -1;
+  await finish(`${name}: scenario ${sc.number} live against a fake Claude making the Simulation's turns, ${label} (${checks.seconds} s; ${(checks.decided || []).join(", ") || "no decision"})`, t, checks, [
+    [node.ok, `the headless replay in Node (${(node.errors || []).join(" | ")})`],
+    [checks.violations.length === 0 && checks.remaining === 0 && checks.requests === script.length, `every request follows the protocol and every tool result equals the replay's (${checks.requests} requests, ${checks.remaining} left; ${JSON.stringify(checks.violations).slice(0, 600)})`],
+    [checks.end === "Done" && checks.runStatus === "done" && checks.badge === "LIVE", `the live run is done (${checks.end}, ${checks.runStatus}, ${checks.badge})`],
+    [checks.hash === res?.hash, `the same night as the Simulation: hash ${checks.hash} (Node ${res?.hash})`],
+    [JSON.stringify(checks.lanes) === JSON.stringify(states) && checks.tile === `${onTime} of ${res?.orders.length}`, `every lane and the tile as in the Simulation (${checks.tile})`],
+    [JSON.stringify(checks.calls) === JSON.stringify(node.calls), `the same tool calls in the same order (${(checks.calls || []).length} live, ${(node.calls || []).length} in the replay)`],
+    [checks.modelCalls === script.length && checks.modelCalls <= AGENT.maxSteps, `${checks.modelCalls} model calls of at most ${AGENT.maxSteps}`]
+  ]);
+}
+if (wanted("sc2")) await liveScenarioCase("sc2", "SC2-GLASS", { option: null }, "the jar's correction");
+if (wanted("sc3")) await liveScenarioCase("sc3", "SC3-UNKNOWN", { option: null, confirm: "confirm" }, "the provisional entry confirmed");
+if (wanted("sc4")) await liveScenarioCase("sc4", "SC4-WEAR", { option: "A" }, "option A, the maintenance stop");
+if (wanted("sc5")) await liveScenarioCase("sc5", "SC5-EARLY", { option: null }, "the early closing absorbed");
+if (wanted("sc6")) await liveScenarioCase("sc6", "SC6-PEAK", { option: "A" }, "option A, the call-in");
 
 // ---- recorder: a live run saved as a simulation, replayed ------------------------------------------------------
 if (wanted("recorder")) {

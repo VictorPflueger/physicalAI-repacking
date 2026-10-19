@@ -282,7 +282,8 @@ a:hover { color: var(--brand-deep); }
 .control-label { color: var(--text-muted); font-size: var(--fs-sm); }
 /* The autonomy dial: the chosen level is a person's setting (burgundy, as the segmented control's
    pressed state); Bounded carries a lock and explains the gate instead of switching. */
-.segmented.autonomy-dial button { font-family: var(--font-ui); font-size: var(--fs-sm); display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; min-width: 0; }
+/* At least 40 px wide, also when Bounded shows only its lock (laptop widths). */
+.segmented.autonomy-dial button { font-family: var(--font-ui); font-size: var(--fs-sm); display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; min-width: 40px; }
 .autonomy-dial button[data-locked="true"] { color: var(--text-muted); }
 .autonomy-dial button[aria-disabled="true"] { cursor: not-allowed; }
 .autonomy-dial button[aria-disabled="true"]:not([aria-pressed="true"]) { color: var(--text-faint); background: var(--paper); }

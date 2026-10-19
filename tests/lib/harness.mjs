@@ -84,7 +84,7 @@ export const NETWORK_NOISE = /Failed to load resource|net::ERR_|ERR_BLOCKED_BY_C
 export const MOCK_KEY = "sk-ant-test-MOCKKEY-0123456789abcdefghijklmnopqrstuvwxyz0123456789";
 
 /** Browser storage keys of the app (js/config.js STORAGE), for tests that inspect storage. */
-export const KEYS = { apiKey: "rp.anthropic.key", introSeen: "rp.introSeen", diagnostics: "rp.diag" };
+export const KEYS = { apiKey: "rp.anthropic.key", introSeen: "rp.introSeen", diagnostics: "rp.diag", consoleView: "rp.consoleView" };
 
 /**
  * Init script for browser contexts: marks the intro window as seen, so it does not open by itself

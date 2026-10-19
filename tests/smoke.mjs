@@ -3,29 +3,42 @@
 //                 (twelve store lanes with their cut-offs, five stations, the world model's Synthetic
 //                 label), the header tiles at the manual baseline, six scenarios, no external request,
 //                 storage keys under rp.
-//   intro         first visit opens the intro window (five steps, three value points, what is real);
-//                 "How it works" reopens it; its Start agent leads to the mode choice
+//   intro         first visit opens the intro window, the five-minute call's opener: five steps, three
+//                 value points with the engine's figures at the inputs (€32.49 against €89.50, −64 %,
+//                 €342,069 a year on 4.2 cells, €40.72 an hour), what is real; "How it works" reopens it;
+//                 its Start agent leads to the mode choice
 //   modes         Start agent → Simulation → the scripted replay starts (status, badge, the console's run
-//                 line, the watermark) → Abort; scenario 2 → a night preview (no script yet, with its
-//                 note); Start agent → Live → key dialog (401, then accepted) → the live agent starts (the
+//                 line, the watermark) → Abort; scenario 2 → its own scripted replay; a scenario whose
+//                 script is missing → a night preview with its note; Start agent → Live → key dialog (401,
+//                 then accepted) → the live agent starts (the
 //                 Messages API stand-in holds the call) → key kept in this tab's session storage only,
 //                 never in local storage or the console; change or forget the key
 //   diag          Diagnostics: Anthropic (keyless 401 from a stand-in), world (14 checks), simulation
-//                 scripts (scenario 1 valid, five pending), Open Food Facts (live reads off) and privacy
+//                 scripts (all six valid), Open Food Facts (live reads off) and privacy
 //   drawer        five tabs with their content; a scripted night stopped by Abort, then the audit export:
 //                 version, mode "simulation", the chosen mode, the night's hash, a partial unit log instead
 //                 of the ordinary units' events, the agent's tool calls, no key
 //   night         scenario 1's scripted replay to night end at ×4, ×2 and ×1, with option B approved and
 //                 its drafts: every lane's dispatch state, the orders-on-time tile, the KPI board's Tonight
-//                 column and the night report equal the replay computed headless in Node; the night clock
-//                 moves at about 6 simulated minutes per second per speed step
+//                 column and the night report equal the replay computed headless in Node; between moments
+//                 the night clock cruises at 16 simulated minutes per second per speed step; the console's
+//                 simple view (the default) and Details
 //   board         the cell board by keyboard and mouse: every station, lane and the world model are
 //                 buttons of at least 44 px in the Tab order; Enter opens a popover named for the entity,
 //                 Escape closes it and gives the focus back; a popover follows the night; reduced motion
 //                 stops every animation
-//   kpi           the KPI board at the brief's defaults (G1, break-even, the annual figure with the cells
-//                 it needs, the demo cell, sources on every row, no payback claim); p = 0.70 in the
-//                 Assumptions tab gives G2 and lands in the audit; an out-of-range value is refused; Reset
+//   kpi           the KPI board at the brief's defaults (what it is worth first: the annual figure with
+//                 the cells it needs, the demo cell; G1, break-even, sources on every row, no payback
+//                 claim); p = 0.70 in the Assumptions tab gives G2 and lands in the audit; an
+//                 out-of-range value is refused; Reset
+//   yourdc        after scenario 1's night, Your DC on the KPI board: 10,000,000 units a year gives
+//                 €570,115 on 7 cells, the board keeps the finished night, the audit and the Assumptions
+//                 tab show the change, a refused value, Reference site restores €342,069
+//   dial          the autonomy dial: Advise, Approve and Bounded, Approve by default; Bounded locked with the
+//                 gate's three shortfalls (138 of 200 decisions, 7 of 10 nights, 92.8 % of 95 %) in its
+//                 tooltip and dialog; Advise chosen, kept for the tab and logged; the dial locked during the
+//                 run; in Advise the person's click applies option B, the agent never calls
+//                 wms_apply_option, and the night is the same as with Approve
 //   world         scenario 2: the scale writes the glass jar back once (22:17, 200 g → 400 g) in the
 //                 console, the corrections log and the item's popover; the audit holds that one
 //                 correction and no tote over 15 kg
@@ -51,11 +64,16 @@ import { contrastShortfalls } from "./lib/contrast.mjs";
 const mod = (p) => import(pathToFileURL(path.join(APP_ROOT, p)).href);
 const NS = await mod("js/nightsim.js");
 const E = await mod("js/engine.js");
+const NP = await mod("js/night.js");
+// Between the night's moments the clock cruises (js/night.js, TECH_NOTES D50): simulated minutes per real second at ×1.
+const CRUISE_MIN_PER_S = (NP.SIM_MS_PER_REAL_MS * NP.CRUISE_FACTOR * 1000) / NS.MINUTE;
 const F = await mod("js/format.js");
 const { APP } = await mod("js/config.js");
 const { replayScenario1 } = await mod("tests/lib/scenario1.mjs");
 // Scenario 1's scripted replay with option B approved, headless in Node: what the screen must show.
 const SC1_B = await replayScenario1({ option: "B" });
+// The engine's plan at the brief's defaults: the opener's and the KPI board's figures (golden case G1).
+const G1 = E.plan(E.defaults());
 const sandbox = { window: {} };
 vm.createContext(sandbox);
 for (const f of ["data/world.js", "data/scenarios.js"]) vm.runInContext(await readFile(path.join(APP_ROOT, f), "utf8"), sandbox, { filename: f });
@@ -225,7 +243,7 @@ if (wanted("boot")) {
     [JSON.stringify(checks.lanes) === JSON.stringify(stores) && stores.length === 12, `twelve store lanes with the world's cut-offs (${JSON.stringify(checks.lanes)})`],
     [JSON.stringify(checks.stations) === JSON.stringify(["Inbound pallet", "Camera", "Robot cell", "Scale", "Manual station"]), `five stations (${JSON.stringify(checks.stations)})`],
     [checks.manual === `${F.int(waiting)} waiting · 0 picked` && checks.clock === "22:00", `the manual station at 22:00: ${checks.manual}, clock ${checks.clock}`],
-    [JSON.stringify(checks.tiles) === JSON.stringify(["2.5 h · €89.50 | manual baseline (engine)", "— | once the night runs", "22:00 | 22:00 to 06:00", "€0.00 | no model calls"]), `header tiles at the manual baseline (${JSON.stringify(checks.tiles)})`],
+    [JSON.stringify(checks.tiles) === JSON.stringify(["2.5 h · €89.50 | by hand, without the cell", "— | once the night runs", "22:00 | 22:00 to 06:00", "€0.00 | no model calls"]), `header tiles at the manual baseline (${JSON.stringify(checks.tiles)})`],
     [checks.scenarios?.length === 6 && checks.scenarios[0] === "1 Express order for the flagship store at 02:00", `six scenarios (${JSON.stringify(checks.scenarios)})`],
     [checks.scenarioLabel === "Gripper wear" && /Scenario 4: Gripper wear/.test(checks.subtitleAfter || ""), "choosing a scenario updates the bar and the panel"],
     [/^Night of Wed 23 to Thu 24 Dec 2026 · 22:00–06:00 · Scenario 5/.test(checks.subtitleSc5 || "") && checks.soeSc5 === "01:30", `scenario 5's night and Soest's earlier cut-off (${checks.subtitleSc5}; ${checks.soeSc5})`],
@@ -248,6 +266,8 @@ if (wanted("intro")) {
     checks.title = (await page.textContent(".intro-modal h2")).trim();
     checks.steps = await page.$$eval(".intro-step-title", (els) => els.map((e) => e.textContent).join(","));
     checks.values = await page.$$eval(".intro-value strong", (els) => els.length);
+    checks.figures = await page.$$eval(".intro-value-figure", (els) => els.map((e) => e.textContent.trim()));
+    checks.valueTexts = await page.$$eval(".intro-value li", (els) => els.map((e) => e.innerText.replace(/\s+/g, " ").trim()));
     checks.real = await page.$$eval(".intro-real-item strong", (els) => els.map((e) => e.textContent));
     checks.words = await page.$eval(".intro-modal", (e) => e.innerText.split(/\s+/).filter(Boolean).length);
     checks.fits = await page.$eval(".intro-modal", (e) => { const r = e.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; });
@@ -279,8 +299,12 @@ if (wanted("intro")) {
   await finish("intro: first visit, reopen, start", t, checks, [
     [checks.title === "How Repack Pilot works", "the intro opens by itself on the first visit"],
     [checks.steps === "Perceive,Plan,Pick,Replan,Prepare" && checks.values === 3, "five steps and three value points"],
-    [JSON.stringify(checks.real) === JSON.stringify(["Simulated, and labelled so", "Real"]), "the what-is-real panel"],
-    [checks.words <= 260, `the intro stays brief (${checks.words} words)`],
+    [JSON.stringify(checks.figures) === JSON.stringify([F.eur2(G1.per_thousand.hybrid_eur), `${F.eur0(G1.per_year.eur_avoided)} a year`, `${F.eur2(G1.per_cell_hour.break_even_eur)} an hour`])
+      && checks.valueTexts?.[0]?.includes(`instead of ${F.eur2(G1.per_thousand.manual_eur)} by hand: −64 %`) && checks.valueTexts?.[1]?.includes("with 4.2 cells on the night shift"),
+      `what it is worth, from the engine (${JSON.stringify(checks.figures)}; ${JSON.stringify(checks.valueTexts)})`],
+    [JSON.stringify(checks.real) === JSON.stringify(["Simulated, labelled so", "Real"]), `the what-is-real panel (${JSON.stringify(checks.real)})`],
+    // About a minute to read: 238 words a minute is the average adult reading rate (TECH_NOTES D50).
+    [checks.words <= 238, `the intro reads in about a minute (${checks.words} words of at most 238)`],
     [checks.fits, "the intro fits the screen"],
     [checks.focus === "Start agent", "the main button has focus"],
     [checks.flag === "1" && checks.reopenedOnReload === false, "once closed, it does not open again on reload"],
@@ -315,9 +339,20 @@ if (wanted("modes")) {
     await waitStatus(page, "Aborted", 5000);
     checks.abortLine = (await page.$$eval("#console .entry .entry-body", (els) => els.at(-1).querySelector("span")?.textContent || "")).trim();
     checks.abortFacts = (await page.$$eval("#console .entry .entry-body", (els) => els.at(-1).querySelector(".run-facts")?.textContent || "")).trim();
-    // A scenario without a scripted replay yet plays its night without the agent, and says so first.
+    // Scenario 2 has its own scripted replay (M4).
     await page.click("#dd-scenario");
     await page.click('.menu-item[data-id="SC2-GLASS"]');
+    await page.click("#btn-start");
+    await page.waitForSelector(".mode-card", { timeout: 5000 });
+    checks.sc2Note = await page.$(".stage-note");
+    await page.click('.mode-card[data-mode="simulation"] .mode-cta button');
+    await page.waitForSelector('#console .entry[data-type="run"]', { timeout: 5000 });
+    checks.sc2RunLine = (await page.$eval('#console .entry[data-type="run"] .entry-body', (e) => e.innerText)).replace(/\s+/g, " ").trim();
+    checks.sc2Badge = (await page.textContent("#mode-badge")).trim();
+    await page.click("#btn-abort");
+    await waitStatus(page, "Aborted", 5000);
+    // A scenario whose script is missing plays its night without the agent, and says so first.
+    await page.evaluate(() => { delete window.SIM_RUNS["SC2-GLASS"]; });
     await page.click("#btn-start");
     await page.waitForSelector(".mode-card", { timeout: 5000 });
     checks.previewNote = (await page.textContent(".stage-note")).trim();
@@ -380,8 +415,9 @@ if (wanted("modes")) {
     [/^Scenario 1: Express order for the flagship store at 02:00 Simulation: scripted replay through the agent's own tools/.test(checks.simRunLine || "") && checks.watermark, `the console says what runs and shows the SIMULATION watermark (${checks.simRunLine})`],
     [checks.statusAfterSim === "Perceiving" && checks.badgeAfterSim === "SIMULATION", `the replay's status and badge (${checks.statusAfterSim}, ${checks.badgeAfterSim})`],
     [checks.boardRunning === "running" && checks.startLocked === "true", "the night runs on the board; Start is locked"],
-    [/^Run aborted\. Stopped by the user\.$/.test(checks.abortLine || "") && /^Replay facts: .*; 1 wake-up; .*; no cost \(simulated\)\.$/.test(checks.abortFacts || ""), `Abort stops the run and says how far it got (${checks.abortLine} | ${checks.abortFacts})`],
-    [/^This scenario has no scripted replay yet \(M4\)/.test(checks.previewNote || "") && checks.previewBadge === "NIGHT PREVIEW" && /^No scripted replay for scenario 2 yet/.test(checks.previewNotice || ""), `a scenario without a script plays as a night preview, and says so (${checks.previewNote} | ${checks.previewNotice})`],
+    [/^Run aborted\. Stopped by the user\.$/.test(checks.abortLine || "") && /^Replay facts: .*; 1 agent turn; .*; no cost \(simulated\)\.$/.test(checks.abortFacts || ""), `Abort stops the run and says how far it got (${checks.abortLine} | ${checks.abortFacts})`],
+    [checks.sc2Note === null && /^Scenario 2: Glassware heavier than master data Simulation: scripted replay/.test(checks.sc2RunLine || "") && checks.sc2Badge === "SIMULATION", `scenario 2 plays its own scripted replay (${checks.sc2RunLine}, ${checks.sc2Badge})`],
+    [/^This scenario has no scripted replay: Simulation plays its night without the agent/.test(checks.previewNote || "") && checks.previewBadge === "NIGHT PREVIEW" && /^No scripted replay for scenario 2:/.test(checks.previewNotice || ""), `a scenario without a script plays as a night preview, and says so (${checks.previewNote} | ${checks.previewNotice})`],
     [checks.inputMasked && /does not look like an Anthropic API key/.test(checks.formatMessage || ""), "masked input, format check before any request"],
     [/rejected this key \(401\)/.test(checks.rejectMessage || "") && checks.keyAfterReject === null, "a rejected key is not stored"],
     [checks.keySession === MOCK_KEY && /Live agent on Sonnet 5\.5/.test(checks.liveRunLine || "") && checks.liveBadge === "LIVE", `an accepted key is kept in session storage under rp.; the live agent starts (${checks.liveRunLine})`],
@@ -423,11 +459,11 @@ if (wanted("diag")) {
   await finish("diag: Diagnostics", t, checks, [
     [JSON.stringify(checks.rows) === JSON.stringify(["anthropic:pass", "world:pass", "scripts:pass", "openfoodfacts:skip", "privacy:pass"]), `four rows pass, Open Food Facts is skipped (${JSON.stringify(checks.rows)})`],
     [/^Reachable; CORS accepted \(no key sent\)\./.test(checks.anthropic || ""), "the keyless probe reads the 401"],
-    [checks.scripts === "1 script valid on every decision path; 5 scenarios without a script yet (M4)." && JSON.stringify(checks.scriptRows) === JSON.stringify(["pass", "pending", "pending", "pending", "pending", "pending"]), `the script row (${checks.scripts}; ${JSON.stringify(checks.scriptRows)})`],
+    [checks.scripts === "6 scripts valid on every decision path." && JSON.stringify(checks.scriptRows) === JSON.stringify(["pass", "pass", "pass", "pass", "pass", "pass"]), `the script row (${checks.scripts}; ${JSON.stringify(checks.scriptRows)})`],
     [/^Live reads are off in this build .* No request is sent\.$/.test(checks.off || ""), `the Open Food Facts row (${checks.off})`],
     [/^Connections limited to api\.anthropic\.com, as configured; no key stored; audit export checked\.$/.test(checks.privacy || ""), `privacy row (${checks.privacy})`],
     [checks.worldChecks === 14 && checks.worldFails === 0, `14 world checks listed, none failing (${checks.worldChecks}, ${checks.worldFails})`],
-    [new RegExp(`^Repack Pilot ${APP.version.replace(/\./g, "\\.")}\\.`).test(checks.footer || "") && APP.version === "0.3.0", `the footer shows the version (${checks.footer})`],
+    [new RegExp(`^Repack Pilot ${APP.version.replace(/\./g, "\\.")}\\.`).test(checks.footer || "") && APP.version === "0.4.0", `the footer shows the version (${checks.footer})`],
     [(checks.requests || []).length === 1 && /^POST \/v1\/messages key=no browser=true$/.test(checks.requests[0]), `one keyless probe with the browser header (${JSON.stringify(checks.requests)})`],
     [checks.remembered === "pass", "the result is remembered for this session"]
   ]);
@@ -529,10 +565,21 @@ if (wanted("night")) {
       c.clock = (await page.textContent("#kpi-clock-value")).trim();
       c.report = (await page.textContent("#console .night-report-title")).trim();
       c.summary = await page.$$eval('#console .entry[data-kind="summary"]', (els) => els.length);
+      // The console's simple view (the default) and Details (TECH_NOTES D50).
+      c.view = await page.getAttribute("#console", "data-view");
+      c.entries = await page.$$eval("#console .entry", (els) => ({ all: els.length, shown: els.filter((e) => getComputedStyle(e).display !== "none").length, tools: els.filter((e) => e.dataset.type === "tool_call" && getComputedStyle(e).display !== "none").length }));
+      c.count = (await page.textContent("#console .count")).trim();
+      if (speed === 4) {
+        await page.click("#btn-console-details");
+        c.details = { view: await page.getAttribute("#console", "data-view"), shown: await page.$$eval("#console .entry", (els) => els.filter((e) => getComputedStyle(e).display !== "none").length), count: (await page.textContent("#console .count")).trim(), stored: await page.evaluate((k) => localStorage.getItem(k), KEYS.consoleView) };
+        await page.click("#btn-console-details");
+        c.back = { view: await page.getAttribute("#console", "data-view"), stored: await page.evaluate((k) => localStorage.getItem(k), KEYS.consoleView) };
+      }
       await page.click("#tab-kpiboard");
       await page.waitForSelector("#panel-kpiboard:not([hidden])");
       c.kpi = await kpiRows(page);
       c.tonightHead = (await page.textContent(".kb-table thead th:nth-child(3)")).trim();
+      c.tonightTitle = await page.getAttribute(".kb-table thead th:nth-child(3)", "title");
       if (speed === 4) await shot(page, "11-night-end-kpiboard.png");
       await page.click(".drawer-end .btn");
       // Rate: simulated minutes per real second between 22:50 and 01:50 (no wake-up in that stretch),
@@ -548,12 +595,13 @@ if (wanted("night")) {
     checks.FAILED = String(err.message).split("\n")[0];
     await shot(page, "night-fail.png");
   }
+  const calledIn = f.called_in_hours > 0 ? `, ${F.hours(f.called_in_hours)} called in` : "";
   const expectRows = {
-    "Labour hours tonight": F.hours(f.labour_hours),
+    "Labour hours tonight": `${F.hours(f.labour_hours)}${calledIn}`,
     [`Cell hours, ${F.int(res.orders.reduce((n, o) => n + o.units, 0))} units tonight`]: F.hours(f.cell_hours),
     "Robot picks per cell hour": F.int(f.robot_picks_per_cell_hour),
     "Store orders on time": `${F.int(onTime)} of ${F.int(res.orders.length)}`,
-    "Labour per 1,000 units, hybrid": `${F.hours(f.labour_hours_per_1000)} · ${F.eur2(E.tonightEuros(E.defaults(), f).per_thousand_eur)}`
+    "Labour per 1,000 units, with the cell": `${F.hours(f.labour_hours_per_1000)} · ${F.eur2(E.tonightEuros(E.defaults(), f).per_thousand_eur)}${calledIn}`
   };
   const exps = [[onTime === 13 && SC1_B.hash === res.hash, `option B keeps every truck on time in the Node replay (${onTime} of ${res.orders.length})`]];
   for (const speed of [4, 2, 1]) {
@@ -562,9 +610,12 @@ if (wanted("night")) {
     exps.push([c.tile === `${onTime} of ${res.orders.length}` && c.clock === "06:00", `×${speed}: the tile ${c.tile}, the clock ${c.clock}`]);
     exps.push([c.report === (late.length ? `Night over at 06:00. ${onTime} of ${res.orders.length} orders on time; late: ${late.join(" and ")}.` : `Night over at 06:00. All ${res.orders.length} orders on time.`) && c.summary === 1, `×${speed}: the night report and the management summary (${c.report})`]);
     const bad = Object.entries(expectRows).filter(([k, v]) => c.kpi?.[k]?.[1] !== v).map(([k, v]) => `${k}: ${c.kpi?.[k]?.[1]} ≠ ${v}`);
-    exps.push([bad.length === 0 && c.tonightHead === `Tonight (simulation, seed ${res.seed})`, `×${speed}: the KPI board's Tonight column (${bad.join("; ") || c.tonightHead})`]);
-    exps.push([c.rate !== null && c.samples >= 4 && c.rate >= 4.5 * speed && c.rate <= 7.5 * speed, `×${speed}: ${c.rate} simulated minutes per second over ${c.samples} samples (6 × ${speed} expected)`]);
+    exps.push([bad.length === 0 && c.tonightHead === "Tonight (simulated night)" && c.tonightTitle === `Seed ${res.seed}: the same seed replays the same night.`, `×${speed}: the KPI board's Tonight column (${bad.join("; ") || `${c.tonightHead}; ${c.tonightTitle}`})`]);
+    exps.push([c.rate !== null && c.samples >= 4 && c.rate >= 0.75 * CRUISE_MIN_PER_S * speed && c.rate <= 1.25 * CRUISE_MIN_PER_S * speed, `×${speed}: ${c.rate} simulated minutes per second over ${c.samples} samples (${CRUISE_MIN_PER_S} × ${speed} expected between moments)`]);
+    exps.push([c.view === "simple" && c.entries?.shown <= 35 && c.entries?.tools === 0 && c.count === `${c.entries?.shown} of ${c.entries?.all} entries`, `×${speed}: the console's simple view shows ${c.entries?.shown} of ${c.entries?.all} entries, no tool call (${c.count})`]);
   }
+  const d4 = checks.speeds[4] || {};
+  exps.push([d4.details?.view === "details" && d4.details?.shown === d4.entries?.all && d4.details?.count === `${d4.entries?.all} entries` && d4.details?.stored === "details" && d4.back?.view === "simple" && d4.back?.stored === "simple", `Details shows every entry and is remembered under rp. (${JSON.stringify(d4.details)}, ${JSON.stringify(d4.back)})`]);
   checks.durations = Object.fromEntries(Object.entries(checks.speeds).map(([k, v]) => [k, v.seconds]));
   await finish(`night: scenario 1's scripted replay to night end at ×4, ×2 and ×1, option B approved (${JSON.stringify(checks.durations)} s)`, t, checks, exps);
 }
@@ -671,7 +722,7 @@ if (wanted("kpi")) {
   const t = await newPage();
   const { page } = t;
   const checks = {};
-  const read = async () => ({ rows: await kpiRows(page), annual: (await page.innerText(".kb-annual")).replace(/\s+/g, " ").trim(), all: (await page.innerText("#panel-kpiboard")).replace(/\s+/g, " ") });
+  const read = async () => ({ rows: await kpiRows(page), annual: (await page.innerText(".kb-worth")).replace(/\s+/g, " ").trim(), all: (await page.innerText("#panel-kpiboard")).replace(/\s+/g, " "), first: await page.$eval(".kpiboard > *", (e) => e.className) });
   try {
     await boot(page);
     await page.click("#tab-kpiboard");
@@ -710,18 +761,145 @@ if (wanted("kpi")) {
   const basisOk = (r) => r && Object.keys(r.rows).length === 8 && Object.values(r.rows).every((cells) => cells[2] && cells[2].split(" ").every((k) => ["IML", "EUROSTAT_LC", "Assumption", "Synthetic"].includes(k)));
   const payback = (r) => (r?.all.match(/payback/gi) || []).length === (r?.all.match(/No payback claim/g) || []).length;
   await finish("kpi: the KPI board and the Assumptions tab", t, checks, [
-    [plan(checks.g1, "Labour per 1,000 units, by hand") === "2.5 h · €89.50" && plan(checks.g1, "Labour per 1,000 units, hybrid") === "0.91 h · €32.49", "G1 per 1,000 units: 2.5 h · €89.50 by hand, 0.91 h · €32.49 hybrid"],
+    [plan(checks.g1, "Labour per 1,000 units, by hand") === "2.5 h · €89.50" && plan(checks.g1, "Labour per 1,000 units, with the cell") === "0.91 h · €32.49", "G1 per 1,000 units: 2.5 h · €89.50 by hand, 0.91 h · €32.49 with the cell"],
     [plan(checks.g1, "Robot picks per cell hour") === "455" && plan(checks.g1, "Break-even all-in cell cost") === "€40.72 per operating hour", "455 picks per cell hour; break-even €40.72 per operating hour"],
-    [/€342,069 a year illustrative, per reference site, gross, before cell costs/.test(checks.g1?.annual || "") && /8,400 cell hours: 4\.2 cells on an eight-hour night shift over 250 nights, or 1\.4 cells round the clock/.test(checks.g1?.annual || "") && /€42,759 a year/.test(checks.g1?.annual || ""), `the annual figure with its qualifier, the cells it needs and the demo cell (${checks.g1?.annual})`],
+    [checks.g1?.first === "kb-worth" && /^What it is worth illustrative, per reference site, gross, before cell costs €342,069 a year with 4\.2 cells on the night shift/.test(checks.g1?.annual || "") && /Per 1,000 units: €32\.49 with the cell, instead of €89\.50 by hand \(−64 %\)/.test(checks.g1?.annual || "") && /8,400 cell hours a year, that is 4\.2 cells on an eight-hour night shift over 250 nights, or 1\.4 round the clock/.test(checks.g1?.annual || "") && /€42,759 a year/.test(checks.g1?.annual || ""), `what it is worth comes first: the annual figure with its qualifier, the cells it needs and the demo cell (${checks.g1?.annual})`],
     [basisOk(checks.g1) && payback(checks.g1), "every row carries a source key or Assumption; no payback claim"],
     [(checks.inputs || []).length === E.PARAMETERS.length && checks.inputs.includes("p=0.91 [Assumption]") && checks.inputs.includes("r_m=400 [IML]") && checks.inputs.includes("c=35.8 [EUROSTAT_LC]"), `the Assumptions tab lists every input with its basis (${JSON.stringify(checks.inputs)})`],
     [checks.refused?.msg === "Between 0.01 and 1.00." && checks.refused?.invalid === "true" && checks.refused?.stored === null, `an out-of-range value is refused (${JSON.stringify(checks.refused)})`],
     [checks.changedChip && checks.stored === '{"p":0.7}' && /^Changed inputs: p 0\.70 \(default 0\.91\)$/.test(checks.changedLine || ""), `p = 0.70 is kept for this tab and named on the board (${checks.stored}; ${checks.changedLine})`],
-    [plan(checks.g2, "Labour per 1,000 units, hybrid") === "1.28 h · €45.65" && plan(checks.g2, "Break-even all-in cell cost") === "€31.33 per operating hour" && /€263,130 a year/.test(checks.g2?.annual || ""), `G2: 1.28 h · €45.65, €31.33, €263,130 (${plan(checks.g2, "Labour per 1,000 units, hybrid")}; ${plan(checks.g2, "Break-even all-in cell cost")})`],
+    [plan(checks.g2, "Labour per 1,000 units, with the cell") === "1.28 h · €45.65" && plan(checks.g2, "Break-even all-in cell cost") === "€31.33 per operating hour" && /€263,130 a year/.test(checks.g2?.annual || ""), `G2: 1.28 h · €45.65, €31.33, €263,130 (${plan(checks.g2, "Labour per 1,000 units, with the cell")}; ${plan(checks.g2, "Break-even all-in cell cost")})`],
     [checks.tile === "2.5 h · €89.50", `the idle header tile keeps the manual baseline (${checks.tile})`],
     [JSON.stringify(checks.auditChange) === JSON.stringify(["p: 0.91 → 0.7"]), `the change is in the audit (${JSON.stringify(checks.auditChange)})`],
-    [checks.afterReset?.value === "0.91" && checks.afterReset?.stored === "{}" && plan(checks.reset, "Labour per 1,000 units, hybrid") === "0.91 h · €32.49" && /€342,069 a year/.test(checks.reset?.annual || ""), "Reset to defaults restores G1"],
+    [checks.afterReset?.value === "0.91" && checks.afterReset?.stored === "{}" && plan(checks.reset, "Labour per 1,000 units, with the cell") === "0.91 h · €32.49" && /€342,069 a year/.test(checks.reset?.annual || ""), "Reset to defaults restores G1"],
     [JSON.stringify(checks.auditReset) === JSON.stringify(["p: 0.91 → 0.7", "p: 0.7 → 0.91 (reset)"]), `the reset is in the audit (${JSON.stringify(checks.auditReset)})`]
+  ]);
+}
+
+// ---- yourdc: after the night, the customer's own volume on the KPI board ------------------------------------------
+if (wanted("yourdc")) {
+  const t = await newPage();
+  const { page } = t;
+  const checks = {};
+  const f = SC1_B.replay.session.figures();
+  const v = E.defaults();
+  const byHand = E.night(v, f.units_repacked);
+  const big = E.plan({ ...v, N: 10000000 });
+  try {
+    await boot(page);
+    await startNight(page, { speed: 4 });
+    await dismissBanners(page);
+    await decideAndFinish(page, { option: "B" });
+    checks.card = (await page.innerText("#console .night-report")).replace(/\s+/g, " ").trim();
+    checks.cardShown = await page.$$eval("#console .night-report dt", (els) => els.filter((e) => getComputedStyle(e).display !== "none").map((e) => e.textContent));
+    await page.click("#btn-console-your-dc");
+    await page.waitForSelector("#panel-kpiboard:not([hidden]) #kb-dc-N");
+    checks.before = (await page.textContent("#kb-year")).trim();
+    await page.fill("#kb-dc-N", "10,000,000");
+    await page.press("#kb-dc-N", "Enter");
+    await page.waitForFunction(() => /570/.test(document.getElementById("kb-year")?.textContent || ""), null, { timeout: 3000 });
+    checks.after = { year: (await page.textContent("#kb-year")).trim(), sub: (await page.textContent(".kb-worth-sub")).trim(), field: await page.inputValue("#kb-dc-N"), focus: await page.evaluate(() => document.activeElement?.id) };
+    checks.boardKept = { clock: (await page.textContent(".cell-clock")).trim(), lanes: await page.$$eval(".lane", (els) => els.filter((e) => e.dataset.state === "dispatched").length) };
+    checks.tile = (await page.textContent("#kpi-labour-value")).trim();
+    await shot(page, "16-your-dc.png");
+    await page.fill("#kb-dc-c", "abc");
+    await page.press("#kb-dc-c", "Enter");
+    checks.refused = { msg: (await page.textContent(".kb-dc-field:has(#kb-dc-c) .kb-dc-msg")).trim(), invalid: await page.getAttribute("#kb-dc-c", "aria-invalid") };
+    await page.click("#tab-assumptions");
+    checks.assumption = { value: await page.inputValue("#as-N"), chip: await page.isVisible('tr[data-param="N"] .chip') };
+    await page.click("#tab-audit");
+    checks.audit = await page.$$eval('.audit-table tr[data-type="assumption_change"] td.s', (els) => els.map((e) => e.textContent.trim()));
+    await page.click("#tab-kpiboard");
+    await page.click("#kb-dc-reset");
+    checks.reset = { year: (await page.textContent("#kb-year")).trim(), field: await page.inputValue("#kb-dc-N"), stored: await page.evaluate(() => sessionStorage.getItem("rp.assumptions")) };
+  } catch (err) {
+    checks.FAILED = String(err.message).split("\n")[0];
+    await shot(page, "yourdc-fail.png");
+  }
+  const lanes = SC1_B.replay.session.run.orders.length;
+  await finish("yourdc: the closing card, and Your DC on the KPI board after the night", t, checks, [
+    [checks.card?.includes(`Labour with the cell ${F.hours(f.labour_hours)} · ${F.eur2(E.tonightEuros(v, f).labour_eur)}, ${F.hours(f.called_in_hours)} of it called in`) && checks.card?.includes(`The same units by hand ${F.hours(byHand.manual_h)} · ${F.eur2(byHand.manual_eur)}`), `the closing card: tonight against the same units by hand (${checks.card})`],
+    [checks.card?.includes(`Per 1,000 units ${F.eur2(G1.per_thousand.hybrid_eur)} with the cell, instead of ${F.eur2(G1.per_thousand.manual_eur)} by hand (−64 %)`) && checks.card?.includes(`${F.eur0(G1.per_year.eur_avoided)} a year with 4.2 cells on the night shift`) && checks.card?.includes(`${F.eur2(G1.per_cell_hour.break_even_eur)} per operating hour`), "the closing card: what it is worth"],
+    [!(checks.cardShown || []).includes("Seed") && !(checks.cardShown || []).includes("Robot cell"), `the simple view leaves the seed and the cell's rates to Details (${JSON.stringify(checks.cardShown)})`],
+    [checks.before === `${F.eur0(G1.per_year.eur_avoided)} a year` && checks.after?.year === `${F.eur0(big.per_year.eur_avoided)} a year` && checks.after?.sub === "with 7 cells on the night shift" && checks.after?.field === "10,000,000" && checks.after?.focus === "kb-dc-N", `Your DC: 10,000,000 units a year (${JSON.stringify(checks.after)})`],
+    [checks.boardKept?.clock === "06:00" && checks.boardKept?.lanes === lanes && checks.tile === "0.91 h · €32.49", `the finished night stays on the board (${JSON.stringify(checks.boardKept)}, ${checks.tile})`],
+    [/^Between 1\.00 and 200\.00\.$/.test(checks.refused?.msg || "") && checks.refused?.invalid === "true", `a value that is not a number is refused (${JSON.stringify(checks.refused)})`],
+    [checks.assumption?.value === "10000000" && checks.assumption?.chip === true, `the Assumptions tab shows the change (${JSON.stringify(checks.assumption)})`],
+    [JSON.stringify(checks.audit) === JSON.stringify(["N: 6000000 → 10000000 (Your DC)"]), `the change is in the audit (${JSON.stringify(checks.audit)})`],
+    [checks.reset?.year === `${F.eur0(G1.per_year.eur_avoided)} a year` && checks.reset?.field === "6,000,000" && checks.reset?.stored === "{}", `Reference site restores the brief's site (${JSON.stringify(checks.reset)})`]
+  ]);
+}
+
+// ---- dial: the autonomy dial, its gate and Advise (TECH_NOTES D58) -------------------------------------------------
+if (wanted("dial")) {
+  const t = await newPage();
+  const { page } = t;
+  const checks = {};
+  const dial = () => page.$$eval(".autonomy-dial button", (els) => els.map((b) => ({ level: b.dataset.level, pressed: b.getAttribute("aria-pressed"), locked: b.dataset.locked === "true", disabled: b.getAttribute("aria-disabled") === "true", label: b.getAttribute("aria-label"), title: b.title })));
+  try {
+    await boot(page);
+    checks.idle = await dial();
+    // Bounded explains why it is locked instead of switching.
+    await page.click('.autonomy-dial button[data-level="bounded"]');
+    await page.waitForSelector(".gate-modal .gate-list li");
+    checks.gate = {
+      title: (await page.textContent(".gate-modal h2")).trim(),
+      // The page keeps a figure and its unit together with a no-break space; compare with plain spaces.
+      rows: await page.$$eval(".gate-list li", (els) => els.map((e) => ({ ok: e.dataset.ok, label: e.querySelector(".gate-label").textContent.trim(), text: e.querySelector(".gate-text").firstChild.textContent.replace(/\u00a0/g, " ").trim() }))),
+      record: (await page.textContent(".gate-modal .gate-record")).replace(/\s+/g, " ").trim()
+    };
+    await shot(page, "17-autonomy-gate.png");
+    await page.keyboard.press("Escape");
+    await page.waitForSelector(".gate-modal", { state: "detached", timeout: 5000 });
+    checks.afterGate = (await dial()).find((d) => d.level === "approve")?.pressed;
+    // Advise: a person's setting for the next run, in the audit and kept for the tab.
+    await page.click('.autonomy-dial button[data-level="advise"]');
+    checks.advise = { pressed: (await dial()).find((d) => d.level === "advise")?.pressed, stored: await page.evaluate(() => sessionStorage.getItem("rp.autonomy")) };
+    await page.click("#tab-audit");
+    checks.auditBefore = await page.$$eval('.audit-table tr[data-type="autonomy_change"] td.s', (els) => els.map((e) => e.textContent.trim()));
+    await page.click(".drawer-end .btn").catch(() => {});
+    await startNight(page, { speed: 4 });
+    await dismissBanners(page);
+    checks.running = await dial();
+    // The run keeps its level: a click during the run changes nothing.
+    await page.click('.autonomy-dial button[data-level="approve"]', { force: true });
+    checks.runningAfterClick = (await dial()).find((d) => d.level === "advise")?.pressed;
+    await page.waitForSelector('.option-card[data-id="B"] .btn-approve', { timeout: 300000 });
+    checks.button = (await page.textContent('.option-card[data-id="B"] .btn-approve')).trim();
+    checks.note = (await page.textContent("#panel-options .options-advise")).replace(/\s+/g, " ").trim();
+    await page.click('.option-card[data-id="B"] .btn-approve');
+    await page.waitForSelector('.option-card[data-id="B"][data-status="approved"]', { state: "attached", timeout: 10000 });
+    checks.status = (await page.textContent('.option-card[data-id="B"] .option-status')).trim();
+    await page.waitForSelector("#btn-approve-all", { timeout: 60000 });
+    await page.click("#btn-approve-all");
+    await waitStatus(page, "Done", 300000);
+    checks.after = await dial();
+    await page.click("#tab-audit");
+    const [download] = await Promise.all([page.waitForEvent("download"), page.click("#btn-export-audit")]);
+    const audit = JSON.parse(await readFile(await download.path(), "utf8"));
+    const ev = audit.events || [];
+    checks.run = {
+      autonomy: ev.find((e) => e.type === "run_start")?.payload?.autonomy,
+      decisions: ev.filter((e) => e.type === "option_decision").map((e) => `${e.payload.option_id} ${e.payload.decision}`),
+      applyCalls: ev.filter((e) => e.type === "tool_call" && e.payload?.name === "wms_apply_option").length,
+      hash: audit.run?.night_hash, status: audit.run?.status
+    };
+  } catch (err) {
+    checks.FAILED = String(err.message).split("\n")[0];
+    await shot(page, "dial-fail.png");
+  }
+  const by = (list, level) => (list || []).find((d) => d.level === level) || {};
+  const failing = (checks.gate?.rows || []).filter((r) => r.ok === "false").map((r) => r.text);
+  await finish("dial: the autonomy dial, Bounded's gate and a run in Advise", t, checks, [
+    [JSON.stringify((checks.idle || []).map((d) => d.level)) === JSON.stringify(["advise", "approve", "bounded"]) && by(checks.idle, "approve").pressed === "true" && by(checks.idle, "advise").pressed === "false", `Advise, Approve and Bounded, Approve by default (${JSON.stringify(checks.idle)})`],
+    [by(checks.idle, "bounded").locked && by(checks.idle, "bounded").label === "Bounded, locked: show why" && /^Locked: 138 decisions \(needs at least 200\); 7 nights \(needs at least 10\); 92\.8 % \(needs at least 95 %\)\.$/.test(by(checks.idle, "bounded").title || ""), `Bounded is locked and its tooltip names the three shortfalls (${by(checks.idle, "bounded").title})`],
+    [checks.gate?.title === "Bounded execution is locked" && JSON.stringify(failing) === JSON.stringify(["138 decisions (needs at least 200)", "7 nights (needs at least 10)", "92.8 % (needs at least 95 %)"]) && (checks.gate?.rows || []).length === 5 && /138 decisions over 7 nights/.test(checks.gate?.record || "") && /Synthetic/.test(checks.gate?.record || ""), `the gate dialog: three criteria fail on the synthetic record (${JSON.stringify(checks.gate)})`],
+    [checks.afterGate === "true", "clicking Bounded does not switch the level"],
+    [checks.advise?.pressed === "true" && checks.advise?.stored === "advise" && (checks.auditBefore || []).length === 1 && /^approve → advise by the person; Bounded locked/.test(checks.auditBefore?.[0] || ""), `Advise is chosen, kept for the tab and logged (${JSON.stringify(checks.advise)}; ${JSON.stringify(checks.auditBefore)})`],
+    [by(checks.running, "advise").disabled && by(checks.running, "approve").disabled && checks.runningAfterClick === "true", `the dial is locked while the run goes on (${JSON.stringify(checks.running)})`],
+    [checks.button === "Apply" && /^Advise: the agent only recommends\. Your click on Apply applies the option/.test(checks.note || "") && checks.status === "Applied by you", `in Advise the person's click applies the option (${checks.button}; ${checks.status}; ${checks.note})`],
+    [checks.run?.autonomy === "advise" && JSON.stringify(checks.run?.decisions) === JSON.stringify(["B approved"]) && checks.run?.applyCalls === 0 && checks.run?.hash === SC1_B.hash && checks.run?.status === "done", `the run: Advise, B applied by the person, no wms_apply_option, the same night as Approve (${JSON.stringify(checks.run)})`],
+    [!by(checks.after, "advise").disabled && !by(checks.after, "approve").disabled, `the dial is free again after the run (${JSON.stringify(checks.after)})`]
   ]);
 }
 
@@ -760,7 +938,7 @@ if (wanted("world")) {
     [/^World model, corrected: S07 Apricot jam 200 g, glass jar, expected 200 g, observed 400 g, written back for the whole SKU at 22:17$/.test(checks.focus || ""), `the panel shows the correction (${checks.focus})`],
     [checks.pop?.label === "World model: S07" && /Item master 200 g World model now 400 g Last scale reading 400 g/.test(checks.pop?.grid || "") && JSON.stringify(checks.pop?.table) === JSON.stringify(["22:17 | scale | weight | 200 g | 400 g"]), `the item's popover (${JSON.stringify(checks.pop)})`],
     [JSON.stringify(checks.log) === JSON.stringify(["22:17 scale: S07 weight 200 g → 400 g, for the whole SKU"]), `one row in the corrections log (${JSON.stringify(checks.log)})`],
-    [checks.consoleLines?.length === 1 && /^22:17 World model corrected: S07/.test(checks.consoleLines[0]), `one console line (${JSON.stringify(checks.consoleLines)})`],
+    [checks.consoleLines?.length === 1 && /^22:17 World model corrected: Apricot jam 200 g, glass jar weighs 400 g on the scale; its master data say 200 g\. The new weight now holds for every unit of this item \(S07\)/.test(checks.consoleLines[0]), `one console line (${JSON.stringify(checks.consoleLines)})`],
     [checks.corrections?.length === 1 && c.sku === "S07" && c.old === 200 && c.new === 400 && c.sensor === "scale" && c.applies_to === "sku" && NS.clockOf(c.at) === "22:17", `one correction in the audit (${JSON.stringify(checks.corrections)})`],
     [JSON.stringify(checks.readings) === JSON.stringify(["S07 200→400"]), `the one reading outside the tolerance is in the audit (${JSON.stringify(checks.readings)})`],
     [(checks.closedTotes || []).length > 100 && checks.closedTotes.every((g) => g <= 15000), `no tote over 15 kg (${(checks.closedTotes || []).length} closed, heaviest ${Math.max(...(checks.closedTotes || [0]))} g)`]

@@ -630,7 +630,7 @@ await test("the tools on the night: guardrails refuse, decisions bind to their o
     takeConfirmation: () => null, advance: async () => null, lookup: null
   });
   const run = (name, input = {}) => tb.execute(name, input);
-  const opts = { recommended_variant_id: "B", baseline_description: "Hamm and Soest miss their trucks.", options: ["A", "B", "C"].map((id) => ({ variant_id: id, title: `Option ${id}`, description: "d", residual_risk: "r" })) };
+  const opts = { recommended_variant_id: "B", recommendation_reason: "The only option with every truck on time.", baseline_description: "Hamm and Soest miss their trucks.", options: ["A", "B", "C"].map((id) => ({ variant_id: id, title: `Option ${id}`, description: "d", residual_risk: "r" })) };
   let r = await run("ui_propose_options", opts);
   assert.ok(r.isError && r.result.refused && /No costed options/.test(r.result.error), "options before a costing are refused");
   r = await run("wms_apply_option", { option_id: "B" });
@@ -641,10 +641,14 @@ await test("the tools on the night: guardrails refuse, decisions bind to their o
   assert.ok(r.isError && /exactly three variants/.test(r.result.error) && /unknown lever close_tote/.test(r.result.error), "a safety lever is not an option");
   r = await run("sim_cost_options", REFERENCE_CASES["SC1-EXPRESS"].options);
   assert.ok(!r.isError && r.result.variants.length === 3);
+  // B is not the lowest expected total (A is): without its reason the recommendation is refused (TECH_NOTES D51).
+  r = await run("ui_propose_options", { ...opts, recommendation_reason: "" });
+  assert.ok(r.isError && r.result.refused && /recommendation_reason/.test(r.result.error) && /€134\.25 against €112\.50/.test(r.result.error), `a recommendation that is not the cheapest needs its reason (${r.result.error})`);
   r = await run("ui_propose_options", { ...opts, options: opts.options.map((o) => (o.variant_id === "A" ? { ...o, description: "Costs €140.00." } : o)) });
   assert.ok(r.isError && r.result.refused && /€140\.00/.test(r.result.error), "an amount the engine did not produce is refused");
   r = await run("ui_propose_options", opts);
   assert.equal(r.result.decision, "approved", "the decision on the older option set is ignored, the one on this set counts");
+  assert.equal(events.filter((e) => e.type === "options").at(-1).p.recommendation_reason, "The only option with every truck on time.", "the reason travels to the cards");
   assert.equal(r.result.option_id, "B");
   r = await run("wms_apply_option", { option_id: "A" });
   assert.ok(r.isError && /Only the approved option/.test(r.result.error));
@@ -670,15 +674,30 @@ await test("scenario 1's script passes the checker on every decision path; a typ
   assert.deepEqual([...r.paths["approve B"].late], []);
   assert.deepEqual([...r.paths["approve baseline"].late].sort(), ["HAM", "SOE"]);
   assert.equal(r.paths["approve baseline"].outcome, "baseline_accepted");
-  const tampered = JSON.parse(JSON.stringify(SIM_RUNS[sc.id]).replace("Expected {{B.total}}.", "Expected €140.00."));
+  const tampered = JSON.parse(JSON.stringify(SIM_RUNS[sc.id]).replace("for {{B.labour}}: every truck on time", "for €140.00: every truck on time"));
+  assert.notEqual(JSON.stringify(tampered), JSON.stringify(SIM_RUNS[sc.id]), "the tamper edit applies");
   const bad = await SC.checkScript(WORLD, sc, tampered, REFERENCE_CASES[sc.id]);
   assert.ok(bad.errors.some((e) => /€140\.00 is typed/.test(e)), bad.errors.join(" | "));
   // A typed figure that is right tonight passes the narration audit, but would not follow a changed input:
   // the checker refuses it from the script's text.
   assert.deepEqual(SC.typedFigures(SIM_RUNS[sc.id]), [], "the shipped script types no figure");
-  const typedRight = JSON.parse(JSON.stringify(SIM_RUNS[sc.id]).replace("Expected {{B.total}}.", "Expected €134.25."));
+  const typedRight = JSON.parse(JSON.stringify(SIM_RUNS[sc.id]).replace("for {{B.labour}}: every truck on time", "for €134.25: every truck on time"));
+  assert.notEqual(JSON.stringify(typedRight), JSON.stringify(SIM_RUNS[sc.id]), "the typed-figure edit applies");
   const caught = await SC.checkScript(WORLD, sc, typedRight, REFERENCE_CASES[sc.id]);
   assert.ok(caught.errors.some((e) => /"€134\.25" is typed; take it from a \{\{placeholder\}\}/.test(e)), caught.errors.join(" | "));
+  // Plain words (D50): the shipped script passes; a SKU id or a tool name in what it says is refused,
+  // and so is jargon in the summary, while the reasoning, shown only under Details, may name tools.
+  for (const [from, to, word] of [
+    ["I check the projection.", "I check the projection for S07.", "S07"],
+    ["I check the projection.", "I check the projection with wms_get_night.", "wms_get_night"],
+    ["**What happened.**", "**What happened on seed 7.**", "seed"]
+  ]) {
+    const script = JSON.parse(JSON.stringify(SIM_RUNS[sc.id]).replace(from, to));
+    assert.notEqual(JSON.stringify(script), JSON.stringify(SIM_RUNS[sc.id]), `the control edit "${to}" applies`);
+    const r = await SC.checkScript(WORLD, sc, script, REFERENCE_CASES[sc.id]);
+    assert.ok(r.errors.some((e) => e.includes(`"${word}"`) && /not a word for a customer/.test(e)), `"${word}" is caught: ${r.errors.join(" | ")}`);
+  }
+  assert.ok(SC.NOT_PLAIN.test("cell_get_status") && SC.NOT_PLAIN.test("rule E2") && !SC.NOT_PLAIN.test("Every truck on time in all 20 simulated nights"), "NOT_PLAIN tells jargon from plain words");
 });
 
 await test("golden option cases of scenarios 4 and 6: a maintenance stop saves labour, a call-in with the split saves Hamm and Soest", () => {

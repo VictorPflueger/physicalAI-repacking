@@ -132,7 +132,8 @@ export function liveConversation({ v, variants, lastResults, wrongAmount = "€1
     { usage: usage({ output_tokens: 900 }), stop: "tool_use", blocks: [
       say(`Recommendation: option B. Option A costs ${v["A.total"]} expected and option B ${v["B.total"]}, but only B keeps every truck on time in all 20 replications.`),
       T("toolu_13", "ui_propose_options", {
-        recommended_variant_id: "B", baseline_description: `The express order stays first: Soest and Hamm miss their trucks, an expected ${v["nothing.total"]}.`,
+        recommended_variant_id: "B", recommendation_reason: "The only option with every truck on time, the express order included.",
+        baseline_description: `The express order stays first: Soest and Hamm miss their trucks, an expected ${v["nothing.total"]}.`,
         options: [
           { variant_id: "A", title: "Re-sequence: Hamm and Soest first", description: "Iserlohn, Hamm and Soest before the express order; no extra labour.", residual_risk: "The express order misses its truck in 9 of 20 replications." },
           { variant_id: "B", title: "Call in one picker", description: "A second picker from 02:00, with the same order as option A.", residual_risk: "The call-in is billed for the minimum." },

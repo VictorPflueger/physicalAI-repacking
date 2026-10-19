@@ -10,8 +10,10 @@
 import { bus } from "./events.js";
 import { h } from "./dom.js";
 import { clockOf, clockUp, msOf, MINUTE } from "./nightsim.js";
-import { tonightEuros } from "./engine.js";
+import { tonightEuros, night as engineNight } from "./engine.js";
 import { int, pct, upTo, hours, eur2 } from "./format.js";
+import { worth } from "./worth.js";
+import { POLICY } from "./escalation.js";
 
 const HOUR = 60 * MINUTE;
 const WAKE_WORDS = {
@@ -37,7 +39,7 @@ export function attachNightLog(ctx) {
 
   const fresh = () => ({ attempts: 0, ok: 0, failed: 0, manual: 0, packed: 0 });
   const nameOf = (id) => names.get(id) || id;
-  const item = (sku) => (sku ? `${sku} ${items.get(sku) || ""}`.trim() : "an unknown item");
+  const itemName = (sku) => (sku ? items.get(sku) || sku : "An unknown item");
   const add = (type, ev, mark, body, data) => ctx.add(ctx.entry(type, ev, mark, body, data));
   const strong = (text) => h("strong", {}, text);
 
@@ -58,45 +60,59 @@ export function attachNightLog(ctx) {
     const last = stores.at(-1);
     add("night", ev, "pallet", [
       strong(`Tonight: ${int(p.totals.units)} units for ${int(stores.length)} store orders. `),
-      `The cell may handle ${int(p.totals.cell_units)} of them, ${int(p.totals.manual_units)} go by hand. Truck cut-offs from ${first.cutoff} (${first.name}) to ${last.cutoff} (${last.name}); seed ${p.seed}.`
+      `The robot cell may take ${int(p.totals.cell_units)} of them; ${int(p.totals.manual_units)} go to the manual station. Trucks leave from ${first.cutoff} (${first.name}) to ${last.cutoff} (${last.name}).`,
+      h("span", { class: "detail-only" }, ` Seed ${p.seed}.`)
     ]);
   });
 
   bus.on("wave_arrival", (ev) => {
     const p = ev.payload;
-    add("night", ev, "pallet", `${p.label}: ${int(p.units)} units reach the infeed.`);
+    add("wave", ev, "pallet", `${p.label}: ${int(p.units)} units reach the infeed.`);
   });
 
   bus.on("order_new", (ev) => {
     const p = ev.payload;
     names.set(p.order, `${nameOf(p.store)} express`);
     cutoffs.set(p.order, p.due);
-    add("order", ev, "info", [strong("New order: "), `${nameOf(p.store)} express, ${int(p.units)} units for the express truck at ${p.due}.`]);
+    add("order", ev, "info", [strong("Express order: "), `${nameOf(p.store)} wants ${int(p.units)} more units on its ${p.due} express truck.`]);
   });
 
   bus.on("world_model_correction", (ev) => {
     const p = ev.payload;
     add("correction", ev, "scale", [
       strong("World model corrected: "),
-      `${p.sku} (${items.get(p.sku) || "item"}) weighs ${int(p.new)} g on the scale; the world model expected ${int(p.old)} g. The observed weight is written back for the whole SKU, and the next unit is rehearsed with it.`
+      `${items.get(p.sku) || "An item"} weighs ${int(p.new)} g on the scale; its master data say ${int(p.old)} g. The new weight now holds for every unit of this item`,
+      h("span", { class: "detail-only" }, ` (${p.sku})`),
+      ", and the next one is rehearsed with it before the robot picks it."
     ]);
   });
 
+  // Escalations in plain words (TECH_NOTES D50): what happened and who takes over; the rule's code is a
+  // detail. The rules themselves are in code (js/escalation.js, PLAN.md §e.2).
   bus.on("escalation", (ev) => {
     const p = ev.payload;
-    let text;
-    if (p.rule === "E1") text = `${p.reason}. ${int(p.units ?? 1)} unit${p.units === 1 ? "" : "s"} set aside until a person confirms the item.`;
-    else if (p.rule === "E2") text = `${p.reason}. Handed to a person at the manual station (${item(p.sku)} for ${nameOf(p.store)}).`;
-    else if (p.rule === "E3") text = `${p.reason}. A person is called to the cell.`;
-    else text = p.reason;
-    add("escalation", ev, "user", [strong(`Escalation ${p.rule}: `), text], { rule: p.rule });
+    const code = h("span", { class: "detail-only" }, ` Rule ${p.rule}.`);
+    let parts;
+    if (p.rule === "E1") {
+      parts = [strong("Unknown item: "), `${p.reason}. ${int(p.units ?? 1)} unit${p.units === 1 ? "" : "s"} set aside until a person confirms the item.`];
+    } else if (p.rule === "E2") {
+      const [what, conf] = String(p.reason || "").split(/:\s*grasp confidence\s*/);
+      const why = conf ? `${what} (grip confidence ${conf.replace(/\s*below\s*/, ", below ")})` : p.reason;
+      parts = [strong("Handed to a person: "), `${why}. ${itemName(p.sku)} for ${nameOf(p.store)} goes to the manual station; the robot does not try it.`];
+    } else if (p.rule === "E3") {
+      const rate = typeof p.rolling_success === "number" ? pct(p.rolling_success) : null;
+      parts = [strong("Gripper check: "), rate ? `the robot picked ${rate} of its last ${int(POLICY.E3.window)} grasps, below the ${pct(POLICY.E3.minRollingSuccess)} the rule asks for. A person is called to the cell.` : `${p.reason}. A person is called to the cell.`];
+    } else {
+      parts = [strong("Escalation: "), p.reason];
+    }
+    add("escalation", ev, "user", [...parts, code], { rule: p.rule });
   });
 
   bus.on("cutoff_risk", (ev) => {
     const stores = ev.payload.stores || [];
     if (!stores.length) return;
-    const parts = stores.map((s) => `${nameOf(s.store)} projected done by ${s.projected} for its ${s.cutoff} truck (${slackText(s.slack_min)})`);
-    add("risk", ev, "alert", [strong("Cut-off risk: "), `${listJoin(parts)}.`]);
+    const parts = stores.map((s) => `${nameOf(s.store)} would finish at ${s.projected} for its ${s.cutoff} truck (${slackText(s.slack_min)})`);
+    add("risk", ev, "alert", [strong("Trucks at risk: "), `${listJoin(parts)}.`]);
   });
 
   bus.on("wake", (ev) => {
@@ -153,6 +169,9 @@ export function attachNightLog(ctx) {
     add("dispatch", ev, "tote", [strong(`${nameOf(p.store)}: `), `last unit in its tote by ${clockUp(p.t)}${after}.`], { state: "late" });
   });
 
+  // The night report closes the night as the "what it is worth" card (TECH_NOTES D50): tonight's labour
+  // against the same units by hand, then the engine's plan per 1,000 units and per year. Every figure
+  // comes from the night's figures and the engine at the run's inputs.
   bus.on("night_end", (ev) => {
     const f = ev.payload.figures;
     if (!f) return;
@@ -162,20 +181,34 @@ export function attachNightLog(ctx) {
     live = false;
     const v = ctx.getInputs();
     const eur = tonightEuros(v, f);
+    const byHand = engineNight(v, f.units_repacked);
+    const w = worth(v).text;
     const late = (ev.payload.orders || []).filter((o) => !o.on_time);
     const verdict = late.length ? `${int(f.orders_on_time)} of ${int(f.orders)} orders on time; late: ${listJoin(late.map((o) => nameOf(o.id)))}.` : `All ${int(f.orders)} orders on time.`;
-    const rows = [
+    const plural = (k, one, many) => `${int(k)} ${k === 1 ? one : many}`;
+    const tonight = [
       ["Units repacked", int(f.units_repacked)],
-      ["Labour tonight", `${hours(f.labour_hours)} · ${eur2(eur.labour_eur)}`],
-      ["Per 1,000 units", `${hours(f.labour_hours_per_1000)} · ${eur2(eur.per_thousand_eur)}`],
-      ["Robot cell", `${hours(f.cell_hours)} at ${int(f.robot_picks_per_cell_hour)} picks per cell hour`],
-      ["Exceptions", `${int(f.failures)} failed grasps, ${int(f.escalations)} escalation${f.escalations === 1 ? "" : "s"}, ${int(f.corrections)} correction${f.corrections === 1 ? "" : "s"}`],
-      ["Seed", `${f.seed} (the same seed replays the same night)`]
+      ["Labour with the cell", `${hours(f.labour_hours)} · ${eur2(eur.labour_eur)}${f.called_in_hours > 0 ? `, ${hours(f.called_in_hours)} of it called in` : ""}`],
+      ["The same units by hand", `${hours(byHand.manual_h)} · ${eur2(byHand.manual_eur)}`],
+      ["Robot cell", `${hours(f.cell_hours)} at ${int(f.robot_picks_per_cell_hour)} picks per cell hour`, true],
+      ["Exceptions", `${plural(f.failures, "failed grasp", "failed grasps")} picked by hand, ${plural(f.escalations, "escalation", "escalations")} to a person, ${plural(f.corrections, "world-model correction", "world-model corrections")}`],
+      ["Seed", `${f.seed} (the same seed replays the same night)`, true]
     ];
+    const value = [
+      ["Per 1,000 units", `${w.hybrid} with the cell, instead of ${w.manual} by hand (${w.saving})`],
+      [`A DC repacking ${w.units} units a year`, `${w.year} a year with ${w.cells} cells on the night shift; gross, before cell costs`],
+      ["Break-even per cell", `${w.break_even} per operating hour`]
+    ];
+    const list = (rows) => h("dl", {}, rows.flatMap(([k, val, detail]) => [h("dt", detail ? { class: "detail-only" } : {}, k), h("dd", detail ? { class: "detail-only" } : {}, val)]));
     add("report", ev, "check", h("div", { class: "night-report" },
       h("div", { class: "night-report-title" }, `Night over at ${clockOf(ev.payload.sim_t ?? 8 * HOUR)}. ${verdict}`),
-      h("dl", {}, rows.flatMap(([k, val]) => [h("dt", {}, k), h("dd", {}, val)])),
-      h("p", { class: "night-report-note" }, `Labour counts the base picker's picks at ${int(v.r_m)} an hour (IML) and any called-in hours; euros at ${eur2(v.c)} an hour (EUROSTAT_LC)${f.called_in_hours > 0 ? `, called-in hours with the ${Math.round(v.callin_premium * 100)} % night premium (Assumption)` : ""}. Simulated, synthetic night.`)),
+      h("h4", { class: "night-report-head" }, "Tonight"),
+      list(tonight),
+      h("h4", { class: "night-report-head" }, "What it is worth"),
+      list(value),
+      ctx.onOpenBusinessCase ? h("div", { class: "entry-actions" },
+        h("button", { class: "btn btn-sm", type: "button", id: "btn-console-your-dc", on: { click: () => ctx.onOpenBusinessCase() } }, "Your DC: the business case")) : null,
+      h("p", { class: "night-report-note detail-only" }, `Labour counts the base picker's picks at ${int(v.r_m)} an hour (IML) and any called-in hours; by hand, every unit at that rate; euros at ${eur2(v.c)} an hour (EUROSTAT_LC)${f.called_in_hours > 0 ? `, called-in hours with the ${Math.round(v.callin_premium * 100)} % night premium (Assumption)` : ""}. The yearly figure is illustrative, per reference site. Simulated, synthetic night.`)),
     { state: late.length ? "late" : "on-time" });
   });
 

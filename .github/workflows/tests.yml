@@ -31,7 +31,8 @@ jobs:
   browser:
     name: Browser suites (Playwright, Chromium)
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    # Five browser suites, the six scenarios in three of them (M4).
+    timeout-minutes: 60
     needs: node
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +45,7 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-1.56.0-chromium-${{ runner.os }}
       - run: npm install -g playwright@1.56.0 && npx playwright install --with-deps chromium
-      - run: NODE_PATH="$(npm root -g)" node tests/run-all.mjs smoke sims live layout
+      - run: NODE_PATH="$(npm root -g)" node tests/run-all.mjs smoke sims live accept layout
         env:
           RP_TEST_OUT: ${{ runner.temp }}/repack-pilot-tests
       - if: failure()

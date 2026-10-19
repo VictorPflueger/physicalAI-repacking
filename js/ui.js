@@ -60,6 +60,11 @@ export function initUI() {
   // The run in progress: its wake bridge (null in a night preview) and the inputs it runs on.
   let bridge = null;
   let runInputs = null;
+  // Plan figures (the opener, the header tiles, the KPI board's Plan column and business case) hold the
+  // run's inputs while a run is on and follow the presenter's inputs otherwise, so "Your DC" moves them
+  // after a run; a run's own record (the console, the summary, the Tonight column) keeps the inputs it
+  // ran on (TECH_NOTES D53).
+  const planInputs = () => (runInputs && isRunning(getState()) ? runInputs : getInputs());
 
   // ---- components ------------------------------------------------------------------------------
   const badge = document.getElementById("mode-badge");
@@ -70,6 +75,7 @@ export function initUI() {
     onOpenOptions: () => drawer.show("options"),
     onOpenOutbox: () => drawer.show("outbox"),
     onOpenReport: (md) => showReport(md, { mode: getState().mode }),
+    onOpenBusinessCase: () => drawer.show("kpiboard"),
     onSaveSimulation: async () => {
       const r = await saveSimulation();
       notice(r.ok ? "info" : "warn", r.message);
@@ -104,16 +110,28 @@ export function initUI() {
     download: (name, text) => downloadText(name, text, "text/javascript")
   });
   const auditPanel = createAuditPanel(drawer.panel("audit"), { onCount: (n) => drawer.setCount("audit", n), onSaveSimulation: saveSimulation });
-  const kpis = createKpis(document.getElementById("kpis"), { getInputs: () => runInputs || getInputs(), getNightState: () => cell.state(), getSpeed: () => getState().speed });
-  const kpiBoard = createKpiBoard(drawer.panel("kpiboard"), { getInputs: () => runInputs || getInputs(), getNightState: () => cell.state() });
+  const kpis = createKpis(document.getElementById("kpis"), { getInputs: planInputs, getNightState: () => cell.state(), getSpeed: () => getState().speed });
+  const kpiBoard = createKpiBoard(drawer.panel("kpiboard"), {
+    getInputs: planInputs, getRunInputs: () => runInputs, getNightState: () => cell.state(),
+    getOverrides: () => getState().assumptions,
+    setOverrides: (next) => applyOverrides(next),
+    isRunning: () => isRunning(getState())
+  });
+  /**
+   * The presenter's inputs changed (the Assumptions tab, or Your DC on the KPI board): every view follows.
+   * The board shows the next night's preview only while no run is on screen: a finished night stays as
+   * it ended, so the customer's volume can be typed in after the run (TECH_NOTES D53).
+   */
+  function applyOverrides(next) {
+    setState({ assumptions: { ...next } });
+    kpis.refresh();
+    kpiBoard.render();
+    assumptions.render();
+    if (getState().runState === "idle") cell.focusScenario(getState().scenarioId);
+  }
   const assumptions = createAssumptions(drawer.panel("assumptions"), {
     getOverrides: () => getState().assumptions,
-    setOverrides: (next) => {
-      setState({ assumptions: { ...next } });
-      kpis.refresh();
-      kpiBoard.render();
-      if (!isRunning(getState())) cell.focusScenario(getState().scenarioId);
-    },
+    setOverrides: (next) => applyOverrides(next),
     getNightInfo: () => cell.state()?.info || null,
     getScenario: () => byId(cell.state()?.info?.scenario_id) || byId(getState().scenarioId) || null,
     isRunning: () => isRunning(getState())
@@ -158,8 +176,8 @@ export function initUI() {
   function showIntro() {
     const s = getState();
     // During a run the window only explains; it never starts or interrupts anything.
-    if (isRunning(s)) return openIntro({});
-    return openIntro({ startLabel: isFinished(s) ? "New run" : "Start agent", onStart: () => start() });
+    if (isRunning(s)) return openIntro({ getInputs: planInputs });
+    return openIntro({ startLabel: isFinished(s) ? "New run" : "Start agent", onStart: () => start(), getInputs: planInputs });
   }
 
   // ---- state → view ----------------------------------------------------------------------------

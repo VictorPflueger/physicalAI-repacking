@@ -14,11 +14,13 @@ import { interpretScript } from "./script.js";
 import { createHumanChannel, ABORT } from "./human.js";
 import { createOffLookup } from "./openfoodfacts.js";
 
-// Pacing at ×1 (TECH_NOTES D49): a scripted replay takes about the time a live agent takes, so the
-// eight-minute demo runs the same in Simulation at ×2 as in Live (DEMO_SCRIPT.md).
-export const CHARS_PER_SECOND = 25;  // narration
-export const TOOL_MS = 1800;         // a tool call (or parallel reads), as a model's turn takes
-export const DRAFT_MS = 1200;        // a draft appearing in the Outbox
+// Pacing at ×1 for the five-minute customer call (TECH_NOTES D50): the presenter talks over the
+// narration, so it streams briskly; tool calls, which the simple console leaves to Details, take a beat.
+export const CHARS_PER_SECOND = 45;  // narration
+export const TOOL_MS = 900;          // a tool call (or parallel reads)
+export const DRAFT_MS = 900;         // a draft appearing in the Outbox
+export const BEFORE_SAY_MS = 500;    // the pause before a paragraph, as a model's before it writes
+export const AFTER_SAY_MS = 400;     // and after it
 
 /** hooks: { getSpeed() → 1 | 2 | 4, getAutonomy() → "advise" | "approve" | "bounded" } */
 export function createSimulationPlayer({ getSpeed = () => 1, getAutonomy = () => "approve" } = {}) {
@@ -100,12 +102,12 @@ export function createSimulationPlayer({ getSpeed = () => 1, getAutonomy = () =>
   }
 
   /**
-   * Narration at a reading pace (about 25 characters a second at ×1, 50 at ×2, the stage's speed), in
-   * chunks of a few words, after a pause like a model's before it writes (TECH_NOTES D49).
+   * Narration at a brisk reading pace (about 45 characters a second at ×1, 90 at ×2), in chunks of a few
+   * words, after a pause like a model's before it writes (TECH_NOTES D50).
    */
   async function say(run, text) {
     const id = `sim-n${++run.msg}`;
-    await wait(run, 900);
+    await wait(run, BEFORE_SAY_MS);
     const words = String(text).split(/(\s+)/);
     const chunk = 8;
     let out = "";
@@ -116,7 +118,7 @@ export function createSimulationPlayer({ getSpeed = () => 1, getAutonomy = () =>
       await wait(run, Math.max(60, (piece.length / CHARS_PER_SECOND) * 1000));
     }
     if (!run.ended) bus.emit("narration", { msg_id: id, text, done: true });
-    await wait(run, 600);
+    await wait(run, AFTER_SAY_MS);
   }
 
   async function callTool(run, toolbox, name, input) {
@@ -127,7 +129,7 @@ export function createSimulationPlayer({ getSpeed = () => 1, getAutonomy = () =>
     const out = await toolbox.execute(name, input);
     if (run.cancelled || run.ended) throw ABORT;
     bus.emit("tool_result", { call_id, name, ok: !out.isError, summary: out.summary, result: out.result, server: false });
-    if (name !== "sim_advance") await wait(run, 500);
+    if (name !== "sim_advance") await wait(run, 250);
     return out;
   }
 
@@ -139,7 +141,7 @@ export function createSimulationPlayer({ getSpeed = () => 1, getAutonomy = () =>
     const outs = await Promise.all(list.map((t) => toolbox.execute(t.name, t.input)));
     if (run.cancelled || run.ended) throw ABORT;
     outs.forEach((out, k) => bus.emit("tool_result", { call_id: ids[k], name: list[k].name, ok: !out.isError, summary: out.summary, result: out.result, server: false }));
-    await wait(run, 350);
+    await wait(run, 250);
     return outs;
   }
 

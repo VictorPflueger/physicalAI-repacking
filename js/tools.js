@@ -34,8 +34,8 @@ import { roundHalfUp, eur2 } from "./format.js";
 import { AGENT } from "./config.js";
 
 export { OUTCOMES };
-export const LIVE_REPORT_FOOTER = "*Live agent run on a simulated cell. Ruhrkorb, its DC, stores and items are fictional; every hour and euro comes from the deterministic engine and the seeded night simulation.*";
-export const SIM_REPORT_FOOTER = "*Simulated run: a scripted replay on a simulated cell. Ruhrkorb, its DC, stores and items are fictional; every hour and euro comes from the deterministic engine and the seeded night simulation.*";
+export const LIVE_REPORT_FOOTER = "*Live agent run on a simulated cell. Ruhrkorb, its DC, stores and items are fictional; every hour and euro comes from the deterministic engine and the reproducible night simulation.*";
+export const SIM_REPORT_FOOTER = "*Simulated run: a scripted replay on a simulated cell. Ruhrkorb, its DC, stores and items are fictional; every hour and euro comes from the deterministic engine and the reproducible night simulation.*";
 const LETTERS = ["A", "B", "C"];
 const r2 = (x) => (x === null || x === undefined || !Number.isFinite(Number(x)) ? null : Number(roundHalfUp(x, 2)));
 const r3 = (x) => (x === null || x === undefined || !Number.isFinite(Number(x)) ? null : Number(roundHalfUp(x, 3)));
@@ -134,7 +134,7 @@ const DEFINITIONS = [
   },
   {
     name: "sim_kpis",
-    description: "Engine KPIs: labour hours and euros per 1,000 units (by hand, hybrid), robot picks and break-even cost per cell hour, the annual figure with the cells it needs (gross, before cell costs), each input with its source key. what_if values give a labelled what-if, which no option, draft or summary may quote.",
+    description: "Engine KPIs: labour hours and euros per 1,000 units (by hand, hybrid) and the saving as a share, robot picks and break-even cost per cell hour, the annual figure with the cells it needs (gross, before cell costs), each input with its source key. what_if values give a labelled what-if, which no option, draft or summary may quote.",
     input_schema: {
       type: "object",
       properties: {
@@ -179,7 +179,7 @@ const DEFINITIONS = [
   },
   {
     name: "sim_night_report",
-    description: "Tonight against the plan: units repacked, grasps, failures, manual picks, escalations, corrections, labour hours and euros (in total and per 1,000 units), cell hours, robot picks per cell hour, store orders on time and late, the seed. Final once the night is over, otherwise so far.",
+    description: "Tonight against the plan: units repacked, grasps, failures, manual picks, escalations, corrections, labour hours and euros (in total, per 1,000 units, and for the same units by hand), cell hours, robot picks per cell hour, store orders on time and late, the seed. Final once the night is over, otherwise so far.",
     input_schema: { type: "object", properties: {} }
   },
   {
@@ -202,6 +202,7 @@ const DEFINITIONS = [
           }
         },
         recommended_variant_id: { type: "string" },
+        recommendation_reason: { type: "string", description: "One plain sentence for the recommended card: why this option. Required when it does not have the lowest expected total." },
         baseline_description: { type: "string", description: "One sentence: what happens if we do nothing." }
       },
       required: ["options", "recommended_variant_id", "baseline_description"]
@@ -432,7 +433,7 @@ export function createToolbox(ctx) {
       basis: changed.length ? "what_if" : "engine inputs",
       ...(changed.length ? { what_if: changed.join(", "), note: "A labelled what-if: no option, draft or summary may quote it." } : {}),
       inputs: PARAMETERS.filter((x) => ["N", "r_m", "c", "s", "p", "r_c"].includes(x.id)).map((x) => ({ id: x.id, label: x.label, value: v[x.id], unit: x.unit, source: x.basis })),
-      per_1000: { by_hand_hours: r2(p.per_thousand.manual_h), by_hand_eur: r2(p.per_thousand.manual_eur), hybrid_hours: r2(p.per_thousand.hybrid_h), hybrid_eur: r2(p.per_thousand.hybrid_eur), saving_eur: r2(p.per_thousand.saving_eur) },
+      per_1000: { by_hand_hours: r2(p.per_thousand.manual_h), by_hand_eur: r2(p.per_thousand.manual_eur), hybrid_hours: r2(p.per_thousand.hybrid_h), hybrid_eur: r2(p.per_thousand.hybrid_eur), saving_eur: r2(p.per_thousand.saving_eur), saving_share: r3(1 - p.per_thousand.hybrid_h / p.per_thousand.manual_h) },
       per_cell_hour: { robot_picks_per_cell_hour: Math.round(p.per_cell_hour.robot_picks), break_even_eur_per_cell_hour: r2(p.per_cell_hour.break_even_eur) },
       per_year: {
         hours_avoided: Math.round(p.per_year.hours_avoided), avoided_eur: Math.round(p.per_year.eur_avoided), cell_hours: Math.round(p.per_year.cell_hours),
@@ -512,13 +513,17 @@ export function createToolbox(ctx) {
     const p = enginePlan(v).per_thousand;
     const orders = final ? ses.run.orders : null;
     const late = final ? orders.filter((o) => !o.on_time && !o.moved).map((o) => o.name) : visibleOrders(st).filter((o) => o.status === "late" || o.status === "late_done").map((o) => o.name);
+    const units = final ? f.units_repacked : f.units_packed;
+    // The same units by hand, at the manual rate: what tonight's labour compares with (TECH_NOTES D50).
+    const byHand = engineNight(v, units);
     const moved = final ? orders.filter((o) => o.moved).map((o) => o.name) : visibleOrders(st).filter((o) => o.status === "moved").map((o) => o.name);
     return {
       final, at: clockOf(final ? ses.run.end_ms : ses.now()), seed: ses.seed,
-      units_repacked: final ? f.units_repacked : f.units_packed,
+      units_repacked: units,
       grasp_attempts: f.attempts, successes: f.successes, failed_grasps: f.failures, manual_picks: f.manual_picks,
       escalations: f.escalations, corrections: f.corrections,
       labour_hours: r2(f.labour_hours), labour_eur: r2(eur.labour_eur),
+      same_units_by_hand_hours: r2(byHand.manual_h), same_units_by_hand_eur: r2(byHand.manual_eur),
       called_in_hours: r2(calledIn), ...(calledIn > 0 ? { called_in_eur: r2(eur.called_in_eur) } : {}),
       labour_hours_per_1000: per === null || per === undefined ? null : r2(per),
       labour_eur_per_1000: per === null || per === undefined ? null : r2(eur.per_thousand_eur),
@@ -583,7 +588,7 @@ export function createToolbox(ctx) {
     escalation: "The rules in code have already handed the item to a person. Say why in one or two sentences; where a person must confirm something, ask with ui_request_confirmation; then sim_advance.",
     new_order: "Check the projection (sim_project). If an order is at risk, price exactly three options (sim_cost_options) and propose them (ui_propose_options); after the decision, apply it (wms_apply_option), draft what it contains, wait for the approvals, then sim_advance.",
     cutoff_risk: "Check the projection (sim_project). If an order is at risk, price exactly three options (sim_cost_options) and propose them (ui_propose_options); after the decision, apply it (wms_apply_option), draft what it contains, wait for the approvals, then sim_advance.",
-    night_end: "The night is over. Read tonight's result (sim_night_report) and publish the management summary (ui_final_report); then end your turn."
+    night_end: "The night is over. Read tonight's result (sim_night_report) and what the cell is worth (sim_kpis) in one turn, and publish the management summary (ui_final_report); then end your turn."
   };
 
   async function advance() {
@@ -710,21 +715,30 @@ export function createToolbox(ctx) {
       });
     }
     if (!options.some((o) => o.recommended)) return refuse(`recommended_variant_id "${i.recommended_variant_id ?? ""}" is not one of the options (${options.map((o) => o.id).join(", ")}).`);
+    // A recommendation that is not the lowest expected total says why, on its card (TECH_NOTES D51): the
+    // other prototypes recommend the lowest expected total, and the person must see the reason to differ.
+    let reason = String(i.recommendation_reason || "").trim().slice(0, 240);
+    const rec = options.find((o) => o.recommended);
+    const lowest = Math.min(c.res.baseline.expected_total_eur, ...options.map((o) => o.expected_total_eur));
+    if (rec.expected_total_eur > lowest + 0.005 && !reason) {
+      return refuse(`Option ${rec.letter} does not have the lowest expected total (${eur2(rec.expected_total_eur)} against ${eur2(lowest)}). Give recommendation_reason: one plain sentence on why you recommend it.`);
+    }
     // The texts on the cards may quote only the facts and the figures of this costing.
     run.ledger.setOptionsSource(c.compact);
     let baselineText = String(i.baseline_description || "").slice(0, 300);
-    const audit = figureCheck([baselineText, ...options.flatMap((o) => [o.title, o.description, o.residual_risk])].join("\n"), "options", "options", "ui_propose_options");
+    const audit = figureCheck([baselineText, reason, ...options.flatMap((o) => [o.title, o.description, o.residual_risk])].join("\n"), "options", "options", "ui_propose_options");
     if (audit.reject) return audit.reject;
     if (audit.flag) {
       for (const o of options) { o.title = mark(o.title, audit.bad); o.description = mark(o.description, audit.bad); o.residual_risk = mark(o.residual_risk, audit.bad); }
       baselineText = mark(baselineText, audit.bad);
+      reason = mark(reason, audit.bad);
     }
     // Decisions queued for an earlier set of options are dropped: they do not count for this one.
     while (ctx.takeOptionDecision(() => true)) { /* discard stale decisions */ }
     run.optionsSeq += 1;
     run.options = options;
     run.rejected.clear();
-    run.optionsPayload = { ...optionsPayload({ seq: run.optionsSeq, res: c.res, options, recommended: i.recommended_variant_id, baselineText, inputs: ctx.getInputs(), now_ms: c.at }), autonomy: ctx.autonomy() };
+    run.optionsPayload = { ...optionsPayload({ seq: run.optionsSeq, res: c.res, options, recommended: i.recommended_variant_id, recommendationReason: reason, baselineText, inputs: ctx.getInputs(), now_ms: c.at }), autonomy: ctx.autonomy() };
     if (audit.flag) run.optionsPayload.unchecked = audit.bad;
     setPhase("options");
     ctx.emit("options", run.optionsPayload);

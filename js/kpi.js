@@ -1,13 +1,14 @@
 // Header tiles (PLAN.md §g): labour per 1,000 units, store orders on time, the night clock and the
-// session cost. Labour shows the manual baseline at 22:00 (the brief's hook: 2.5 h · €89.50) and the
-// hybrid plan once the night's plan stands, with the manual figure beneath; both come from the engine
-// with the presenter's assumptions. Store orders on time counts orders on their truck plus orders
+// session cost. Labour shows the work by hand at 22:00 (the brief's hook: 2.5 h · €89.50) and the plan
+// with the cell once the night's plan stands, with the figure by hand and the saving beneath (−64 % at
+// the defaults); all come from the engine with the run's inputs, or the presenter's between runs. Store orders on time counts orders on their truck plus orders
 // projected to make it with more than the risk band (15 minutes) to spare; an order inside the band is
 // named beneath as at risk and not counted (amber), one whose truck left without it as late (red).
 
 import { bus } from "./events.js";
 import { h } from "./dom.js";
 import { perThousand } from "./engine.js";
+import { savingShare, savingText } from "./worth.js";
 import { eur2, hours, int, eurCents } from "./format.js";
 import { STORAGE } from "./config.js";
 import { visibleOrders, laneState } from "./cell_data.js";
@@ -53,11 +54,13 @@ export function createKpis(container, { getInputs, getNightState = () => null, g
     if (sub !== undefined && tile.sub.textContent !== sub) { tile.sub.textContent = sub; tile.sub.title = sub; }
   };
 
+  // At 22:00 the tile shows the work by hand (the brief's hook); once tonight's plan stands, the plan
+  // with the cell, with the same work by hand and the saving beneath (TECH_NOTES D50).
   function renderLabour() {
-    const k = perThousand(getInputs());
-    const manual = `${hours(k.manual_h)} · ${eur2(k.manual_eur)}`;
-    if (planStands) set(labour, `${hours(k.hybrid_h)} · ${eur2(k.hybrid_eur)}`, "", `hybrid · by hand ${manual}`);
-    else set(labour, manual, "", "manual baseline (engine)");
+    const v = getInputs();
+    const k = perThousand(v);
+    if (planStands) set(labour, `${hours(k.hybrid_h)} · ${eur2(k.hybrid_eur)}`, "", `with the cell · ${eur2(k.manual_eur)} by hand · ${savingText(savingShare(v))}`);
+    else set(labour, `${hours(k.manual_h)} · ${eur2(k.manual_eur)}`, "", "by hand, without the cell");
   }
 
   function renderOnTime() {

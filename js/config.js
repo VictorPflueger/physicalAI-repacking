@@ -4,7 +4,7 @@ export const APP = {
   id: "rp",
   name: "Repack Pilot",
   fullName: "Repack Pilot, a Physical AI repacking showcase",
-  version: "0.3.0"
+  version: "0.4.0"
 };
 
 export const ANTHROPIC = {
@@ -100,7 +100,8 @@ export const STORAGE = {
   sessionCost: `${P}sessionCostEur`,    // sessionStorage: live spend in this tab
   assumptions: `${P}assumptions`,       // sessionStorage: the presenter's changed engine inputs
   introSeen: `${P}introSeen`,           // localStorage: the intro opens by itself only on a first visit
-  consoleText: `${P}consoleText`        // localStorage: larger console text for projectors
+  consoleText: `${P}consoleText`,       // localStorage: larger console text for projectors
+  consoleView: `${P}consoleView`        // localStorage: the console's Details view (the simple view is the default)
 };
 
 export const UI = {
