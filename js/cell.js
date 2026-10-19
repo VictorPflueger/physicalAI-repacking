@@ -209,7 +209,7 @@ export function createCellBoard(root, { scenarios = [], getParams = () => ({}), 
       label = `Inbound pallet: ${st.inbound.map((w) => `${w.label} ${w.arrived ? "arrived" : `due at ${w.arrives}`}`).join(", ")}; ${l2}`;
     } else if (id === "camera") {
       const c = st.camera.last;
-      l1 = c ? (c.known ? `${c.sku} ${short(st, c.sku)}` : `Unknown ${c.barcode}`) : "waiting";
+      l1 = c ? (c.known ? short(st, c.sku) : `Unknown ${c.barcode}`) : "waiting";
       l2 = c ? `confidence ${fixed(c.confidence, 2)}${c.known ? "" : " · not in the item master"}` : `${int(st.info.totals.cell_units)} items for the cell`;
       flag = c && !c.known ? "unknown" : "";
       label = `Camera: ${l1}, ${l2}`;
@@ -218,11 +218,11 @@ export function createCellBoard(root, { scenarios = [], getParams = () => ({}), 
       const roll = rollingSuccess(st);
       // The cell's health first (it is what E3 watches): the rolling rate once there are 100 grasps.
       const rate = roll ?? (st.cell.attempts ? st.cell.successes / st.cell.attempts : null);
-      l1 = c ? `${pct(rate, 0)} ok · ${c.sku} ${c.grip}` : `${int(st.info.r_c)} attempts an hour`;
+      l1 = c ? `${pct(rate, 0)} ok · ${c.grip}` : `${int(st.info.r_c)} attempts an hour`;
       l2 = st.cell.attempts ? (roll !== null ? "over the last 100 grasps" : `over ${int(st.cell.attempts)} grasp${st.cell.attempts === 1 ? "" : "s"}`) : "rehearses each grasp first";
       flag = c ? (c.ok ? "ok" : "fail") : "";
       if (roll !== null && roll < 0.75) flag = "alarm";
-      label = `Robot cell: ${c ? `last grasp ${c.sku} with ${c.grip}, expected success ${pct(c.expected_success, 0)}, ${c.ok ? "picked" : "failed"}` : l1}; ${int(st.cell.attempts)} grasps, ${st.cell.attempts ? pct(st.cell.successes / st.cell.attempts, 0) : "none"} picked${roll !== null ? `, last 100 grasps ${pct(roll, 0)}` : ""}`;
+      label = `Robot cell: ${c ? `last grasp ${short(st, c.sku)} with ${c.grip}, expected success ${pct(c.expected_success, 0)}, ${c.ok ? "picked" : "failed"}` : l1}; ${int(st.cell.attempts)} grasps, ${st.cell.attempts ? pct(st.cell.successes / st.cell.attempts, 0) : "none"} picked${roll !== null ? `, last 100 grasps ${pct(roll, 0)}` : ""}`;
       const now = performance.now();
       if (c && running && now - lastFlash > 160) { lastFlash = now; s.btn.dataset.flash = c.ok ? "ok" : "fail"; s.btn.classList.remove("flash"); void s.btn.offsetWidth; s.btn.classList.add("flash"); }
     } else if (id === "scale") {

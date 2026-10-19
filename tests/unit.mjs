@@ -355,8 +355,8 @@ ok("key store masking and redaction; rp.* storage keys; one connect origin");
   const f = computeRunFacts(rows, ev("run_end", 21000, { status: "done" }));
   assert.equal(f.tool_calls, 2, "sim_advance and ui_* tools are not counted as visible calls");
   assert.deepEqual([f.wakeups, f.model_calls, f.guardrail_refusals, f.approved_option, f.drafts_approved, f.waiting_time_s, f.agent_time_s, f.cost_eur], [2, 2, 1, "B", 1, 10, 11, 0.42]);
-  assert.equal(describeRunFacts(f), "11 s agent time plus 10 s waiting for you; 2 wake-ups; 2 tool calls (1 warehouse, 1 engine); 1 guardrail refusal; 2 of 40 model calls; 13 of 13 orders on time; cost €0.42.");
-  ok("run facts: agent time apart from waiting, wake-ups, visible tool calls by kind, refusals, model calls against the cap, cost");
+  assert.equal(describeRunFacts(f), "11 s agent time plus 10 s waiting for you; 2 agent turns; 2 tool calls (1 warehouse, 1 engine); 1 guardrail refusal; 2 of 40 model calls; 13 of 13 orders on time; cost €0.42.");
+  ok("run facts: agent time apart from waiting, agent turns, visible tool calls by kind, refusals, model calls against the cap, cost");
 }
 
 console.log(`\nAll ${passed} unit tests passed.`);

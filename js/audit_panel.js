@@ -1,10 +1,11 @@
-// Audit tab: chronological log of every event and every model call, with filters and JSON export.
-// ("Save run as simulation" joins with the recorder in M4.)
+// Audit tab: chronological log of every event and every model call, with filters, JSON export and
+// "Save run as simulation" (js/recorder.js), enabled after a Live run that reached its summary.
 
 import { h, clear, downloadText } from "./dom.js";
 import { icon } from "./icons.js";
 import { clock, timeOfDay, int, fixed, upTo } from "./format.js";
 import { auditRows, onAuditEvent, buildAuditExport, auditFileName } from "./audit.js";
+import { canRecord } from "./recorder.js";
 import { clockOf, clockUp } from "./nightsim.js";
 
 const PHYSICAL = ["night_plan", "wave_arrival", "order_new", "detection", "rehearsal", "grasp_attempt", "scale_reading", "manual_pick", "tote_update",
@@ -19,9 +20,11 @@ const GROUPS = {
   system: { label: "System", types: ["run_start", "run_end", "state_change", "notice", "cell_update", "kpi_update", "plan_update", "cost_update", "attempt_discarded"] }
 };
 
-export function createAuditPanel(panel, { onCount } = {}) {
+export function createAuditPanel(panel, { onCount, onSaveSimulation } = {}) {
   let filter = "all";
   const filterBtns = new Map();
+  const saveBtn = h("button", { class: "btn btn-sm", type: "button", id: "btn-save-simulation", on: { click: saveSimulation } }, icon("download", 16), "Save run as simulation");
+  const status = h("p", { class: "audit-status", role: "status", hidden: true });
   const tbody = h("tbody");
   const empty = h("p", { class: "audit-empty" }, "No events yet. Every event of a run, every model call and every decision is listed here and exports as JSON.");
   const head = h("div", { class: "audit-head" },
@@ -33,11 +36,12 @@ export function createAuditPanel(panel, { onCount } = {}) {
         return b;
       })),
     h("div", { class: "audit-actions" },
-      h("button", { class: "btn btn-sm btn-primary", type: "button", id: "btn-export-audit", on: { click: exportJson } }, icon("download", 16), "Export JSON")));
+      h("button", { class: "btn btn-sm btn-primary", type: "button", id: "btn-export-audit", on: { click: exportJson } }, icon("download", 16), "Export JSON"),
+      saveBtn));
   const table = h("table", { class: "audit-table" },
     h("thead", {}, h("tr", {}, h("th", {}, "Run time"), h("th", {}, "Night"), h("th", {}, "Clock"), h("th", {}, "Event"), h("th", {}, "Details"))),
     tbody);
-  panel.append(head, empty, table);
+  panel.append(head, status, empty, table);
 
   function matches(ev) {
     const g = GROUPS[filter];
@@ -54,7 +58,30 @@ export function createAuditPanel(panel, { onCount } = {}) {
       h("td", { class: "s" }, summarize(ev)));
   }
 
+  function refreshSave() {
+    const can = canRecord();
+    saveBtn.setAttribute("aria-disabled", String(!can.ok));
+    saveBtn.title = can.ok ? "Download this Live run as a simulation script that can replace the scripted replay of its scenario" : can.reason;
+  }
+
+  async function saveSimulation() {
+    refreshSave();
+    const can = canRecord();
+    if (!can.ok) return setStatus(can.reason, "error");
+    setStatus("Checking the recording against the script checker…", "ok");
+    const r = await onSaveSimulation?.();
+    if (r) setStatus(r.message, r.ok ? "ok" : "error");
+    return r;
+  }
+
+  function setStatus(text, tone) {
+    status.hidden = !text;
+    status.textContent = text || "";
+    status.dataset.tone = tone || "ok";
+  }
+
   function renderAll() {
+    refreshSave();
     clear(tbody);
     const rows = auditRows();
     for (const ev of rows) if (matches(ev)) tbody.appendChild(row(ev));
@@ -64,6 +91,8 @@ export function createAuditPanel(panel, { onCount } = {}) {
   }
 
   onAuditEvent((ev) => {
+    if (ev.type === "run_start") setStatus("");
+    if (ev.type === "run_start" || ev.type === "run_end") queueMicrotask(refreshSave);
     if (matches(ev)) tbody.appendChild(row(ev));
     empty.hidden = true;
     table.hidden = false;
@@ -75,7 +104,7 @@ export function createAuditPanel(panel, { onCount } = {}) {
   }
 
   renderAll();
-  return { refresh: renderAll };
+  return { refresh: renderAll, saveSimulation };
 }
 
 function summarize(ev) {
@@ -114,7 +143,9 @@ function summarize(ev) {
     case "late_complete": return `${p.store}: last unit by ${clockUp(p.t)}`;
     case "night_end": return `${int(p.figures?.orders_on_time)} of ${int(p.figures?.orders)} orders on time; ${int(p.figures?.units_repacked)} units; labour ${upTo(p.figures?.labour_hours, 2)} h; seed ${p.figures?.seed}`;
     case "unit_log": return `${int((p.rows || []).length)} units${p.partial ? `, stopped at ${p.until}` : ""}; seed ${p.seed}, night hash ${p.hash}`;
-    case "assumption_change": return `${p.id}: ${p.from} → ${p.to}${p.reset ? " (reset)" : ""}${p.applies && p.applies !== "now" ? `, ${p.applies}` : ""}`;
+    case "assumption_change": return `${p.id}: ${p.from} → ${p.to}${p.reset ? " (reset)" : ""}${p.via === "your_dc" ? " (Your DC)" : ""}${p.applies && p.applies !== "now" ? `, ${p.applies}` : ""}`;
+    case "autonomy_change": return `${p.from} → ${p.to} by the person${p.gate ? `; Bounded ${p.gate.met ? "unlocked" : `locked (${(p.gate.failing || []).join(", ")})`}` : ""}`;
+    case "plan_update": return `${p.source}${p.option_id ? ` ${p.option_id}` : ""}: ${(p.levers || []).map((l) => l.type).join(", ")}${p.from ? ` from ${p.from}` : ""}`;
     default: return trim(JSON.stringify(p), 200);
   }
 }

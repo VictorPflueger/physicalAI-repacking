@@ -22,7 +22,7 @@ import { openDiagnostics } from "./diagnostics_view.js";
 import { openIntro, introSeen } from "./intro.js";
 import { hasKey, forgetKey } from "./keystore.js";
 import { APP, MODELS } from "./config.js";
-import { h } from "./dom.js";
+import { h, downloadText } from "./dom.js";
 import { icon } from "./icons.js";
 import { createNightPlayer } from "./night.js";
 import { createNightSession } from "./night_session.js";
@@ -37,6 +37,10 @@ import { createAssumptions } from "./assumptions.js";
 import { inputs as engineInputs, nightParams as nightParamsOf, PARAMETERS } from "./engine.js";
 import { replayInputs, changedNightInputs } from "./script.js";
 import { getWorldData } from "./world.js";
+import { LEVELS } from "./autonomy.js";
+import { openGateDialog, currentGate } from "./autonomy_view.js";
+import { saveRunAsSimulation } from "./recorder.js";
+import { checkScript } from "./sim_check.js";
 
 /** How long the night stands still at a wake-up at ×1 in a night preview (shorter at ×2 and ×4). */
 export const WAKE_PAUSE_MS = 1200;
@@ -56,6 +60,11 @@ export function initUI() {
   // The run in progress: its wake bridge (null in a night preview) and the inputs it runs on.
   let bridge = null;
   let runInputs = null;
+  // Plan figures (the opener, the header tiles, the KPI board's Plan column and business case) hold the
+  // run's inputs while a run is on and follow the presenter's inputs otherwise, so "Your DC" moves them
+  // after a run; a run's own record (the console, the summary, the Tonight column) keeps the inputs it
+  // ran on (TECH_NOTES D53).
+  const planInputs = () => (runInputs && isRunning(getState()) ? runInputs : getInputs());
 
   // ---- components ------------------------------------------------------------------------------
   const badge = document.getElementById("mode-badge");
@@ -66,6 +75,12 @@ export function initUI() {
     onOpenOptions: () => drawer.show("options"),
     onOpenOutbox: () => drawer.show("outbox"),
     onOpenReport: (md) => showReport(md, { mode: getState().mode }),
+    onOpenBusinessCase: () => drawer.show("kpiboard"),
+    onSaveSimulation: async () => {
+      const r = await saveSimulation();
+      notice(r.ok ? "info" : "warn", r.message);
+      return r;
+    },
     onConfirm: (d) => {
       if (!isRunning(getState())) return notice("warn", "This run has ended. Start a new run to confirm.");
       bus.emit("confirmation_decision", { ...d, by: "user" });
@@ -89,17 +104,34 @@ export function initUI() {
     },
     onCount: (n, attention) => drawer.setCount("outbox", n, attention)
   });
-  const auditPanel = createAuditPanel(drawer.panel("audit"), { onCount: (n) => drawer.setCount("audit", n) });
-  const kpis = createKpis(document.getElementById("kpis"), { getInputs: () => runInputs || getInputs(), getNightState: () => cell.state(), getSpeed: () => getState().speed });
-  const kpiBoard = createKpiBoard(drawer.panel("kpiboard"), { getInputs: () => runInputs || getInputs(), getNightState: () => cell.state() });
+  // "Save run as simulation": the recording must pass the script checker before it is offered.
+  const saveSimulation = () => saveRunAsSimulation({
+    check: (key, def) => checkScript(getWorldData(), byId(key), def, window.REFERENCE_CASES?.[key] || {}),
+    download: (name, text) => downloadText(name, text, "text/javascript")
+  });
+  const auditPanel = createAuditPanel(drawer.panel("audit"), { onCount: (n) => drawer.setCount("audit", n), onSaveSimulation: saveSimulation });
+  const kpis = createKpis(document.getElementById("kpis"), { getInputs: planInputs, getNightState: () => cell.state(), getSpeed: () => getState().speed });
+  const kpiBoard = createKpiBoard(drawer.panel("kpiboard"), {
+    getInputs: planInputs, getRunInputs: () => runInputs, getNightState: () => cell.state(),
+    getOverrides: () => getState().assumptions,
+    setOverrides: (next) => applyOverrides(next),
+    isRunning: () => isRunning(getState())
+  });
+  /**
+   * The presenter's inputs changed (the Assumptions tab, or Your DC on the KPI board): every view follows.
+   * The board shows the next night's preview only while no run is on screen: a finished night stays as
+   * it ended, so the customer's volume can be typed in after the run (TECH_NOTES D53).
+   */
+  function applyOverrides(next) {
+    setState({ assumptions: { ...next } });
+    kpis.refresh();
+    kpiBoard.render();
+    assumptions.render();
+    if (getState().runState === "idle") cell.focusScenario(getState().scenarioId);
+  }
   const assumptions = createAssumptions(drawer.panel("assumptions"), {
     getOverrides: () => getState().assumptions,
-    setOverrides: (next) => {
-      setState({ assumptions: { ...next } });
-      kpis.refresh();
-      kpiBoard.render();
-      if (!isRunning(getState())) cell.focusScenario(getState().scenarioId);
-    },
+    setOverrides: (next) => applyOverrides(next),
     getNightInfo: () => cell.state()?.info || null,
     getScenario: () => byId(cell.state()?.info?.scenario_id) || byId(getState().scenarioId) || null,
     isRunning: () => isRunning(getState())
@@ -126,6 +158,8 @@ export function initUI() {
     },
     onSelectModel: (id) => setState({ model: id }),
     onSpeed: (n) => setState({ speed: n }),
+    onAutonomy: (level) => setAutonomy(level),
+    onShowGate: () => openGateDialog(),
     onAbort: () => abort("Stopped by the user."),
     onReset: () => resetWorkspace(),
     onDiagnostics: () => openDiagnostics()
@@ -142,19 +176,20 @@ export function initUI() {
   function showIntro() {
     const s = getState();
     // During a run the window only explains; it never starts or interrupts anything.
-    if (isRunning(s)) return openIntro({});
-    return openIntro({ startLabel: isFinished(s) ? "New run" : "Start agent", onStart: () => start() });
+    if (isRunning(s)) return openIntro({ getInputs: planInputs });
+    return openIntro({ startLabel: isFinished(s) ? "New run" : "Start agent", onStart: () => start(), getInputs: planInputs });
   }
 
   // ---- state → view ----------------------------------------------------------------------------
   const BADGE = {
     live: { content: () => [h("span", { class: "mode-dot", "aria-hidden": "true" }), "LIVE"], title: "Live agent: real model calls on your API key" },
     simulation: { content: () => ["SIMULATION"], title: "Simulation: scripted replay, not live" },
+    recorded: { content: () => ["SIMULATION"], title: "Simulation: replay of a recorded live run, not live" },
     preview: { content: () => ["NIGHT PREVIEW"], title: "Night preview: the engine and the simulated cell play tonight without the agent. No model calls." }
   };
   const render = (s) => {
     controls.update(s, { scenarioLabel: byId(s.scenarioId)?.short || "Choose" });
-    const b = BADGE[s.mode];
+    const b = BADGE[s.mode === "simulation" && s.simSource === "recorded" ? "recorded" : s.mode];
     badge.dataset.mode = b ? s.mode : "none";
     badge.replaceChildren(...(b ? b.content() : ["No run active"]));
     badge.title = b ? b.title : "Choose a mode with Start agent";
@@ -176,6 +211,22 @@ export function initUI() {
   bus.on("options", () => drawer.show("options"));
   bus.on("action_draft", () => drawer.show("outbox"));
 
+  // ---- the autonomy dial ---------------------------------------------------------------------------
+  // A person's setting for the next run (a run keeps the level it started with). Every change lands in
+  // the audit as autonomy_change, with the gate's state; Bounded cannot be chosen while the gate fails.
+  function setAutonomy(level) {
+    const s = getState();
+    if (isRunning(s)) return notice("warn", "A run keeps the autonomy level it started with. Change it before the next run.");
+    if (!["advise", "approve"].includes(level) || level === s.autonomy) return;
+    const gate = currentGate();
+    setState({ autonomy: level });
+    bus.emit("autonomy_change", { from: s.autonomy, to: level, by: "user", gate: { met: gate.met, failing: gate.failing } });
+    const lv = LEVELS.find((x) => x.id === level);
+    showBanner({ level: "info", title: `Autonomy: ${lv.label}`, text: level === "advise"
+      ? "From the next run the agent only recommends: you apply an approved option yourself, with your click in the Options tab."
+      : "From the next run the agent applies an option after your click, as before.", timeout: 6000 });
+  }
+
   // ---- run control ---------------------------------------------------------------------------------
   async function start() {
     const s = getState();
@@ -184,7 +235,7 @@ export function initUI() {
     const script = window.SIM_RUNS?.[scenario.id];
     const kept = changedNightInputs(getInputs());
     const simNote = !script
-      ? "This scenario has no scripted replay yet (M4): Simulation plays its night without the agent, as a night preview. Live runs the agent."
+      ? "This scenario has no scripted replay: Simulation plays its night without the agent, as a night preview. Live runs the agent."
       : kept.length
         ? `The scripted replay is written for the brief's night: ${kept.join(", ")} stay at their defaults in Simulation; your other inputs apply. Live uses all your inputs.`
         : null;
@@ -211,6 +262,8 @@ export function initUI() {
     const s = getState();
     const script = chosen === "simulation" ? window.SIM_RUNS?.[scenario.id] || null : null;
     const mode = chosen === "simulation" && !script ? "preview" : chosen;
+    const recorded = mode === "simulation" && script?.source === "recorded";
+    const simSource = mode === "simulation" ? (recorded ? "recorded" : "authored") : null;
     const v = getInputs();
     const inputs = mode === "simulation" ? replayInputs(v) : v;
     const kept = mode === "simulation" ? changedNightInputs(v) : [];
@@ -225,14 +278,14 @@ export function initUI() {
     }
     runInputs = inputs;
     bus.beginRun({ run_id, mode });
-    setState({ mode, runId: run_id, runState: mode === "preview" ? "previewing" : "perceiving", simSource: mode === "simulation" ? "authored" : null });
+    setState({ mode, runId: run_id, runState: mode === "preview" ? "previewing" : "perceiving", simSource });
     bus.emit("run_start", {
-      run_id, mode, chosen_mode: chosen, scenario_id: scenario.id,
+      run_id, mode, chosen_mode: chosen, scenario_id: scenario.id, autonomy: s.autonomy,
       title: `Scenario ${scenario.number}: ${scenario.title}`, seed: scenario.night.seed,
       inputs, changed_inputs: Object.keys(getState().assumptions),
       ...(kept.length ? { night_inputs_kept: kept } : {}),
       ...(mode === "live" ? { model: model.id, model_label: model.label } : {}),
-      ...(mode === "simulation" ? { sim_source: "authored" } : {})
+      ...(mode === "simulation" ? { sim_source: simSource, ...(recorded ? { recorded_on: script.recorded?.recorded_on || null, recorded_model: script.recorded?.model_label || script.recorded?.model || null } : {}) } : {})
     });
     if (kept.length) {
       const names = kept.length === 1 ? kept[0] : `${kept.slice(0, -1).join(", ")} and ${kept.at(-1)}`;
@@ -241,7 +294,7 @@ export function initUI() {
 
     if (mode === "preview") {
       bus.emit("state_change", { state: "previewing" });
-      bus.emit("notice", { level: "info", text: `No scripted replay for scenario ${scenario.number} yet (M4): the engine and the simulated cell play tonight without the agent. Live runs the agent on this scenario.` });
+      bus.emit("notice", { level: "info", text: `No scripted replay for scenario ${scenario.number}: the engine and the simulated cell play tonight without the agent. Live runs the agent on this scenario.` });
       bridge = null;
       player.play({ session }).then((res) => {
         if (res.status !== "done" || bus.currentRun()?.run_id !== run_id) return;

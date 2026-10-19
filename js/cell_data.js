@@ -103,7 +103,7 @@ export function tonightSoFar(st) {
   for (const o of st.orders.values()) packed += o.packed;
   const cellH = (st.cell.attempts * i.t_cell_ms) / 3600000;
   return {
-    t: st.t, units_packed: packed, labour_hours: labourH,
+    t: st.t, units_packed: packed, labour_hours: labourH, called_in_hours: callInHours(st),
     labour_hours_per_1000: packed ? (labourH / packed) * 1000 : null,
     robot_picks_per_cell_hour: cellH ? st.cell.successes / cellH : null,
     cell_hours: cellH, attempts: st.cell.attempts, successes: st.cell.successes, failures: st.cell.failures,

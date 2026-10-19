@@ -33,6 +33,21 @@ export function cspConnectOrigins(doc = document) {
   return (/connect-src([^;]*)/.exec(csp)?.[1] || "").trim().split(/\s+/).filter(Boolean);
 }
 
+/** The simulation scripts under the live guardrails (js/sim_check.js), for the scripts row. */
+async function checkScripts() {
+  await new Promise((r) => setTimeout(r, 30));
+  const started = performance.now();
+  const checks = await checkSimRuns(globalThis.WORLD, globalThis.SIM_RUNS || {}, globalThis.SCENARIOS || [], globalThis.REFERENCE_CASES || {});
+  const failed = checks.filter((c) => !c.ok);
+  const valid = checks.filter((c) => c.ok && !c.pending).length;
+  const pending = checks.filter((c) => c.pending).length;
+  return {
+    status: failed.length ? "fail" : "pass", ms: Math.round(performance.now() - started), checks,
+    detail: failed.length ? `${failed.length} script${failed.length === 1 ? "" : "s"} failed: ${failed[0].detail}` : `${valid} script${valid === 1 ? "" : "s"} valid on every decision path${pending ? `; ${pending} scenario${pending === 1 ? "" : "s"} without a script yet` : ""}.`
+  };
+}
+let scriptsCheck = null;   // { key: the scripts present, result: Promise } for this page
+
 const RUNNERS = {
   async anthropic() {
     const key = getKey();
@@ -81,16 +96,12 @@ const RUNNERS = {
     return { status: issues.length ? "fail" : "pass", ms: null, detail: text.charAt(0).toUpperCase() + text.slice(1) };
   },
   async scripts() {
-    await new Promise((r) => setTimeout(r, 30));
-    const started = performance.now();
-    const checks = await checkSimRuns(globalThis.WORLD, globalThis.SIM_RUNS || {}, globalThis.SCENARIOS || [], globalThis.REFERENCE_CASES || {});
-    const failed = checks.filter((c) => !c.ok);
-    const valid = checks.filter((c) => c.ok && !c.pending).length;
-    const pending = checks.filter((c) => c.pending).length;
-    return {
-      status: failed.length ? "fail" : "pass", ms: Math.round(performance.now() - started), checks,
-      detail: failed.length ? `${failed.length} script${failed.length === 1 ? "" : "s"} failed: ${failed[0].detail}` : `${valid} script${valid === 1 ? "" : "s"} valid on every decision path${pending ? `; ${pending} scenario${pending === 1 ? "" : "s"} without a script yet (M4)` : ""}.`
-    };
+    // The scripts cannot change while the page is open, and checking six of them on every decision path
+    // takes seconds: one check per page and set of scripts, so reopening Diagnostics or Run all tests
+    // shows it at once instead of replaying every path again.
+    const key = Object.keys(globalThis.SIM_RUNS || {}).sort().join(",");
+    if (!scriptsCheck || scriptsCheck.key !== key) scriptsCheck = { key, result: checkScripts() };
+    return scriptsCheck.result;
   },
   async openfoodfacts() {
     // This build does not read the API live (TECH_NOTES §4): say so, and how the lookup answers instead.

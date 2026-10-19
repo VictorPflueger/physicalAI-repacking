@@ -17,6 +17,13 @@
  * The engine's inputs: default, unit and basis (a source key from DATA_SOURCES.md or "Assumption"),
  * in the order the assumptions tab lists them. Values are the brief's (PLAN.md §c.1).
  */
+/**
+ * The engine's and the night simulation's version: it changes whenever the same inputs would give a
+ * different figure or night (as D46 and D48 did in M4). A recorded run stores it, and the script checker
+ * refuses a recording made with another version (js/sim_check.js): record the run again then.
+ */
+export const ENGINE_VERSION = "0.4.0";
+
 export const PARAMETERS = Object.freeze([
   { id: "N", label: "Units repacked per year", value: 6000000, unit: "units per year", step: 100000, min: 100000, max: 100000000,
     basis: "Assumption", note: "Illustrative regional DC, about 24,000 units a day on 250 days" },
@@ -107,13 +114,20 @@ export function night(v, V) {
 
 /**
  * Tonight's labour in euros from the night simulation's hours (js/nightsim.js tonightFigures, or the
- * board's figures so far): the Tonight column of the KPI board and the night report.
+ * board's figures so far): the Tonight column of the KPI board and the night report. Called-in hours
+ * cost the night premium on top of `c`, as the option card bills them (golden case O1; TECH_NOTES D46):
+ * on scenario 1's option B, 2.855 base hours at €35.80 and 3 called-in hours at €44.75 make €236.46,
+ * €69.55 per 1,000 of the 3,400 units.
  */
 export function tonightEuros(v, figures) {
+  const h = figures?.labour_hours ?? 0;
+  const called = Math.min(h, Math.max(0, figures?.called_in_hours ?? 0));
+  const labour = (h - called) * v.c + called * v.c * (1 + v.callin_premium);
   const per = figures?.labour_hours_per_1000;
   return {
-    labour_eur: (figures?.labour_hours ?? 0) * v.c,
-    per_thousand_eur: per === null || per === undefined ? null : per * v.c
+    labour_eur: labour,
+    called_in_eur: called * v.c * (1 + v.callin_premium),
+    per_thousand_eur: per === null || per === undefined ? null : h > 0 ? (labour * per) / h : per * v.c
   };
 }
 

@@ -18,7 +18,7 @@ import { clock } from "./format.js";
 import { createProgressRail } from "./progress.js";
 import { runStateLabel } from "./handover.js";
 import { LABELS, splitParagraphs } from "./labels.js";
-import { STORAGE } from "./config.js";
+import { STORAGE, OPEN_FOOD_FACTS } from "./config.js";
 import { clockOf } from "./nightsim.js";
 import { attachNightLog } from "./console_night.js";
 import { aiLabel } from "./ai_label.js";
@@ -28,14 +28,26 @@ import { DRAFT_LABELS } from "./drafts.js";
 
 const PHASES = new Set(["planning", "picking", "replanning", "options", "awaiting_approval", "executing"]);
 const TEXT_SIZE_KEY = STORAGE.consoleText;
+const VIEW_KEY = STORAGE.consoleView;
 
 /**
- * opts: { getInputs() → the engine's inputs (the night report's euros), onOpenOptions(), onOpenOutbox(),
- * onOpenReport(markdown), onConfirm({ request_id, choice, subject }) }.
+ * Entries the simple view leaves to Details (TECH_NOTES D50): the agent's tool calls and reasoning
+ * summaries, phase lines, wake-up notices, the night's opening line (the agent narrates the plan), the
+ * hourly cell line, the inbound waves and the trucks that leave on time (the board shows them). A late
+ * truck, every guardrail, decision, draft and the night's moments stay in the simple view.
  */
-export function createConsole(panel, { getInputs = () => null, onOpenOptions, onOpenOutbox, onOpenReport, onConfirm } = {}) {
+const DETAIL_TYPES = new Set(["tool_call", "reasoning", "phase", "wake", "hour", "wave", "night"]);
+export function isDetailEntry(type, data = {}) {
+  return DETAIL_TYPES.has(type) || (type === "dispatch" && data.state === "on-time");
+}
+
+/**
+ * opts: { getInputs() → the run's engine inputs (the night report's euros), onOpenOptions(), onOpenOutbox(),
+ * onOpenReport(markdown), onOpenBusinessCase() (the KPI board), onConfirm({ request_id, choice, subject }) }.
+ */
+export function createConsole(panel, { getInputs = () => null, onOpenOptions, onOpenOutbox, onOpenReport, onOpenBusinessCase, onConfirm, onSaveSimulation } = {}) {
   const count = h("span", { class: "count num" }, "");
-  const jumpBtn = h("button", { class: "btn btn-sm", type: "button", hidden: true }, icon("chevronDown", 16), "Jump to latest");
+  const jumpBtn = h("button", { class: "btn btn-sm jump-latest", type: "button", hidden: true, "aria-label": "Jump to latest", title: "Jump to latest" }, icon("chevronDown", 16), h("span", { class: "btn-text" }, "Jump to latest"));
   // Larger text for projectors, remembered per browser (a convenience; storage may be unavailable).
   const sizeBtn = h("button", { class: "btn btn-sm btn-ghost text-size", type: "button", "aria-pressed": "false", title: "Larger console text for projectors" }, "Larger text");
   const applySize = (large) => {
@@ -48,6 +60,20 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
     applySize(large);
     try { localStorage.setItem(TEXT_SIZE_KEY, large ? "large" : "standard"); } catch { /* storage unavailable */ }
   });
+  // Simple view by default: the agent's words, the night's moments, your decisions and the drafts.
+  // Details adds every tool call, phase, wake-up, hourly line and truck (remembered per browser).
+  const viewBtn = h("button", { class: "btn btn-sm btn-ghost view-toggle", type: "button", id: "btn-console-details", "aria-pressed": "false", title: "Show every tool call, phase, agent turn, hourly line and truck" }, "Details");
+  const applyView = (details) => {
+    panel.dataset.view = details ? "details" : "simple";
+    viewBtn.setAttribute("aria-pressed", String(details));
+    updateCount();
+    pin();
+  };
+  viewBtn.addEventListener("click", () => {
+    const details = panel.dataset.view !== "details";
+    applyView(details);
+    try { localStorage.setItem(VIEW_KEY, details ? "details" : "simple"); } catch { /* storage unavailable */ }
+  });
   const SCRIPTED = "Scripted replay of a representative night. No model calls.";
   const watermarkText = h("span", {}, SCRIPTED);
   const watermark = h("div", { class: "sim-watermark", hidden: true, role: "note" }, "SIMULATION", watermarkText);
@@ -59,7 +85,7 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
   panel.append(
     h("div", { class: "console-head" },
       h("div", { class: "console-title" }, h("h2", {}, "Agent console"), count),
-      h("div", { class: "console-head-actions" }, jumpBtn, sizeBtn)),
+      h("div", { class: "console-head-actions" }, jumpBtn, viewBtn, sizeBtn)),
     rail.el,
     watermark,
     log
@@ -70,6 +96,7 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
   const confirmations = new Map();
   let optionsSeq = null;  // the option set on screen: a click on an older set is not logged as a decision
   let entries = 0;
+  let detailEntries = 0;  // entries only the Details view shows
   let lastPhase = null;
   let runMode = null;     // the current run's mode: "simulation" | "live" | "preview"
   let nightClock = null;  // "HH:MM" while a run is on; the time column shows it
@@ -103,8 +130,9 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
     clear(log);
     log.appendChild(h("div", { class: "log-empty" },
       h("h3", {}, "Pick a scenario, then start the agent"),
-      h("p", {}, "The five steps above are the agent's plan for the night. It perceives each item, plans the store orders against the truck cut-offs, picks with the cell, replans when the night changes and prepares the drafts."),
-      h("p", {}, "When it needs you, the step turns burgundy. Nothing is sent without your approval. You choose between a free simulation and the live agent on your own API key.")));
+      h("p", {}, "The five steps above are the agent's plan for the night. It perceives each item, plans the store orders against the truck departures, picks with the cell, replans when the night changes and prepares the drafts."),
+      h("p", {}, "When it needs you, the step turns burgundy. Nothing is sent without your approval. You choose between a free simulation and the live agent on your own API key."),
+      h("p", {}, "The console shows the agent's words and the night's moments; Details adds every tool call.")));
     count.textContent = "";
   }
 
@@ -112,10 +140,18 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
     if (entries === 0) clear(log);
     log.appendChild(el);
     entries++;
-    count.textContent = `${entries} ${entries === 1 ? "entry" : "entries"}`;
+    if (el.dataset.detail === "true") detailEntries++;
+    updateCount();
     if (follow) pin();
-    else jumpBtn.hidden = false;
+    else if (el.dataset.detail !== "true" || panel.dataset.view === "details") jumpBtn.hidden = false;
     return el;
+  }
+
+  /** "24 of 76 entries" in the simple view, "76 entries" with Details. */
+  function updateCount() {
+    if (!entries) { count.textContent = ""; return; }
+    const shown = panel.dataset.view === "details" ? entries : entries - detailEntries;
+    count.textContent = shown === entries ? `${entries} ${entries === 1 ? "entry" : "entries"}` : `${shown} of ${entries} entries`;
   }
 
   /**
@@ -127,7 +163,7 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
     const night = typeof simT === "number" ? clockOf(simT) : nightClock;
     const run = ev?.t !== null && ev?.t !== undefined ? clock(ev.t) : null;
     const time = h("div", { class: "entry-time", ...(run ? { title: `Run time ${run}` } : {}) }, night || run || "");
-    return h("div", { class: "entry", dataset: { type, ...data } },
+    return h("div", { class: "entry", dataset: { type, ...data, detail: String(isDetailEntry(type, data)) } },
       time,
       h("div", { class: "entry-mark" }, mark ? icon(mark, 18) : null),
       h("div", { class: "entry-body" }, body));
@@ -147,14 +183,23 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
       : SCRIPTED;
     log.dataset.sim = String(p.mode === "simulation");
     const meta = p.mode === "preview"
-      ? "Night preview: this scenario has no scripted replay yet (M4), so the engine and the simulated cell play tonight without the agent. No API key, no model calls, no cost."
+      ? "Night preview: this scenario has no scripted replay, so the engine and the simulated cell play tonight without the agent. No API key, no model calls, no cost."
       : p.mode === "simulation"
         ? recorded ? "Simulation: replay of a recorded live run, no API key, no cost." : "Simulation: scripted replay through the agent's own tools; the engine computes every figure now. No API key, no cost."
         : `Live agent on ${p.model_label || p.model || "Claude"}. Real model reasoning and real tool calls against the simulated cell.`;
+    const autonomy = p.mode === "preview" ? null : AUTONOMY_WORDS[p.autonomy] || null;
     add(entry("run", ev, "play", [
       h("div", { class: "run-title" }, p.title || "Agent run"),
-      h("div", {}, meta)
+      h("div", {}, meta),
+      autonomy ? h("div", { class: "run-autonomy" }, h("strong", {}, `Autonomy: ${autonomy[0]}. `), autonomy[1]) : null
     ]));
+  });
+
+  // An option the person applied themselves (Advise): the plan change is theirs, not the agent's.
+  bus.on("plan_update", (ev) => {
+    const p = ev.payload;
+    if (p.source !== "person") return;
+    add(entry("decision", ev, "user", h("p", {}, h("strong", {}, "You applied "), `option ${p.letter || p.option_id}`, (p.levers_text || []).length ? `: ${p.levers_text.join("; ")}` : "", ". The agent did not act on the plan (Advise).")));
   });
 
   bus.on("state_change", (ev) => {
@@ -228,6 +273,12 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
     });
     result.append(toggle, pre);
     body.appendChild(result);
+    // Open Food Facts data carries its licence's attribution wherever it is shown (brief, "Data and
+    // licences"); no product image is used.
+    if (p.name === "open_lookup_barcode" && p.result?.attribution) {
+      body.appendChild(h("p", { class: "attribution" }, `${String(p.result.attribution).replace(/Open Food Facts, ODbL$/, "")}`,
+        h("a", { href: OPEN_FOOD_FACTS.origin, target: "_blank", rel: "noopener noreferrer" }, "Open Food Facts"), ", ODbL"));
+    }
     if (refused) {
       el.dataset.guard = p.name;
       guardLine(ev, p.name, String(p.result?.error || "").trim());
@@ -287,7 +338,7 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
 
   bus.on("provisional_entry", (ev) => {
     const p = ev.payload;
-    add(entry("correction", ev, "memo", [h("strong", {}, "Provisional entry: "), `${p.name}${p.net_content ? `, ${p.net_content}` : ""} for barcode ${p.barcode} (${p.source === "open_food_facts" ? "from Open Food Facts" : "from the scale and the camera"}), unverified until a person confirms it.`]));
+    add(entry("correction", ev, "memo", [h("strong", {}, "Provisional entry: "), `${p.name}${p.net_content ? `, ${p.net_content}` : ""} for barcode ${p.barcode} (${p.source === "open_food_facts" ? "from Open Food Facts" : "from the cell's own sensors"}), unverified until a person confirms it.`]));
   });
 
   bus.on("confirmation_request", (ev) => {
@@ -317,9 +368,14 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
   });
 
   bus.on("report", (ev) => {
+    // The simple view shows the summary's heading and its button, so the night's closing card stays in
+    // view above it; the whole summary is one click away and in Details (TECH_NOTES D50).
+    const body = renderMarkdown(ev.payload.markdown);
+    const firstHeading = body.querySelector("h2, h3, h4");
+    for (const el of body.children) if (el !== firstHeading) el.classList.add("detail-only");
     const card = h("div", { class: "report-card" },
       aiLabel("report"),
-      renderMarkdown(ev.payload.markdown),
+      body,
       h("div", { class: "report-actions" },
         h("button", { class: "btn btn-sm btn-primary", type: "button", id: "btn-open-report", on: { click: () => onOpenReport?.(ev.payload.markdown) } }, icon("external", 16), "Open management summary")));
     add(entry("report", ev, "check", card, { kind: "summary" }));
@@ -332,7 +388,7 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
 
   // The night clock follows the night; the night's own lines come from js/console_night.js.
   bus.on("clock", (ev) => { if (runMode) nightClock = ev.payload.label; });
-  const nightLog = attachNightLog({ add, entry, mode: () => runMode, getInputs });
+  const nightLog = attachNightLog({ add, entry, mode: () => runMode, getInputs, onOpenBusinessCase });
 
   bus.on("run_end", (ev) => {
     const { status, reason } = ev.payload;
@@ -353,9 +409,14 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
     if (runMode && runMode !== "preview") {
       try { facts = describeRunFacts(computeRunFacts(auditRows(), ev)); } catch (e) { console.error("[Repack Pilot] run facts failed:", e); }
     }
+    // A Live run that reached its summary can replace its scenario's scripted replay (js/recorder.js).
+    const save = runMode === "live" && status === "done" && onSaveSimulation
+      ? h("button", { class: "btn btn-sm", type: "button", id: "btn-console-save-simulation", title: "Download this run as a simulation script that can replace the scripted replay of this scenario", on: { click: () => onSaveSimulation() } }, icon("download", 16), "Save run as simulation")
+      : null;
     add(entry("notice", ev, status === "done" ? "check" : "stop", h("div", {},
       h("span", {}, h("strong", {}, text), reason ? ` ${reason}` : ""),
-      facts ? h("div", { class: "run-facts" }, h("strong", {}, runMode === "simulation" ? "Replay facts: " : "Run facts: "), facts) : null),
+      facts ? h("div", { class: "run-facts" }, h("strong", {}, runMode === "simulation" ? "Replay facts: " : "Run facts: "), facts) : null,
+      save ? h("div", { class: "entry-actions" }, save) : null),
     { level: status === "error" ? "error" : "info", end: status }));
     for (const el of byMsg.values()) { el.classList.remove("streaming"); el.removeAttribute("aria-busy"); }
     runMode = null;
@@ -368,6 +429,7 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
     confirmations.clear();
     optionsSeq = null;
     entries = 0;
+    detailEntries = 0;
     lastPhase = null;
     runMode = null;
     nightClock = null;
@@ -381,8 +443,10 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
   }
 
   let storedSize = null;
-  try { storedSize = localStorage.getItem(TEXT_SIZE_KEY); } catch { /* storage unavailable */ }
+  let storedView = null;
+  try { storedSize = localStorage.getItem(TEXT_SIZE_KEY); storedView = localStorage.getItem(VIEW_KEY); } catch { /* storage unavailable */ }
   applySize(storedSize === "large");
+  applyView(storedView === "details");
   showEmpty();
   return { reset };
 }
@@ -447,6 +511,13 @@ function formatJson(value) {
   }
   return s.length > 9000 ? `${s.slice(0, 9000)}\n… (shortened for display; the full result is in the audit log)` : s;
 }
+
+/** The autonomy level a run started with, as the run line names it. */
+const AUTONOMY_WORDS = {
+  advise: ["Advise", "The agent recommends; you apply an approved option yourself."],
+  approve: ["Approve", "The agent applies an option after your click."],
+  bounded: ["Bounded", "The agent acts inside set limits; anything outside them escalates."]
+};
 
 const GUARD_LABEL = {
   sim_advance: "Letting the night run on was", ui_propose_options: "The options were", ui_await_decision: "The wait was",

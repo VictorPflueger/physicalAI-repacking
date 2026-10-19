@@ -68,7 +68,9 @@ export class FigureLedger {
  * null; optionId: what the agent asks to apply. Returns an error message, or null.
  */
 export function applyError({ autonomy = "approve", approved, optionId }) {
-  if (autonomy === "advise") return "In Advise mode the agent recommends and a person applies the option in the interface. Do not apply it; say what you recommend and wait.";
+  if (autonomy === "advise") return approved && approved.applied_by === "person"
+    ? `In Advise mode the person applies the option in the interface, and they applied ${approved.label} with their click. Do not call wms_apply_option; continue with its drafts.`
+    : "In Advise mode the agent recommends and a person applies the option in the interface. Do not apply it; say what you recommend and wait.";
   if (!approved) return "No option has been approved yet. Propose the options with ui_propose_options and wait for the person's decision.";
   if (approved.id === "baseline") return "The person chose to do nothing: there is no option to apply. Continue with the memo, the approvals and the night.";
   if (String(optionId || "") !== approved.id) return `Only the approved option can be applied: ${approved.label}. "${optionId}" was not approved.`;

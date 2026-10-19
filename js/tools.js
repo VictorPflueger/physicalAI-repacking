@@ -21,7 +21,7 @@
 //   - the night stands still while a decision, a draft or a confirmation waits for the person.
 
 import { clockOf } from "./nightsim.js";
-import { plan as enginePlan, night as engineNight, PARAMETERS } from "./engine.js";
+import { plan as enginePlan, night as engineNight, PARAMETERS, tonightEuros } from "./engine.js";
 import { LEVER_TYPES, REPLICATIONS, validateVariants } from "./options.js";
 import { visibleOrders, tonightSoFar, callInHours } from "./cell_data.js";
 import { wmsGetNight, wmsGetOrder, wmsGetStock, cellGetStatus, cellGetGraspPlan, worldGetItem, worldListCorrections, leversInForce } from "./wms.js";
@@ -34,8 +34,8 @@ import { roundHalfUp, eur2 } from "./format.js";
 import { AGENT } from "./config.js";
 
 export { OUTCOMES };
-export const LIVE_REPORT_FOOTER = "*Live agent run on a simulated cell. Ruhrkorb, its DC, stores and items are fictional; every hour and euro comes from the deterministic engine and the seeded night simulation.*";
-export const SIM_REPORT_FOOTER = "*Simulated run: a scripted replay on a simulated cell. Ruhrkorb, its DC, stores and items are fictional; every hour and euro comes from the deterministic engine and the seeded night simulation.*";
+export const LIVE_REPORT_FOOTER = "*Live agent run on a simulated cell. Ruhrkorb, its DC, stores and items are fictional; every hour and euro comes from the deterministic engine and the reproducible night simulation.*";
+export const SIM_REPORT_FOOTER = "*Simulated run: a scripted replay on a simulated cell. Ruhrkorb, its DC, stores and items are fictional; every hour and euro comes from the deterministic engine and the reproducible night simulation.*";
 const LETTERS = ["A", "B", "C"];
 const r2 = (x) => (x === null || x === undefined || !Number.isFinite(Number(x)) ? null : Number(roundHalfUp(x, 2)));
 const r3 = (x) => (x === null || x === undefined || !Number.isFinite(Number(x)) ? null : Number(roundHalfUp(x, 3)));
@@ -134,7 +134,7 @@ const DEFINITIONS = [
   },
   {
     name: "sim_kpis",
-    description: "Engine KPIs: labour hours and euros per 1,000 units (by hand, hybrid), robot picks and break-even cost per cell hour, the annual figure with the cells it needs (gross, before cell costs), each input with its source key. what_if values give a labelled what-if, which no option, draft or summary may quote.",
+    description: "Engine KPIs: labour hours and euros per 1,000 units (by hand, hybrid) and the saving as a share, robot picks and break-even cost per cell hour, the annual figure with the cells it needs (gross, before cell costs), each input with its source key. what_if values give a labelled what-if, which no option, draft or summary may quote.",
     input_schema: {
       type: "object",
       properties: {
@@ -179,7 +179,7 @@ const DEFINITIONS = [
   },
   {
     name: "sim_night_report",
-    description: "Tonight against the plan: units repacked, grasps, failures, manual picks, escalations, corrections, labour hours and euros (in total and per 1,000 units), cell hours, robot picks per cell hour, store orders on time and late, the seed. Final once the night is over, otherwise so far.",
+    description: "Tonight against the plan: units repacked, grasps, failures, manual picks, escalations, corrections, labour hours and euros (in total, per 1,000 units, and for the same units by hand), cell hours, robot picks per cell hour, store orders on time and late, the seed. Final once the night is over, otherwise so far.",
     input_schema: { type: "object", properties: {} }
   },
   {
@@ -202,6 +202,7 @@ const DEFINITIONS = [
           }
         },
         recommended_variant_id: { type: "string" },
+        recommendation_reason: { type: "string", description: "One plain sentence for the recommended card: why this option. Required when it does not have the lowest expected total." },
         baseline_description: { type: "string", description: "One sentence: what happens if we do nothing." }
       },
       required: ["options", "recommended_variant_id", "baseline_description"]
@@ -432,7 +433,7 @@ export function createToolbox(ctx) {
       basis: changed.length ? "what_if" : "engine inputs",
       ...(changed.length ? { what_if: changed.join(", "), note: "A labelled what-if: no option, draft or summary may quote it." } : {}),
       inputs: PARAMETERS.filter((x) => ["N", "r_m", "c", "s", "p", "r_c"].includes(x.id)).map((x) => ({ id: x.id, label: x.label, value: v[x.id], unit: x.unit, source: x.basis })),
-      per_1000: { by_hand_hours: r2(p.per_thousand.manual_h), by_hand_eur: r2(p.per_thousand.manual_eur), hybrid_hours: r2(p.per_thousand.hybrid_h), hybrid_eur: r2(p.per_thousand.hybrid_eur), saving_eur: r2(p.per_thousand.saving_eur) },
+      per_1000: { by_hand_hours: r2(p.per_thousand.manual_h), by_hand_eur: r2(p.per_thousand.manual_eur), hybrid_hours: r2(p.per_thousand.hybrid_h), hybrid_eur: r2(p.per_thousand.hybrid_eur), saving_eur: r2(p.per_thousand.saving_eur), saving_share: r3(1 - p.per_thousand.hybrid_h / p.per_thousand.manual_h) },
       per_cell_hour: { robot_picks_per_cell_hour: Math.round(p.per_cell_hour.robot_picks), break_even_eur_per_cell_hour: r2(p.per_cell_hour.break_even_eur) },
       per_year: {
         hours_avoided: Math.round(p.per_year.hours_avoided), avoided_eur: Math.round(p.per_year.eur_avoided), cell_hours: Math.round(p.per_year.cell_hours),
@@ -506,26 +507,34 @@ export function createToolbox(ctx) {
     const final = run.nightOver || !!st.ended;
     const f = final ? ses.figures() : tonightSoFar(st);
     const per = f.labour_hours_per_1000;
+    const calledIn = final ? ses.run.stats.call_in_billed_ms / 3600000 : callInHours(st);
+    // Called-in hours cost the night premium, as the option card bills them (TECH_NOTES D46).
+    const eur = tonightEuros(v, { ...f, called_in_hours: calledIn });
     const p = enginePlan(v).per_thousand;
     const orders = final ? ses.run.orders : null;
     const late = final ? orders.filter((o) => !o.on_time && !o.moved).map((o) => o.name) : visibleOrders(st).filter((o) => o.status === "late" || o.status === "late_done").map((o) => o.name);
+    const units = final ? f.units_repacked : f.units_packed;
+    // The same units by hand, at the manual rate: what tonight's labour compares with (TECH_NOTES D50).
+    const byHand = engineNight(v, units);
     const moved = final ? orders.filter((o) => o.moved).map((o) => o.name) : visibleOrders(st).filter((o) => o.status === "moved").map((o) => o.name);
     return {
       final, at: clockOf(final ? ses.run.end_ms : ses.now()), seed: ses.seed,
-      units_repacked: final ? f.units_repacked : f.units_packed,
+      units_repacked: units,
       grasp_attempts: f.attempts, successes: f.successes, failed_grasps: f.failures, manual_picks: f.manual_picks,
       escalations: f.escalations, corrections: f.corrections,
-      labour_hours: r2(f.labour_hours), labour_eur: r2(f.labour_hours * v.c),
-      called_in_hours: r2(final ? ses.run.stats.call_in_billed_ms / 3600000 : callInHours(st)),
+      labour_hours: r2(f.labour_hours), labour_eur: r2(eur.labour_eur),
+      same_units_by_hand_hours: r2(byHand.manual_h), same_units_by_hand_eur: r2(byHand.manual_eur),
+      called_in_hours: r2(calledIn), ...(calledIn > 0 ? { called_in_eur: r2(eur.called_in_eur) } : {}),
       labour_hours_per_1000: per === null || per === undefined ? null : r2(per),
-      labour_eur_per_1000: per === null || per === undefined ? null : r2(per * v.c),
+      labour_eur_per_1000: per === null || per === undefined ? null : r2(eur.per_thousand_eur),
       cell_hours: r2(f.cell_hours), robot_picks_per_cell_hour: f.robot_picks_per_cell_hour ? Math.round(f.robot_picks_per_cell_hour) : null,
       orders_on_time: final ? f.orders_on_time : st.on_time, orders: final ? f.orders : visibleOrders(st).length,
       ...(final ? {} : { trucks_gone: st.dispatched }),
       late, moved_to_next_wave: moved,
+      ...(final ? { heaviest_tote_kg: Math.round(ses.run.stats.max_tote_g / 10) / 100, tote_limit_kg: Math.round(ses.night.toteLimit / 10) / 100 } : {}),
       plan_per_1000: { hybrid_hours: r2(p.hybrid_h), hybrid_eur: r2(p.hybrid_eur), by_hand_hours: r2(p.manual_h), by_hand_eur: r2(p.manual_eur) },
       labour_cost_eur_per_hour: r2(v.c),
-      note: final ? "Tonight's simulated result (seeded and reproducible). Labour counts the base picker's picks at the manual picking rate and any called-in hours as billed." : "So far tonight; final at night end."
+      note: final ? "Tonight's simulated result (seeded and reproducible). Labour counts the base picker's picks at the manual picking rate and any called-in hours as billed, with the night premium on those hours." : "So far tonight; final at night end."
     };
   }
 
@@ -555,7 +564,8 @@ export function createToolbox(ctx) {
         items.push({
           kind: "escalation", escalation_id: it.escalation_id, rule: e.rule, rule_name: POLICY[e.rule]?.name,
           ...(e.sku ? { sku: e.sku, name: itemName(e.sku) } : {}), ...(e.store ? { store: e.store, store_name: storeName(e.store) } : {}),
-          ...(e.unit_id ? { unit: e.unit_id } : {}), ...(e.barcode ? { barcode: e.barcode } : {}),
+          ...(e.unit_id ? { unit: e.unit_id } : {}), ...(e.barcode ? { barcode: e.barcode } : {}), ...(e.rule === "E1" && e.units ? { units_seen: e.units } : {}),
+          ...(e.rule === "E3" && typeof e.rolling_success === "number" ? { rolling_success: Math.round(e.rolling_success * 1000) / 1000 } : {}),
           reason: e.reason, handed_to: e.to === "manual_station" ? "a person at the manual station" : "a person",
           needs_confirmation: !!e.needs_confirmation, raised_by: "the escalation rules in code"
         });
@@ -578,7 +588,7 @@ export function createToolbox(ctx) {
     escalation: "The rules in code have already handed the item to a person. Say why in one or two sentences; where a person must confirm something, ask with ui_request_confirmation; then sim_advance.",
     new_order: "Check the projection (sim_project). If an order is at risk, price exactly three options (sim_cost_options) and propose them (ui_propose_options); after the decision, apply it (wms_apply_option), draft what it contains, wait for the approvals, then sim_advance.",
     cutoff_risk: "Check the projection (sim_project). If an order is at risk, price exactly three options (sim_cost_options) and propose them (ui_propose_options); after the decision, apply it (wms_apply_option), draft what it contains, wait for the approvals, then sim_advance.",
-    night_end: "The night is over. Read tonight's result (sim_night_report) and publish the management summary (ui_final_report); then end your turn."
+    night_end: "The night is over. Read tonight's result (sim_night_report) and what the cell is worth (sim_kpis) in one turn, and publish the management summary (ui_final_report); then end your turn."
   };
 
   async function advance() {
@@ -705,21 +715,30 @@ export function createToolbox(ctx) {
       });
     }
     if (!options.some((o) => o.recommended)) return refuse(`recommended_variant_id "${i.recommended_variant_id ?? ""}" is not one of the options (${options.map((o) => o.id).join(", ")}).`);
+    // A recommendation that is not the lowest expected total says why, on its card (TECH_NOTES D51): the
+    // other prototypes recommend the lowest expected total, and the person must see the reason to differ.
+    let reason = String(i.recommendation_reason || "").trim().slice(0, 240);
+    const rec = options.find((o) => o.recommended);
+    const lowest = Math.min(c.res.baseline.expected_total_eur, ...options.map((o) => o.expected_total_eur));
+    if (rec.expected_total_eur > lowest + 0.005 && !reason) {
+      return refuse(`Option ${rec.letter} does not have the lowest expected total (${eur2(rec.expected_total_eur)} against ${eur2(lowest)}). Give recommendation_reason: one plain sentence on why you recommend it.`);
+    }
     // The texts on the cards may quote only the facts and the figures of this costing.
     run.ledger.setOptionsSource(c.compact);
     let baselineText = String(i.baseline_description || "").slice(0, 300);
-    const audit = figureCheck([baselineText, ...options.flatMap((o) => [o.title, o.description, o.residual_risk])].join("\n"), "options", "options", "ui_propose_options");
+    const audit = figureCheck([baselineText, reason, ...options.flatMap((o) => [o.title, o.description, o.residual_risk])].join("\n"), "options", "options", "ui_propose_options");
     if (audit.reject) return audit.reject;
     if (audit.flag) {
       for (const o of options) { o.title = mark(o.title, audit.bad); o.description = mark(o.description, audit.bad); o.residual_risk = mark(o.residual_risk, audit.bad); }
       baselineText = mark(baselineText, audit.bad);
+      reason = mark(reason, audit.bad);
     }
     // Decisions queued for an earlier set of options are dropped: they do not count for this one.
     while (ctx.takeOptionDecision(() => true)) { /* discard stale decisions */ }
     run.optionsSeq += 1;
     run.options = options;
     run.rejected.clear();
-    run.optionsPayload = optionsPayload({ seq: run.optionsSeq, res: c.res, options, recommended: i.recommended_variant_id, baselineText, inputs: ctx.getInputs(), now_ms: c.at });
+    run.optionsPayload = { ...optionsPayload({ seq: run.optionsSeq, res: c.res, options, recommended: i.recommended_variant_id, recommendationReason: reason, baselineText, inputs: ctx.getInputs(), now_ms: c.at }), autonomy: ctx.autonomy() };
     if (audit.flag) run.optionsPayload.unchecked = audit.bad;
     setPhase("options");
     ctx.emit("options", run.optionsPayload);
@@ -751,6 +770,17 @@ export function createToolbox(ctx) {
       run.decision = { id, letter: opt ? opt.letter : null, title: opt ? opt.title : "Do nothing", label, levers: v ? v.levers : [], applied: false, wake_id: run.wake?.wake_id || null, clock: clockOf(ses.now()) };
       run.decisions.push(run.decision);
       setPhase("executing");
+      // Advise (PLAN.md §e.3): the person applies the option with the click in the interface; the agent
+      // only recommended it and does not act on the plan. The application is the person's, in the audit.
+      let byPerson = null;
+      if (id !== "baseline" && ctx.autonomy() === "advise") {
+        const { levers, update } = ses.apply(v.levers, { source: "person", option_id: id });
+        run.decision.applied = true;
+        run.decision.applied_by = "person";
+        ctx.emit("plan_update", { ...update, by: "user", letter: opt.letter, levers_text: levers.map((l) => leverText(l, storeName)) });
+        byPerson = { applied: true, by: "the person, in the interface", option_id: id, letter: opt.letter, from: clockOf(firstFrom(levers)),
+          levers: levers.map((l) => ({ what: leverText(l, storeName), from: clockOf(l.from_ms), ...(typeof l.until_ms === "number" ? { until: clockOf(l.until_ms) } : {}) })) };
+      }
       if (id === "baseline") {
         return {
           decision: "approved", option_id: "baseline", option: label,
@@ -768,8 +798,9 @@ export function createToolbox(ctx) {
         decision: "approved", option_id: id, option: label, refer_to_it_as: `option ${opt.letter}`,
         figures: { extra_labour: eur2(opt.extra_labour_eur), late_store_orders_expected: opt.expected_late_orders, late_orders_cost: eur2(opt.late_orders_eur), expected_total: eur2(opt.expected_total_eur) },
         levers: opt.levers_text,
-        next: ctx.autonomy() === "advise"
-          ? "Advise mode: the person applies the option in the interface. Draft what it contains, then ui_await_approvals, then sim_advance."
+        ...(byPerson ? { applied_by_person: byPerson } : {}),
+        next: byPerson
+          ? `Advise mode: the person applied option ${opt.letter} in the interface, from ${byPerson.from}. Do not call wms_apply_option. Draft only what it contains (${listJoin(may)}), call ui_await_approvals, then sim_advance.`
           : `Call it "option ${opt.letter}" (as on screen). Apply it with wms_apply_option (option_id ${id}). Then draft only what it contains (${listJoin(may)}), call ui_await_approvals, then sim_advance.`
       };
     }
@@ -798,10 +829,15 @@ export function createToolbox(ctx) {
     ctx.emit("plan_update", update);
     setPhase("executing");
     return {
-      applied: true, option_id: d.id, letter: d.letter, from: clockOf(levers[0]?.from_ms ?? ses.now() + 1),
+      applied: true, option_id: d.id, letter: d.letter, from: clockOf(firstFrom(levers)),
       levers: levers.map((l) => ({ what: leverText(l, storeName), from: clockOf(l.from_ms), ...(typeof l.until_ms === "number" ? { until: clockOf(l.until_ms) } : {}) })),
       note: "The plan changes from the next moment; everything the night has shown so far stays as it was."
     };
+  }
+
+  /** When an option starts to act: its earliest lever (a split acts now, a call-in from its start). */
+  function firstFrom(levers) {
+    return levers.length ? Math.min(...levers.map((l) => l.from_ms)) : ses.now() + 1;
   }
 
   /** The decision drafts follow: this wake-up's, else the night's latest. */
@@ -949,6 +985,8 @@ export function createToolbox(ctx) {
       provisional: [...run.provisional.values()].map((e) => ({ ...e }))
     }),
     ledger: () => run.ledger,
+    /** A wake-up as sim_advance describes it to the agent (the night-start wake-up has no sim_advance). */
+    describeWake: (w) => describeWake(w),
     setPhase
   };
 }

@@ -690,6 +690,7 @@ export function tonightFigures(night, res) {
   return {
     units_repacked: repacked,
     labour_hours: labourHours,
+    called_in_hours: res.stats.call_in_billed_ms / 3600000,
     labour_hours_per_1000: repacked ? (labourHours / repacked) * 1000 : 0,
     robot_picks_per_cell_hour: cellHours ? res.stats.successes / cellHours : 0,
     cell_hours: cellHours,

@@ -1,4 +1,4 @@
-/* Repack Pilot — the world-model panel on the cell board (js/world_panel.js; PLAN.md §g): the SKU in
+/* Repack Pilot — the world-model panel on the cell board (js/world_panel.js; PLAN.md §g): the item in
  * focus with expected against observed, and the corrections log. Blue is a reading or a check: the
  * observed value, a correction written back. On a compact board the card is one row; on a short board
  * or in strip mode it folds into a chip in the board's head row. Its Synthetic label stays in view in
@@ -48,7 +48,11 @@
 .wm-chip .chip { flex: none; }
 .wm-chip strong { flex: none; white-space: nowrap; }
 .wm-chip:focus-visible { outline: none; box-shadow: var(--focus), var(--shadow-soft); }
-.wm-chip-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+.wm-chip-text { display: flex; gap: 0.35em; min-width: 0; overflow: hidden; white-space: nowrap; color: var(--text-muted); }
+/* The name gives way; the weights keep their width (a shrink share of a fraction of a pixel would
+   already put an ellipsis on them) and are clipped by the text box only if even they do not fit. */
+.wm-chip-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wm-chip-vals { flex: none; font-variant-numeric: tabular-nums; }
 
 /* Compact: the world-model card is one row, its title and Synthetic label kept beside the focus. */
 .cell-board[data-size="compact"] .world-card { padding: 6px 10px; flex-direction: row; align-items: center; gap: 10px; }

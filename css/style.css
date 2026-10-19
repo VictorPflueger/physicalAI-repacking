@@ -272,7 +272,7 @@ a:hover { color: var(--brand-deep); }
 /* ------------------------------------------------------------------------------------------ */
 
 .controls {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   padding: 10px 20px;
   background: var(--porcelain);
   border-bottom: 1px solid var(--line);
@@ -280,6 +280,15 @@ a:hover { color: var(--brand-deep); }
 .controls .spacer { flex: 1 1 auto; }
 .control-group { display: flex; align-items: center; gap: 8px; }
 .control-label { color: var(--text-muted); font-size: var(--fs-sm); }
+/* The autonomy dial: the chosen level is a person's setting (burgundy, as the segmented control's
+   pressed state); Bounded carries a lock and explains the gate instead of switching. */
+/* At least 40 px wide, also when Bounded shows only its lock (laptop widths). */
+.segmented.autonomy-dial button { font-family: var(--font-ui); font-size: var(--fs-sm); display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; min-width: 40px; }
+.autonomy-dial button[data-locked="true"] { color: var(--text-muted); }
+.autonomy-dial button[aria-disabled="true"] { cursor: not-allowed; }
+.autonomy-dial button[aria-disabled="true"]:not([aria-pressed="true"]) { color: var(--text-faint); background: var(--paper); }
+/* A long scenario name ends in an ellipsis; the menu and the tooltip show it whole. */
+.controls .dropdown-toggle .value { max-width: 11.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .status-pill {
   display: inline-flex; align-items: center; gap: 10px;
@@ -407,6 +416,15 @@ a:hover { color: var(--brand-deep); }
   .controls .dropdown-toggle .caption { display: none; }
   .controls .btn-text { display: none; }
   #btn-reset, #btn-diagnostics { padding: 0 12px; }
+  .segmented.autonomy-dial button { padding: 0 9px; }
+  .autonomy-dial .dial-text { display: none; }
+  .controls .dropdown-toggle .value { max-width: 13em; }
+}
+@media (max-width: 1400px) {
+  .controls { gap: 6px; }
+  .controls .segmented button { min-width: 40px; padding: 0 10px; }
+  .controls .segmented.autonomy-dial button { padding: 0 7px; }
+  .controls .dropdown-toggle .value { max-width: 9.5em; }
 }
 
 /* Small laptops: "How it works" becomes an info icon so the header keeps at most two badge rows. */

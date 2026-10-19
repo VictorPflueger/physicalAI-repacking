@@ -3,8 +3,9 @@
 // from it (js/rng.js), and every variant runs on the same draws (common random numbers), so the
 // comparison is fair and every replay identical. Pure module.
 //
-// Per variant: extra labour in euros (called-in hours with the minimum and the premium, plus extra
-// manual picks beyond doing nothing at the labour cost), the expected number of store orders that miss
+// Per variant: extra labour in euros (called-in hours with the minimum and the premium, plus the manual
+// picks it adds against doing nothing at the labour cost, or minus the ones it saves, as a maintenance
+// stop that ends failed grasps does; TECH_NOTES D48), the expected number of store orders that miss
 // their truck (mean over the replications) and how often each store does, their cost at the cost per
 // late order, the expected total, and the outcome on tonight's seed (late orders, smallest slack).
 
@@ -66,12 +67,17 @@ export function costOptions(night, { seed, now_ms = 0, variants, inputs, base_le
   const priced = all.map((variant, i) => {
     const reps = runs[i];
     const lateCounts = new Map();
+    // An order moved to the next wave is not worked tonight, but its work is not saved either: it
+    // counts on neither side, so moving an order never shows as a labour saving (TECH_NOTES D48).
+    const moved = new Set((variant.levers || []).filter((l) => l.type === "move_to_next_wave").flatMap((l) => l.store_ids || l.order || []));
     let lateSum = 0, extraPicksSum = 0;
     reps.forEach((res, k) => {
       const late = res.orders.filter((o) => !o.on_time);
       lateSum += late.length;
       for (const o of late) lateCounts.set(o.id, (lateCounts.get(o.id) || 0) + 1);
-      extraPicksSum += Math.max(0, res.stats.manual_picks - base[k].stats.manual_picks);
+      // Manual picks against doing nothing on the same draws: more when the option hands units to the
+      // manual station, fewer (a saving) when it avoids failed grasps, as a maintenance stop does.
+      extraPicksSum += manualPicks(res, moved) - manualPicks(base[k], moved);
     });
     const callIns = (variant.levers || []).filter((l) => l.type === "call_in_picker");
     const callInEur = callIns.reduce((sum, l) => sum + callInCost(v, Math.max(v.callin_min_h * 60, l.minutes || 0) / 60), 0);
@@ -104,4 +110,12 @@ export function costOptions(night, { seed, now_ms = 0, variants, inputs, base_le
     };
   });
   return { seed, now_ms, replications, seeds, baseline: priced[0], variants: priced.slice(1) };
+}
+
+/** Units a person picked at the manual station tonight, leaving out the orders in `moved`. */
+function manualPicks(res, moved) {
+  if (!moved.size) return res.stats.manual_picks;
+  let n = 0;
+  for (const u of res.units) if ((u.station === "manual" || u.station === "set_aside") && !moved.has(u.order)) n += 1;
+  return n;
 }

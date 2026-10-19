@@ -1,11 +1,14 @@
-// Control bar: start, scenario picker, model, night speed, status, abort, reset, diagnostics.
-// (The autonomy dial joins in M4.)
+// Control bar: start, scenario picker, model, night speed, the autonomy dial, status, abort, reset,
+// diagnostics. The dial (PLAN.md §g): Advise · Approve · Bounded, the chosen level in burgundy (a
+// person's setting); Bounded carries a lock and opens the shadow-mode gate's reasons (js/autonomy_view.js).
 
 import { h, setDisabled, isDisabled } from "./dom.js";
 import { icon } from "./icons.js";
 import { MODELS, UI } from "./config.js";
 import { isRunning, isFinished } from "./state.js";
 import { runStateLabel, onAwaitedChange } from "./handover.js";
+import { LEVELS } from "./autonomy.js";
+import { lockReason, currentGate } from "./autonomy_view.js";
 
 const STATE_TONE = {
   idle: "", previewing: "active", perceiving: "active", planning: "active", picking: "active", replanning: "active",
@@ -13,7 +16,8 @@ const STATE_TONE = {
 };
 
 /**
- * handlers: { onStart, onSelectScenario(id), onSelectModel(id), onSpeed(n), onAbort, onReset, onDiagnostics }
+ * handlers: { onStart, onSelectScenario(id), onSelectModel(id), onSpeed(n), onAutonomy(level), onShowGate,
+ *             onAbort, onReset, onDiagnostics }
  */
 export function createControls(root, scenarios, handlers) {
   const startBtn = h("button", { class: "btn btn-primary", type: "button", id: "btn-start" }, icon("play", 18), h("span", {}, "Start agent"));
@@ -22,7 +26,7 @@ export function createControls(root, scenarios, handlers) {
   const scenarioDd = dropdown({
     id: "scenario",
     caption: "Scenario",
-    width: 330,
+    width: 280,
     items: scenarios.map((s) => ({ id: s.id, badge: String(s.number), title: s.title, hint: s.category })),
     onSelect: (id) => handlers.onSelectScenario(id)
   });
@@ -30,7 +34,7 @@ export function createControls(root, scenarios, handlers) {
   const modelDd = dropdown({
     id: "model",
     caption: "Model",
-    width: 210,
+    width: 180,
     items: MODELS.map((m) => ({ id: m.id, title: m.label, hint: m.hint })),
     onSelect: (id) => handlers.onSelectModel(id)
   });
@@ -43,6 +47,26 @@ export function createControls(root, scenarios, handlers) {
     return b;
   });
   const speedGroup = h("div", { class: "segmented", role: "group", "aria-label": "Night speed" }, speedBtns);
+
+  // The autonomy dial. Advise and Approve are a person's setting for the next run; Bounded stays locked
+  // while the shadow-mode gate is not met, and its segment explains why instead of switching.
+  const gate = currentGate();
+  const dialBtns = LEVELS.map((lv) => {
+    const locked = lv.id === "bounded" && !gate.met;
+    const b = h("button", {
+      type: "button", "aria-pressed": "false", dataset: { level: lv.id, ...(locked ? { locked: "true" } : {}) },
+      "aria-label": locked ? "Bounded, locked: show why" : `Autonomy ${lv.label}`,
+      title: locked ? lockReason(gate) : lv.text,
+      ...(locked ? { "aria-haspopup": "dialog" } : {})
+    }, locked ? [icon("lock", 15), h("span", { class: "dial-text" }, lv.label)] : lv.label);
+    b.addEventListener("click", () => {
+      if (locked) return handlers.onShowGate?.();
+      if (isDisabled(b)) return;
+      handlers.onAutonomy?.(lv.id);
+    });
+    return b;
+  });
+  const dial = h("div", { class: "segmented autonomy-dial", role: "group", "aria-label": "Autonomy" }, dialBtns);
 
   const pill = h("div", { class: "status-pill", role: "status", "aria-live": "polite" }, h("span", { class: "dot" }), h("span", { class: "text" }, "Idle"));
 
@@ -58,6 +82,7 @@ export function createControls(root, scenarios, handlers) {
     scenarioDd.el,
     h("span", { class: "control-group" }, modelDd.el),
     h("span", { class: "control-group" }, h("span", { class: "control-label" }, "Night"), speedGroup),
+    h("span", { class: "control-group" }, h("span", { class: "control-label" }, "Autonomy"), dial),
     h("span", { class: "spacer" }),
     pill,
     abortBtn,
@@ -86,6 +111,13 @@ export function createControls(root, scenarios, handlers) {
     modelDd.setDisabled(running || (sim && !finished), running ? "Locked while the agent runs." : "Requires Live mode.");
 
     for (const [i, b] of speedBtns.entries()) b.setAttribute("aria-pressed", String(UI.speeds[i] === s.speed));
+    // A run keeps the level it started with: the dial is locked while it runs.
+    for (const b of dialBtns) {
+      const lv = b.dataset.level;
+      b.setAttribute("aria-pressed", String(lv === s.autonomy));
+      if (b.dataset.locked !== "true") setDisabled(b, running, "Locked while the agent runs: a run keeps the autonomy level it started with.");
+      if (!running && b.dataset.locked !== "true") b.title = LEVELS.find((x) => x.id === lv)?.text || "";
+    }
 
     setDisabled(abortBtn, !running, "Nothing to abort: no run in progress.");
 
@@ -160,6 +192,8 @@ function dropdown({ id, caption, items, onSelect, width }) {
     el: wrap,
     setValue(idVal, label) {
       valueEl.textContent = label || "";
+      // The value may end in an ellipsis on a small laptop: the whole name stays in its tooltip.
+      valueEl.title = label || "";
       for (const [iid, el] of itemEls) el.setAttribute("aria-checked", String(iid === idVal));
     },
     setDisabled(disabled, reason) {

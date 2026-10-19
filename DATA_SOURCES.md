@@ -7,7 +7,7 @@ Repack Pilot uses **no data from the user or any client, and no personal data.**
 3. **Open data.** One real product from Open Food Facts, kept apart from the synthetic world under its own licence (§4).
 4. **Reference texts.** The two whitepapers for the framing, two shop-hours laws for scenario 5, and the GS1 rule that keeps the synthetic barcodes out of open trade.
 
-**Version 0.3.0** (milestone M3, the agent), 18 October 2026. On screen: the synthetic world, the night simulation of the simulated cell, the engine's figures with their sources on the KPI board and in the Assumptions tab, and the agent's options, drafts and summary, every figure of which the engine computed. The Open Food Facts lookup is built and answers from the bundled snapshot, which holds no record yet (§4). The model prices and the exchange rate behind the cost meter are operating data, recorded in `TECH_NOTES.md` §1.
+**Version 0.4.0** (milestone M4, the five-minute customer case and six scenarios), 19 October 2026. On screen: the synthetic world, the night simulation of the simulated cell, the engine's figures with their sources on the KPI board and in the Assumptions tab, the business case the How it works window, the closing card and the KPI board's What it is worth show (the brief's illustrative case, gross, before cell costs, with its sources on the KPI board), and the agent's options, drafts and summary in all six scenarios, every figure of which the engine computed. No source or number of the brief changed in M4; the call-in premium now also prices Tonight's called-in hours (`TECH_NOTES.md` D46). The Open Food Facts lookup is built and answers from the bundled snapshot, which holds no record yet (§4). The model prices and the exchange rate behind the cost meter are operating data, recorded in `TECH_NOTES.md` §1.
 
 > **Fictional retailer.** Ruhrkorb, Ruhrkorb DC Unna, its stores, orders, items, robot cell and shadow record are invented. The towns are real places in North Rhine-Westphalia; no real store, company or person in them is described. No robot vendor is named as the simulated robot.
 
@@ -77,8 +77,10 @@ The night simulation (`js/nightsim.js`, `TECH_NOTES.md` §7.2) needs a few value
 | Scenario 1 | A chilled express top-up of 400 units for Dortmund at 02:00, due on its 02:45 express truck (600 units due 03:30 until M3, `TECH_NOTES.md` D32); an olive-oil bottle lying on its side (grasp confidence 0.62) and a passata bottle with a chipped neck (0.71) | The night's events | Assumption, Synthetic |
 | Scenario 3 | 6 units of barcode 4037848020859 at 23:10 | E1 | Synthetic (the product is real, §4) |
 | Scenario 4 | grasp success falls to 70 % from 23:30 | E3 | Assumption |
-| Scenario 5 | Soest's cut-off 01:30 instead of 02:40 | The plan | Assumption (§3.6) |
-| Playback | ×1 about 6 simulated minutes per second; a stretch without events faster | The screen only, never a figure | Presentation |
+| Scenario 4's options | A a maintenance stop of the cell now, 30 minutes (the length of a gripper service); B no stop, one picker called in from 01:00 for the three-hour minimum; C a 30-minute stop at 00:30, before the chilled goods | The decision at 23:43 (`data/reference_cases.js`) | Assumption (`TECH_NOTES.md` §7.5) |
+| Scenario 5 | Soest's cut-off 01:30 instead of 02:40 | The plan; no other store slips, so no options (`TECH_NOTES.md` D47) | Assumption (§3.6) |
+| Scenario 6's options | A one picker called in from 01:00, Hamm's and Soest's cell units to the manual station; B the same with Iserlohn's as well; C Soest to tomorrow's wave | The decision at 22:00 (`data/reference_cases.js`) | Assumption (`TECH_NOTES.md` D56) |
+| Playback | ×1: 4 simulated minutes a second at the night's moments, 16 between them, a stretch without events faster still (`TECH_NOTES.md` §7.6) | The screen only, never a figure | Presentation |
 
 ## 3. The synthetic world: what is invented and what is real
 
@@ -146,7 +148,7 @@ The cut-offs come from the Phase 0 night calibration (`PLAN.md` §b.8), which me
 | 2 | Glassware heavier than master data | The cup example (WP_DETECON p. 7); labels state net content, a scale weighs the object | The jar, its two weights |
 | 3 | Unknown SKU on the pallet | The product behind barcode 4037848020859 (Open Food Facts, §4); robots reject or hand over items they cannot handle (REGISTER, VULCAN) | Its arrival on Ruhrkorb's pallet |
 | 4 | Gripper wear | — (stress test) | The drop from 91 % to 70 % (Assumption) |
-| 5 | Store closes early before a holiday | 24 December 2026 is a Thursday; § 4 (1) no. 2 LÖG NRW (LOEG_NRW), § 3 LadSchlG as background (LADSCHLG) | Soest's earlier cut-off |
+| 5 | Store closes early before a holiday | 24 December 2026 is a Thursday; § 4 (1) no. 2 LÖG NRW (LOEG_NRW), § 3 LadSchlG as background (LADSCHLG); the scripted replay names both in the console and the summary | Soest's earlier cut-off (01:30) |
 | 6 | Peak week, +40 % volume, no extra staff | Peaks should not "immediately" require extra staff (WP_DETECON p. 10) | The 4,200 units |
 
 ## 4. Open Food Facts

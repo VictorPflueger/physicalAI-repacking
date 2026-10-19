@@ -1,7 +1,10 @@
 // The night player (PLAN.md §c.6, "Playback"). Builds tonight from a scenario and the presenter's
 // assumptions, computes it with the night simulation (js/nightsim.js: pure, seeded, all at once) and
-// plays its events onto the run-event bus at ×1, ×2 or ×4: at ×1 about six simulated minutes pass per
-// real second, and stretches with nothing happening are fast-forwarded. At every wake-up (night
+// plays its events onto the run-event bus at ×1, ×2 or ×4. The pace serves a five-minute call
+// (TECH_NOTES D50): between the night's moments it cruises (sixteen simulated minutes per real second at
+// ×1), and the first minutes and the last minutes before each wake-up play at the moment's pace (four
+// a second), so the room sees the robot start and sees each moment arrive; stretches with nothing
+// happening are fast-forwarded. At every wake-up (night
 // start, a world-model correction, an escalation, a new order, a cut-off risk, night end) the night
 // stands still until `onWake` resolves: the agent's turn (the live agent or the scripted replay, which
 // may take decisions on the shared night session, js/night_session.js), or a short pause in a night
@@ -11,9 +14,19 @@ import { bus } from "./events.js";
 import { tonightFigures, clockOf, clockUp, MINUTE, WEIGHT_TOLERANCE } from "./nightsim.js";
 import { createNightSession } from "./night_session.js";
 
-export const SIM_MS_PER_REAL_MS = (6 * MINUTE) / 1000; // ×1: six simulated minutes per real second
+export const SIM_MS_PER_REAL_MS = (4 * MINUTE) / 1000; // ×1 at a moment: four simulated minutes per real second
+export const CRUISE_FACTOR = 4;                         // between moments: four times that (16 minutes a second at ×1)
+export const APPROACH_MS = 6 * MINUTE;                  // the last simulated minutes before a wake-up play at the moment's pace
+export const OPENING_MS = 5 * MINUTE;                   // and so do the night's first minutes
 export const IDLE_GAP_MS = 4 * MINUTE;                  // a longer gap between events is fast-forwarded
 export const IDLE_FACTOR = 12;                          // how much faster an idle stretch passes
+
+/** When the next wake-up of a session's night comes (simulated ms), or null when none is left. */
+function nextWakeAt(ses) {
+  const events = ses.run.events;
+  for (let i = ses.played(); i < events.length; i++) if (events[i].type === "wake") return events[i].t;
+  return null;
+}
 
 /**
  * Events the audit keeps as one compact unit log instead of one envelope each (PLAN.md §d.1 "Audit
@@ -76,7 +89,7 @@ export function createNightPlayer(hooks = {}) {
     stop();
     const ses = session || createNightSession({ world, scenario, params, seed: seed ?? scenario.night.seed });
     return new Promise((resolve) => {
-      const run = { ses, t: 0, last: now(), waiting: false, stopped: false, minute: -1, resolve };
+      const run = { ses, t: 0, last: now(), waiting: false, stopped: false, minute: -1, resolve, nextWake: nextWakeAt(ses) };
       current = run;
       bus.emit("night_plan", ses.info);
       emitClock(run, false);
@@ -87,10 +100,15 @@ export function createNightPlayer(hooks = {}) {
         const dt = Math.min(250, Math.max(0, n - run.last)); // a hidden tab or a slow frame never jumps the night
         run.last = n;
         const next = ses.peek();
-        const advance = dt * SIM_MS_PER_REAL_MS * (getSpeed() || 1);
+        // Cruise between moments; the opening and the approach to a wake-up play at the moment's pace,
+        // and a cruise never runs into the approach.
+        const atMoment = run.t < OPENING_MS || (run.nextWake !== null && run.nextWake - run.t <= APPROACH_MS);
+        const advance = dt * SIM_MS_PER_REAL_MS * (getSpeed() || 1) * (atMoment ? 1 : CRUISE_FACTOR);
+        let target = run.t + advance;
+        if (!atMoment && run.nextWake !== null) target = Math.min(target, run.nextWake - APPROACH_MS);
         // A long quiet stretch passes faster, but never beyond the next event.
         const idle = next && next.t - run.t > IDLE_GAP_MS;
-        const target = idle ? Math.min(run.t + advance * IDLE_FACTOR, next.t) : run.t + advance;
+        if (idle) target = Math.min(run.t + (target - run.t) * IDLE_FACTOR, next.t);
         // Emit everything due by the target; a wake-up stops the night until its turn is over.
         while (ses.peek() && ses.peek().t <= target) {
           const ev = ses.take();
@@ -108,6 +126,8 @@ export function createNightPlayer(hooks = {}) {
               ses.resume();
               run.waiting = false;
               run.last = now();
+              // A decision at the wake-up may have changed what follows: find the next wake-up again.
+              run.nextWake = nextWakeAt(ses);
               emitClock(run, false);
               if (end) finish(run);
             });
