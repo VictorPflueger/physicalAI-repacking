@@ -1069,6 +1069,9 @@ if (wanted("worldnight")) {
     await page.click("#ws-confirm");
     await page.waitForSelector("#console .confirm-card .option-status", { state: "attached", timeout: 10000 });
     checks.consoleStatus = (await page.textContent("#console .confirm-card .option-status")).trim();
+    // The console marks its card at once; the world model redraws on its next frame (a slow CI runner read
+    // it a frame early on 19 Oct 2026). A stage that never shows the decision still fails below.
+    await page.waitForFunction(() => document.querySelector(".ws-moment")?.dataset.kind === "decided", null, { timeout: 10000 }).catch(() => {});
     checks.decided = await read();
     await waitStatus(page, "Done", 240000);
     await page.waitForTimeout(300);
