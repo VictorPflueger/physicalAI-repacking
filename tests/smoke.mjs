@@ -476,7 +476,7 @@ if (wanted("diag")) {
     [/^Live reads are off in this build .* No request is sent\.$/.test(checks.off || ""), `the Open Food Facts row (${checks.off})`],
     [/^Connections limited to api\.anthropic\.com, as configured; no key stored; audit export checked\.$/.test(checks.privacy || ""), `privacy row (${checks.privacy})`],
     [checks.worldChecks === 14 && checks.worldFails === 0, `14 world checks listed, none failing (${checks.worldChecks}, ${checks.worldFails})`],
-    [new RegExp(`^Repack Pilot ${APP.version.replace(/\./g, "\\.")}\\.`).test(checks.footer || "") && APP.version === "0.4.0", `the footer shows the version (${checks.footer})`],
+    [new RegExp(`^Repack Pilot ${APP.version.replace(/\./g, "\\.")}\\.`).test(checks.footer || "") && APP.version === "0.4.1", `the footer shows the version (${checks.footer})`],
     [(checks.requests || []).length === 1 && /^POST \/v1\/messages key=no browser=true$/.test(checks.requests[0]), `one keyless probe with the browser header (${JSON.stringify(checks.requests)})`],
     [checks.remembered === "pass", "the result is remembered for this session"]
   ]);

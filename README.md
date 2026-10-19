@@ -2,14 +2,15 @@
 
 A browser-only showcase of Physical AI in logistics. Repack Pilot shows one night shift in a retail distribution centre: a simulated robot cell, planned by an AI agent, repacks mixed pallets into 12 store orders, and a deterministic engine prices every 1,000 units in labour hours and euros, manual baseline against a hybrid cell. In a five-minute call a customer sees what it does, how it works and what it is worth, around the robot's world model: the robot works from a model of every item, camera and scale keep it right, what it does not know goes to a person, and labour per 1,000 units falls from €89.50 by hand to €32.49 with the cell (`DEMO_SCRIPT.md`).
 
-**Version 0.4.0: the five-minute customer case and six scenarios (milestone M4).** Static website, no backend, no build step. Live at **https://victorpflueger.github.io/physicalAI-repacking/** (GitHub Pages from `main`).
+**Version 0.4.1: the world model at the centre of the five-minute call (milestone M4.1).** Static website, no backend, no build step. Live at **https://victorpflueger.github.io/physicalAI-repacking/** (GitHub Pages from `main`).
 
 | Milestone | What it adds | Status |
 |---|---|---|
 | M1 Shell (0.1.0) | The screen, the two modes and the key handling, Diagnostics, the intro with "what is real", the synthetic world with its checks, CI | Done |
 | M2 Physical layer (0.2.0) | The engine with the brief's golden cases, the seeded night simulation, the cell board, the world-model panel, the header tiles, the KPI board and the assumptions; a night that plays without the agent | Done |
 | M3 Agent (0.3.0) | The live agent and its 24 tools, guardrails in code, options, outbox, summary, run facts, the Open Food Facts lookup (on the bundled snapshot), the scripted replay and its checker; scenario 1 end to end in both modes | Done |
-| M4 Customer case and scenarios (0.4.0) | Scenarios 2 to 6 with their scripted replays, the recorder, the autonomy dial with its gate, the acceptance suite; the five-minute customer case: the **Customer view** with the robot's world model at the centre and What it is worth beside it, scenario 3 as the main run, How it works as the opener with the world model in four steps and the engine's figures, a simple console, plain words, option cards that open with the trucks, the closing card on what it is worth, Your DC, the five-minute demo script; the M4 screen as the **Full view** | This version |
+| M4 Customer case and scenarios (0.4.0) | Scenarios 2 to 6 with their scripted replays, the recorder, the autonomy dial with its gate, the acceptance suite; the five-minute customer case: How it works as the opener with the engine's figures, a simple console, plain words, option cards that open with the trucks, the closing card on what it is worth, Your DC on the KPI board, the five-minute demo script | Done |
+| M4.1 The world model at the centre (0.4.1) | Victor's rework of 19 Oct 2026: the **Customer view**, now the default, with the robot's world model at the centre and What it is worth beside it; scenario 3 as the main run; How it works with the world model in four steps; the demo script for scenario 3; the M4 screen as the **Full view** | This version |
 | M5 Hardening (1.0.0) | Layout and design suites, complete documents, an independent review, release | Planned |
 
 `PLAN.md` holds the build plan Victor approved on 16 October 2026; each milestone lands as one pull request with green CI.

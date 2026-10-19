@@ -11,7 +11,7 @@
 ## Pre-flight (15 minutes before, on the presenting laptop)
 
 1. Open the site in Chrome or Edge and hard-reload (**Ctrl + Shift + R**). On a browser's first visit the **How Repack Pilot works** window opens by itself; close it for now. Close other tabs and silence notifications.
-2. Click **Diagnostics → Run all tests**. Every row passes except Open Food Facts, which is skipped by design; the footer shows **Repack Pilot 0.4.0**.
+2. Click **Diagnostics → Run all tests**. Every row passes except Open Food Facts, which is skipped by design; the footer shows **Repack Pilot 0.4.1**.
 3. Rehearse once at **×4**: **Start agent → Run simulation**, click **Confirm entry** when the world model asks, type a volume into **Your DC**, then click **Reference site** and **Reset**.
 4. Set the stage: **Customer** in the view switch (in the header, beside the mode badge), Scenario **Unknown item**, Night **×1**. Share a window of 1920 × 1080 (full screen, **F11**) at 100 % zoom. The status pill reads **Idle**.
 5. Have the customer's yearly volume and labour cost ready if you know them; otherwise ask for them at 2:45.

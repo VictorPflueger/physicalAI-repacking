@@ -1,6 +1,6 @@
 # Repack Pilot — design system
 
-How Repack Pilot looks, why it looks that way, and how to change it without breaking it. Version 0.4.0 (milestone M4, the five-minute customer case and six scenarios), 19 October 2026.
+How Repack Pilot looks, why it looks that way, and how to change it without breaking it. Version 0.4.1 (milestone M4.1, the world model at the centre of the five-minute call), 19 October 2026.
 
 Repack Pilot shares its design system with its sister prototypes **Rebate Hunter** (7.1.0) and the **Navigator** (1.1.0): the same burgundy source colour, the same generated palette value for value, the same type, components, colour grammar and agentic patterns. The logo, the names and the domain words differ, and so does the centrepiece: where the Navigator shows a map and Rebate Hunter a rebate board, Repack Pilot shows the **robot's world model** in its Customer view (§7c): one item's way from the camera through the model to the robot and the scale, the moment, and tonight's pallet as the model holds it, with what it is worth beside it. Its Full view shows the **cell board**: the inbound pallet, the simulated robot cell with its camera, scale and gripper, the manual station and twelve store totes against their truck cut-offs (§7).
 
