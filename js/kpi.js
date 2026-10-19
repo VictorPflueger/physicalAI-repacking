@@ -59,7 +59,7 @@ export function createKpis(container, { getInputs, getNightState = () => null, g
   function renderLabour() {
     const v = getInputs();
     const k = perThousand(v);
-    if (planStands) set(labour, `${hours(k.hybrid_h)} · ${eur2(k.hybrid_eur)}`, "", `with the cell · ${eur2(k.manual_eur)} by hand · ${savingText(savingShare(v))}`);
+    if (planStands) set(labour, `${hours(k.hybrid_h)} · ${eur2(k.hybrid_eur)}`, "", `planned · ${eur2(k.manual_eur)} by hand · ${savingText(savingShare(v))}`);
     else set(labour, `${hours(k.manual_h)} · ${eur2(k.manual_eur)}`, "", "by hand, without the cell");
   }
 

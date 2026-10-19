@@ -116,12 +116,12 @@ window.SIM_RUNS = (() => {
             { tool: "sim_project" },
             { say: "Check: confirmed. With the express order first, Hamm would be {{proj.HAM.slack}} and Soest {{proj.SOE.slack}}.\n\nHypothesis: taking them first could save both, but puts the express order at risk. I price three options against doing nothing, each in 20 simulated versions of tonight." },
             { tool: "sim_cost_options", ref: "options" },
-            { say: "Finding: doing nothing costs {{nothing.total}} on average: Soest misses its truck in {{nothing.late.SOE}} simulated nights, Hamm in {{nothing.late.HAM}}.\n\nRecommendation: option B, a second picker from {{wake.clock}} for {{B.labour}}: every truck on time in all {{options.replications}} nights. Option A costs less on average, {{A.total}}, but leaves the flagship's express order late in {{A.late.XPR}} nights, tonight's included." },
+            { say: "Finding: doing nothing costs {{nothing.total}} on average: Soest misses its truck in {{nothing.late.SOE}} simulated nights, Hamm in {{nothing.late.HAM}}.\n\nRecommendation: option B, a second picker from {{wake.clock}} for {{B.labour}}: every truck on time in all {{options.replications}} nights. Option A costs less on average, {{A.total}}, but leaves the flagship's express order late in {{A.late.XPR}} nights, and tonight is one of them." },
             {
               propose: {
                 input: {
                   options: [
-                    { variant_id: "A", title: "Re-sequence: Hamm and Soest first", description: "Iserlohn, Hamm and Soest go before the express order. No extra labour.", residual_risk: "The express order misses its {{xpr.due}} truck in {{A.late.XPR}} simulated nights, tonight's included." },
+                    { variant_id: "A", title: "Re-sequence: Hamm and Soest first", description: "Iserlohn, Hamm and Soest go before the express order. No extra labour.", residual_risk: "The express order misses its {{xpr.due}} truck in {{A.late.XPR}} simulated nights, and tonight is one of them." },
                     { variant_id: "B", title: "Call in one picker, Hamm and Soest first", description: "A second picker at the manual station from 02:00, for the call-in minimum of {{options.call_in_min}}; the same order as A.", residual_risk: "The call-in is billed for its minimum, even if the work ends sooner." },
                     { variant_id: "C", title: "Move Soest to tomorrow's wave", description: "Soest's order goes with tomorrow's delivery; Iserlohn and Hamm go before the express order. No extra labour.", residual_risk: "Soest gets no delivery tonight: its order is late for certain." }
                   ],

@@ -44,7 +44,7 @@ Point at the five steps: *Perceive, Plan, Pick, Replan, Prepare* — the same st
 
 Point at **Why it pays off**:
 
-> "Labour per 1,000 units: €32.49 with the cell instead of €89.50 by hand, minus 64 %. For a DC that repacks six million units a year, that is about €342,000 a year with four cells on the night shift, before cell costs. And each cell pays as long as it costs less than €40.72 an hour, all in. We'll come back to your own volume at the end."
+> "Labour per 1,000 units: €32.49 with the cell instead of €89.50 by hand, minus 64 %. For a DC that repacks six million units a year, that is about €342,000 a year with 4.2 cells on the night shift, before cell costs. And each cell pays as long as it costs less than €40.72 an hour, all in. We'll come back to your own volume at the end."
 
 Point at **What is real**: the cell and the retailer are simulated and labelled so; the engine's arithmetic and the sourced rates are real.
 
@@ -60,8 +60,8 @@ Talk over the night; do not read the console out. The board on the left shows th
 
 | Moment | You say |
 |---|---|
-| **22:00, the plan.** The labour tile turns from €89.50 to **€32.49** with **−64 %** beneath | "The agent reads tonight's orders and plans: earliest truck first, heavy items at the bottom of each tote. That's the plan: €32.49 per 1,000 units instead of €89.50 by hand." |
-| **22:17, the jar.** *World model corrected*: the apricot jam weighs 400 g on the scale; its master data say 200 g. The agent's **Revised** line strikes the old weight | "Here's the robot learning. The label says 200 g — that's the jam. The robot lifts the glass too, so the scale reads 400 g. The cell corrects its world model for every jar of this item and rehearses the next grasp with the new weight. The agent closes the store's tote early so it stays within its weight limit." |
+| **22:00, the plan.** The labour tile turns from €89.50 to **€32.49** with *planned · €89.50 by hand · −64 %* beneath | "The agent reads tonight's orders and plans: earliest truck first, heavy items at the bottom of each tote. That's the plan: €32.49 per 1,000 units instead of €89.50 by hand." |
+| **22:17, the jar.** *World model corrected*: the apricot jam weighs 400 g on the scale; its master data say 200 g. The agent's **Revised** line strikes the old weight | "Here's the robot learning. The label says 200 g — that's the jam. The robot lifts the glass too, so the scale reads 400 g. The cell corrects its world model for every jar of this item and rehearses the next grasp with the new weight. The agent closes the tote that was packed with the wrong weight and starts a fresh one." |
 | **22:41, the bottles.** *Handed to a person*: an olive-oil bottle lying on its side, a passata bottle with a chipped neck | "And here's the split: when the robot isn't sure of its grip on something fragile, a rule in code hands it to a person. Robot for most units, people for the rest." |
 | **02:00, the express order.** *Express order* and *Trucks at risk*; Hamm and Soest turn amber on the board | "Now the night changes: the flagship orders 400 more units for its 02:45 express truck. If the express order goes first, Hamm and Soest miss their trucks." |
 | **The options.** The drawer opens: A, B, C and doing nothing, each with what happens to the trucks first; **Why recommended** on B | "The agent priced three options against doing nothing, each in 20 simulated versions of tonight. Doing nothing costs €462.50 on average. Option A is cheaper on average but leaves the express truck to chance; B calls in a picker for €134.25 and keeps every truck on time. The agent recommends B — and nothing happens until I decide." |
@@ -76,8 +76,8 @@ Click **Approve all**. The night runs on; the trucks turn green.
 
 | Moment | You say |
 |---|---|
-| **06:00, the closing card.** *Night over. All 13 orders on time.* Tonight: 5.86 h of labour with the cell, 3 h of it called in, against 8.5 h for the same 3,400 units by hand; then what it is worth | "Every truck made it, the express order included. Even on a night with a surprise and a call-in, the cell used 5.86 hours of labour where the same units take 8.5 by hand." |
-| **The management summary** appears below it | "And a summary for the morning: what happened, what we decided, what it is worth." |
+| **06:00, the closing card.** *Night over. All 13 orders on time (12 store orders and the express order).* Tonight: 5.86 h of labour with the cell, 3 h of it called in, against 8.5 h for the same 3,400 units by hand; per 1,000 units €69.55 tonight, €32.49 planned, €89.50 by hand; then what it is worth | "Every truck made it, the express order included. Even on a night with a surprise and a call-in, the cell used 5.86 hours of labour where the same units take 8.5 by hand. A planned night costs €32.49 per 1,000 units; tonight's call-in makes it €69.55, still below €89.50 by hand." |
+| **The management summary**: its card appears below, with **Open management summary** | "And a summary for the morning: what happened, what we decided, what it is worth." |
 
 If a customer asks why tonight's figure per 1,000 units is higher than the plan, point at the called-in hours: the express order added 400 units at 02:00, and the picker is billed for its three-hour minimum.
 
@@ -124,11 +124,12 @@ Afterwards: **Reference site** on the KPI board (or Reset) puts the inputs back.
 
 | Question | Answer |
 |---|---|
-| "Is this a real robot?" | "No: the cell, its camera, scale and gripper are simulated, and labelled so. Its rates come from published sources and labelled assumptions: 500 grasp attempts an hour, the low end of manufacturer data, and 91 % grasp success, from a published Amazon trial. The next step is a real cell in shadow mode." |
+| "Is this a real robot?" | "No: the cell, its camera, scale and gripper are simulated, and labelled so. Its rates are labelled assumptions, set from published figures: 500 grasp attempts an hour, the low end of manufacturer data reported by Fraunhofer IML, and 91 % grasp success, from a trial Amazon published. The next step is a real cell in shadow mode." |
 | "Which robot vendor?" | "None is named, on purpose. The case depends on the rates, not the brand; you can change them in the Assumptions tab." |
 | "What does a cell cost?" | "That's site-specific, so there's no payback claim. The break-even says a cell pays while its all-in cost stays below €40.72 an operating hour at these rates." |
 | "Can the AI make up the numbers?" | "No. A deterministic engine computes every hour and euro; the AI only words them, and code refuses any amount the engine did not produce." |
 | "What if the AI is wrong?" | "It proposes; your shift lead decides. Fragile items, unknown items and a failing gripper go to a person by rules in code, and nothing is sent without approval. More autonomy only after shadow-mode evidence." |
+| "What is 0.2 of a cell?" | "The cell time the volume needs: 8,400 cell hours a year, which is 4.2 cells on an eight-hour night shift. In practice five cells, or four that run a little longer each night." |
 | "Why does tonight cost more per 1,000 units than the plan?" | "Because of the express order: 400 more units at 02:00 and three hours of called-in labour. It is still below the 8.5 hours the same units take by hand." |
 | "Does it work with our warehouse system?" | "The agent talks to the warehouse through a handful of tools: orders, totes, the cell's status. Connecting those to your system is the integration step of a pilot." |
 | "What about regulation?" | "It discloses that you are dealing with an AI system, keeps a person in charge of every outbound action and logs every step for export. A real cell also needs conformity assessment and CE marking under the EU Machinery Regulation from 20 January 2027." |

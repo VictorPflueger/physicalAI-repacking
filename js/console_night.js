@@ -184,12 +184,18 @@ export function attachNightLog(ctx) {
     const byHand = engineNight(v, f.units_repacked);
     const w = worth(v).text;
     const late = (ev.payload.orders || []).filter((o) => !o.on_time);
-    const verdict = late.length ? `${int(f.orders_on_time)} of ${int(f.orders)} orders on time; late: ${listJoin(late.map((o) => nameOf(o.id)))}.` : `All ${int(f.orders)} orders on time.`;
+    // The express order is the night's thirteenth order (id XPR): name it, so "13 orders" matches the 12 stores.
+    const express = (ev.payload.orders || []).some((o) => o.id === "XPR");
+    const verdict = late.length
+      ? `${int(f.orders_on_time)} of ${int(f.orders)} orders on time; late: ${listJoin(late.map((o) => nameOf(o.id)))}.`
+      : `All ${int(f.orders)} orders on time${express ? ` (${int(f.orders - 1)} store orders and the express order)` : ""}.`;
     const plural = (k, one, many) => `${int(k)} ${k === 1 ? one : many}`;
     const tonight = [
       ["Units repacked", int(f.units_repacked)],
       ["Labour with the cell", `${hours(f.labour_hours)} · ${eur2(eur.labour_eur)}${f.called_in_hours > 0 ? `, ${hours(f.called_in_hours)} of it called in` : ""}`],
       ["The same units by hand", `${hours(byHand.manual_h)} · ${eur2(byHand.manual_eur)}`],
+      // Tonight beside the plan and by hand, per 1,000 units: a night with a call-in costs more than the plan.
+      ["Per 1,000 units", `${eur2(eur.per_thousand_eur)} tonight with the cell${f.called_in_hours > 0 ? `, ${hours(f.called_in_hours)} called in` : ""}; ${w.hybrid} planned; ${w.manual} by hand`],
       ["Robot cell", `${hours(f.cell_hours)} at ${int(f.robot_picks_per_cell_hour)} picks per cell hour`, true],
       ["Exceptions", `${plural(f.failures, "failed grasp", "failed grasps")} picked by hand, ${plural(f.escalations, "escalation", "escalations")} to a person, ${plural(f.corrections, "world-model correction", "world-model corrections")}`],
       ["Seed", `${f.seed} (the same seed replays the same night)`, true]

@@ -66,7 +66,7 @@ export function createKpiBoard(panel, { getInputs, getRunInputs = () => null, ge
     worthEl.append(...[
       h("div", { class: "kb-worth-head" },
         h("h3", {}, "What it is worth"),
-        h("span", { class: "kb-qual" }, "illustrative, per reference site, gross, before cell costs")),
+        h("span", { class: "kb-qual" }, `illustrative, ${v.N === defaults().N ? "per reference site" : "for this volume"}, gross, before cell costs`)),
       h("div", { class: "kb-worth-main" },
         h("div", { class: "kb-worth-figure" },
           h("span", { class: "kb-big num", id: "kb-year" }, `${t.year} a year`),
@@ -78,7 +78,7 @@ export function createKpiBoard(panel, { getInputs, getRunInputs = () => null, ge
         h("li", {}, h("strong", {}, "Cells: "), `${t.cell_hours} cell hours a year, that is ${t.cells} cells on an eight-hour night shift over ${t.nights} nights, or ${t.cells_clock} round the clock.`),
         h("li", {}, h("strong", {}, "Break-even: "), `each cell pays while its all-in cost stays below ${t.break_even} per operating hour.`),
         h("li", {}, h("strong", {}, "Labour avoided: "), `${t.hours_avoided} hours a year at ${t.labour_cost} an hour. The demo cell's own share: ${t.demo} a year (3,000 units on ${t.nights} nights).`)),
-      h("p", { class: "kb-inputs" }, `N ${int(v.N)} units a year (Assumption) · r_m ${int(v.r_m)} picks an hour (IML) · c ${eur2(v.c)} an hour (EUROSTAT_LC) · s ${fixed(v.s, 2)}, p ${fixed(v.p, 2)}, r_c ${int(v.r_c)} (Assumption)`)
+      h("p", { class: "kb-inputs" }, `Inputs: ${int(v.N)} units a year (Assumption) · ${int(v.r_m)} manual picks an hour (IML) · labour ${eur2(v.c)} an hour (EUROSTAT_LC) · the cell takes ${Math.round(v.s * 100)} % of units, ${Math.round(v.p * 100)} % of its grasps succeed, ${int(v.r_c)} grasp attempts an hour (Assumption)`)
     ].filter(Boolean));
   }
 
@@ -165,7 +165,7 @@ export function createKpiBoard(panel, { getInputs, getRunInputs = () => null, ge
       h("div", { class: "kb-head" },
         h("h3", {}, "Plan and tonight"),
         h("p", {}, "Plan: the engine at your inputs (expected values). Tonight: the simulated night, which plays the same every time. The two are kept apart.")),
-      changed.length ? h("p", { class: "kb-changed" }, `Changed inputs: ${changed.map((x) => `${x.id} ${fixed(v[x.id], x.id === "c" ? 2 : x.step < 1 ? 2 : 0)} (default ${fixed(x.value, x.id === "c" ? 2 : x.step < 1 ? 2 : 0)})`).join(", ")}`) : null,
+      changed.length ? h("p", { class: "kb-changed" }, `Changed inputs: ${changed.map((x) => `${x.label} ${fixed(v[x.id], x.id === "c" ? 2 : x.step < 1 ? 2 : 0)} (default ${fixed(x.value, x.id === "c" ? 2 : x.step < 1 ? 2 : 0)})`).join(", ")}`) : null,
       repriced ? h("p", { class: "kb-held" }, `Tonight keeps the inputs its run ran on (labour cost ${eur2(rv.c)} an hour); the plan follows your inputs now.`) : null,
       h("table", { class: "kb-table" },
         h("thead", {}, h("tr", {}, h("th", { scope: "col" }, "Figure"), h("th", { scope: "col" }, "Plan (engine)"), h("th", { scope: "col", ...(tTitle ? { title: tTitle } : {}) }, tLabel), h("th", { scope: "col" }, "Basis"))),

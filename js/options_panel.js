@@ -50,7 +50,7 @@ export function createOptionsPanel(panel, { onDecision, onCount, orderName = (id
         h("h3", {}, pending ? "Decide how to respond" : locked ? "Decision taken" : ended ? "Run ended before a decision" : "Options"),
         aiLabel("options")),
       current.autonomy === "advise" ? h("p", { class: "options-advise" }, h("strong", {}, "Advise: "), "the agent only recommends. Your click on Apply applies the option; the agent does not act on the plan.") : null,
-      h("p", {}, `Expected total at ${current.at}: the extra labour against doing nothing${options.some((o) => o.extra_labour_eur < -0.005) ? " (a saving counts below zero)" : ""}, plus ${lateCost !== undefined ? eur2(lateCost) : "the cost"} for each store order that misses its truck, on average over ${int(replications)} simulated versions of tonight. Every figure comes from the engine, not from the AI.`),
+      h("p", {}, `Expected total at ${current.at}: the extra labour against doing nothing${options.some((o) => o.extra_labour_eur < -0.005) ? " (a saving counts below zero)" : ""}, plus ${lateCost !== undefined ? eur2(lateCost) : "the cost"} (Assumption) for each store order that misses its truck, on average over ${int(replications)} simulated versions of tonight. Every figure comes from the engine, not from the AI.`),
       h("div", { class: "compare", role: "img", "aria-label": `Expected total per option against doing nothing: ${rows.map((r) => `${r.name} ${eur2(r.total)}`).join("; ")}` },
         rows.map((r) => h("div", { class: "compare-row", dataset: { recommended: String(!!r.recommended) }, title: r.name },
           h("span", { class: "compare-key", "aria-hidden": "true" }, r.key),

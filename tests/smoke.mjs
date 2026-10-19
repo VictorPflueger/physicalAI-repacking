@@ -608,7 +608,7 @@ if (wanted("night")) {
     const c = checks.speeds[speed] || {};
     exps.push([JSON.stringify(c.lanes) === JSON.stringify(states), `×${speed}: every lane's dispatch state equals the replay (${JSON.stringify(c.lanes)})`]);
     exps.push([c.tile === `${onTime} of ${res.orders.length}` && c.clock === "06:00", `×${speed}: the tile ${c.tile}, the clock ${c.clock}`]);
-    exps.push([c.report === (late.length ? `Night over at 06:00. ${onTime} of ${res.orders.length} orders on time; late: ${late.join(" and ")}.` : `Night over at 06:00. All ${res.orders.length} orders on time.`) && c.summary === 1, `×${speed}: the night report and the management summary (${c.report})`]);
+    exps.push([c.report === (late.length ? `Night over at 06:00. ${onTime} of ${res.orders.length} orders on time; late: ${late.join(" and ")}.` : `Night over at 06:00. All ${res.orders.length} orders on time (${res.orders.length - 1} store orders and the express order).`) && c.summary === 1, `×${speed}: the night report and the management summary (${c.report})`]);
     const bad = Object.entries(expectRows).filter(([k, v]) => c.kpi?.[k]?.[1] !== v).map(([k, v]) => `${k}: ${c.kpi?.[k]?.[1]} ≠ ${v}`);
     exps.push([bad.length === 0 && c.tonightHead === "Tonight (simulated night)" && c.tonightTitle === `Seed ${res.seed}: the same seed replays the same night.`, `×${speed}: the KPI board's Tonight column (${bad.join("; ") || `${c.tonightHead}; ${c.tonightTitle}`})`]);
     exps.push([c.rate !== null && c.samples >= 4 && c.rate >= 0.75 * CRUISE_MIN_PER_S * speed && c.rate <= 1.25 * CRUISE_MIN_PER_S * speed, `×${speed}: ${c.rate} simulated minutes per second over ${c.samples} samples (${CRUISE_MIN_PER_S} × ${speed} expected between moments)`]);
@@ -767,7 +767,7 @@ if (wanted("kpi")) {
     [basisOk(checks.g1) && payback(checks.g1), "every row carries a source key or Assumption; no payback claim"],
     [(checks.inputs || []).length === E.PARAMETERS.length && checks.inputs.includes("p=0.91 [Assumption]") && checks.inputs.includes("r_m=400 [IML]") && checks.inputs.includes("c=35.8 [EUROSTAT_LC]"), `the Assumptions tab lists every input with its basis (${JSON.stringify(checks.inputs)})`],
     [checks.refused?.msg === "Between 0.01 and 1.00." && checks.refused?.invalid === "true" && checks.refused?.stored === null, `an out-of-range value is refused (${JSON.stringify(checks.refused)})`],
-    [checks.changedChip && checks.stored === '{"p":0.7}' && /^Changed inputs: p 0\.70 \(default 0\.91\)$/.test(checks.changedLine || ""), `p = 0.70 is kept for this tab and named on the board (${checks.stored}; ${checks.changedLine})`],
+    [checks.changedChip && checks.stored === '{"p":0.7}' && /^Changed inputs: Grasp success rate 0\.70 \(default 0\.91\)$/.test(checks.changedLine || ""), `p = 0.70 is kept for this tab and named on the board (${checks.stored}; ${checks.changedLine})`],
     [plan(checks.g2, "Labour per 1,000 units, with the cell") === "1.28 h · €45.65" && plan(checks.g2, "Break-even all-in cell cost") === "€31.33 per operating hour" && /€263,130 a year/.test(checks.g2?.annual || ""), `G2: 1.28 h · €45.65, €31.33, €263,130 (${plan(checks.g2, "Labour per 1,000 units, with the cell")}; ${plan(checks.g2, "Break-even all-in cell cost")})`],
     [checks.tile === "2.5 h · €89.50", `the idle header tile keeps the manual baseline (${checks.tile})`],
     [JSON.stringify(checks.auditChange) === JSON.stringify(["p: 0.91 → 0.7"]), `the change is in the audit (${JSON.stringify(checks.auditChange)})`],
