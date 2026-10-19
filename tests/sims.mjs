@@ -170,6 +170,9 @@ async function playScenario1(page, plan, { drafts: draftCount }) {
   got.tile = (await page.textContent("#kpi-ontime-value")).trim();
   got.lanes = Object.fromEntries(await page.$$eval(".lane", (els) => els.map((e) => [e.dataset.order, e.dataset.state])));
   got.facts = (await page.$$eval("#console .entry .entry-body", (els) => els.map((e) => e.textContent.trim()).find((x) => /agent turns; /.test(x)) || ""));
+  got.view = await page.getAttribute("#console", "data-view");
+  got.simple = await page.$$eval("#console .entry", (els) => els.filter((e) => getComputedStyle(e).display !== "none").map((e) => e.innerText).join("\n"));
+  got.board = await page.$eval(".cell-board", (el) => el.innerText);
   // The management summary, as the dialog shows it.
   await page.click(".drawer-end .btn").catch(() => {});
   await page.click("#btn-open-report");
@@ -257,6 +260,7 @@ async function scenario1Case(name, plan, golden) {
   expect(JSON.stringify(got.audit?.calls) === JSON.stringify(nodeCalls), `every tool call in the order the Node replay made them (${(got.audit?.calls || []).length} in the browser, ${nodeCalls.length} in Node)`);
   expect(got.audit?.hash === res.hash && res.hash === golden.hash && got.audit?.status === "done" && got.audit?.mode === "simulation" && /^SIMULATION: /.test(got.audit?.statement || "") && /-SIMULATION-audit\.json$/.test(got.file || ""), `the audit: the night's hash ${got.audit?.hash} (Node ${res.hash}, golden ${golden.hash}), done, simulation`);
   expect(got.audit?.refusals === 0, `no guardrail refusal in the scripted replay (${got.audit?.refusals})`);
+  expect(got.view === "simple" && !JARGON.test(got.simple || "x") && !/\bS\d{2}\b/.test(got.board || "S00"), `the simple console and the board speak plainly (${(JARGON.exec(got.simple || "") || /\bS\d{2}\b/.exec(got.board || "") || [])[0] || got.view})`);
   expect(new RegExp(`; 5 agent turns; ${visible} tool calls \\(`).test(got.facts || "") && new RegExp(`; ${onTime} of ${res.orders.length} orders on time; no cost \\(simulated\\)\\.$`).test(got.facts || "") && got.audit?.facts?.drafts_rejected === (draftsDecided || []).filter((x) => x === "reject").length, `the run facts (${got.facts})`);
   if (errors.length) problems.push(`page errors: ${errors.join(" | ")}`);
   if (external.length) problems.push(`external requests: ${external.join(", ")}`);
@@ -337,6 +341,7 @@ async function scenarioCase(name, id, plan, label) {
     got.lanes = Object.fromEntries(await page.$$eval(".lane", (els) => els.map((e) => [e.dataset.order, e.dataset.state])));
     got.view = await page.getAttribute("#console", "data-view");
     got.simple = await page.$$eval("#console .entry", (els) => els.filter((e) => getComputedStyle(e).display !== "none").map((e) => e.innerText).join("\n"));
+    got.board = await page.$eval(".cell-board", (el) => el.innerText);
     // "## …" renders as h3 in the console (js/md.js: h1 is the app's title).
     got.heading = (await page.textContent('#console .entry[data-kind="summary"] .md :is(h2, h3, h4)', { timeout: 5000 }))?.trim();
     await page.click(".drawer-end .btn").catch(() => {});
@@ -363,7 +368,7 @@ async function scenarioCase(name, id, plan, label) {
   expect(got.audit?.hash === res?.hash && got.audit?.status === "done" && got.audit?.mode === "simulation" && got.audit?.refusals === 0, `the night's hash ${got.audit?.hash} (Node ${res?.hash}), done, no refusal`);
   expect(JSON.stringify(got.lanes) === JSON.stringify(states) && got.tile === `${onTime} of ${res?.orders.length}`, `every lane and the tile equal the night in Node (${JSON.stringify(got.lanes)}; ${got.tile})`);
   expect(got.heading === heading, `the summary's heading (${got.heading}; Node: ${heading})`);
-  expect(got.view === "simple" && !JARGON.test(got.simple || "x"), `the simple console speaks plainly (${(JARGON.exec(got.simple || "") || [])[0] || got.view})`);
+  expect(got.view === "simple" && !JARGON.test(got.simple || "x") && !/\bS\d{2}\b/.test(got.board || "S00"), `the simple console and the board speak plainly (${(JARGON.exec(got.simple || "") || /\bS\d{2}\b/.exec(got.board || "") || [])[0] || got.view})`);
   if (errors.length) problems.push(`page errors: ${errors.join(" | ")}`);
   if (external.length) problems.push(`external requests: ${external.join(", ")}`);
   results.push({ name: `${name}: scenario ${sc.number}'s scripted replay, ${label}, equals the replay in Node (${seconds} s at ×4; ${got.decided.join(", ") || "no decision"})`, ok: problems.length === 0, problems, got: { ...got, simple: undefined } });

@@ -914,6 +914,8 @@ if (wanted("world")) {
     await dismissBanners(page);
     // The correction stays in focus two simulated minutes (5 s at ×4): read and open it at once.
     await page.waitForSelector('.wm-focus[data-corrected="true"]', { timeout: 20000 });
+    // What the board shows at the correction: item names, no SKU id (D55); the ids stay in the popover and the audit.
+    checks.boardAtFix = await page.$eval(".cell-board", (el) => el.innerText);
     checks.focus = await page.$eval(".wm-focus", (el) => { const label = el.getAttribute("aria-label"); el.click(); return label; });
     await page.waitForSelector(".cell-pop:not([hidden])");
     checks.pop = { label: await page.getAttribute(".cell-pop", "aria-label"), grid: (await page.innerText(".cell-pop .pop-grid")).replace(/\s+/g, " ").trim(), table: await page.$$eval(".cell-pop .pop-table tbody tr", (rows) => rows.map((r) => [...r.querySelectorAll("td")].map((td) => td.textContent).join(" | "))) };
@@ -921,6 +923,8 @@ if (wanted("world")) {
     await page.keyboard.press("Escape");
     await waitStatus(page, "Done", 120000);
     checks.log = await page.$$eval(".wm-log li", (els) => els.map((e) => e.textContent.trim()));
+    checks.chip = await page.$eval(".wm-chip", (el) => ({ label: el.getAttribute("aria-label"), parts: [...el.querySelectorAll(".wm-chip-name, .wm-chip-vals")].map((e) => e.textContent) }));
+    checks.boardAtEnd = await page.$eval(".cell-board", (el) => el.innerText);
     checks.consoleLines = await page.$$eval('#console .entry[data-type="correction"]', (els) => els.map((e) => `${e.querySelector(".entry-time").textContent} ${e.querySelector(".entry-body").textContent}`));
     await page.click("#tab-audit");
     const [download] = await Promise.all([page.waitForEvent("download"), page.click("#btn-export-audit")]);
@@ -935,9 +939,11 @@ if (wanted("world")) {
   }
   const c = checks.corrections?.[0];
   await finish("world: scenario 2 writes the glass jar back once", t, checks, [
-    [/^World model, corrected: S07 Apricot jam 200 g, glass jar, expected 200 g, observed 400 g, written back for the whole SKU at 22:17$/.test(checks.focus || ""), `the panel shows the correction (${checks.focus})`],
+    [/^World model, corrected: Apricot jam 200 g, glass jar, expected 200 g, observed 400 g, written back for every unit of this item at 22:17$/.test(checks.focus || ""), `the panel shows the correction (${checks.focus})`],
+    [/Corrected\s*Apricot jam 200 g, glass jar/.test(checks.boardAtFix || "") && /\bS\d{2}\b/.test(checks.pop?.label || "") && ![checks.boardAtFix, checks.boardAtEnd].some((x) => !x || /\bS\d{2}\b/.test(x)), `the board names the item, no SKU id at the correction or at the end (${[checks.boardAtFix, checks.boardAtEnd].map((x) => (/\bS\d{2}\b/.exec(x || "") || ["none"])[0]).join(", ")})`],
     [checks.pop?.label === "World model: S07" && /Item master 200 g World model now 400 g Last scale reading 400 g/.test(checks.pop?.grid || "") && JSON.stringify(checks.pop?.table) === JSON.stringify(["22:17 | scale | weight | 200 g | 400 g"]), `the item's popover (${JSON.stringify(checks.pop)})`],
-    [JSON.stringify(checks.log) === JSON.stringify(["22:17 scale: S07 weight 200 g → 400 g, for the whole SKU"]), `one row in the corrections log (${JSON.stringify(checks.log)})`],
+    [JSON.stringify(checks.log) === JSON.stringify(["22:17 scale: Apricot jam 200 g, glass jar, weight 200 g → 400 g, for every unit of this item"]), `one row in the corrections log (${JSON.stringify(checks.log)})`],
+    [checks.chip?.label === "World model: Apricot jam 200 g, glass jar written back from 200 g to 400 g at 22:17" && JSON.stringify(checks.chip?.parts) === JSON.stringify(["Apricot jam", "200 g → 400 g"]), `the folded chip names the item and keeps its weights (${JSON.stringify(checks.chip)})`],
     [checks.consoleLines?.length === 1 && /^22:17 World model corrected: Apricot jam 200 g, glass jar weighs 400 g on the scale; its master data say 200 g\. The new weight now holds for every unit of this item \(S07\)/.test(checks.consoleLines[0]), `one console line (${JSON.stringify(checks.consoleLines)})`],
     [checks.corrections?.length === 1 && c.sku === "S07" && c.old === 200 && c.new === 400 && c.sensor === "scale" && c.applies_to === "sku" && NS.clockOf(c.at) === "22:17", `one correction in the audit (${JSON.stringify(checks.corrections)})`],
     [JSON.stringify(checks.readings) === JSON.stringify(["S07 200→400"]), `the one reading outside the tolerance is in the audit (${JSON.stringify(checks.readings)})`],
