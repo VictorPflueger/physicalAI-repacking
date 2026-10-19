@@ -21,7 +21,7 @@ import { createFakeClaude } from "./lib/fake-claude.mjs";
 import { conversationFromReplay } from "./lib/script_fake.mjs";
 import { driveDecisions } from "./lib/drive.mjs";
 import { loadData } from "./lib/scenario1.mjs";
-import { APP_ROOT, outDir, wanted, launchBrowser, serveStatic, CORS, MOCK_KEY, NETWORK_NOISE, SKIP_INTRO, KEYS } from "./lib/harness.mjs";
+import { APP_ROOT, outDir, wanted, launchBrowser, serveStatic, CORS, MOCK_KEY, NETWORK_NOISE, SKIP_INTRO, M4_SCREEN, KEYS } from "./lib/harness.mjs";
 
 const mod = (p) => import(pathToFileURL(path.join(APP_ROOT, p)).href);
 const { replayScript } = await mod("js/sim_check.js");
@@ -52,6 +52,7 @@ async function scriptedFake(id, plan = { option: null }, { cutAfter = null } = {
 async function newPage({ blockHosts = [], offline = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, acceptDownloads: true });
   await context.addInitScript(SKIP_INTRO);
+  await context.addInitScript(M4_SCREEN);
   await context.addInitScript(() => {
     window.__csp = [];
     document.addEventListener("securitypolicyviolation", (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));

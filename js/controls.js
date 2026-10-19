@@ -1,6 +1,8 @@
 // Control bar: start, scenario picker, model, night speed, the autonomy dial, status, abort, reset,
 // diagnostics. The dial (PLAN.md §g): Advise · Approve · Bounded, the chosen level in burgundy (a
 // person's setting); Bounded carries a lock and opens the shadow-mode gate's reasons (js/autonomy_view.js).
+// The view switch (Customer, Full; TECH_NOTES D62) goes into the header beside the mode badge when a
+// slot is given, the same place in both views: the Full view's bar has no room for it at laptop widths.
 
 import { h, setDisabled, isDisabled } from "./dom.js";
 import { icon } from "./icons.js";
@@ -9,6 +11,7 @@ import { isRunning, isFinished } from "./state.js";
 import { runStateLabel, onAwaitedChange } from "./handover.js";
 import { LEVELS } from "./autonomy.js";
 import { lockReason, currentGate } from "./autonomy_view.js";
+import { VIEWS } from "./view.js";
 
 const STATE_TONE = {
   idle: "", previewing: "active", perceiving: "active", planning: "active", picking: "active", replanning: "active",
@@ -17,9 +20,10 @@ const STATE_TONE = {
 
 /**
  * handlers: { onStart, onSelectScenario(id), onSelectModel(id), onSpeed(n), onAutonomy(level), onShowGate,
- *             onAbort, onReset, onDiagnostics }
+ *             onAbort, onReset, onView(id), onDiagnostics }
+ * viewRoot: where the view switch goes (the header's slot); without it, the bar.
  */
-export function createControls(root, scenarios, handlers) {
+export function createControls(root, scenarios, handlers, { viewRoot = null } = {}) {
   const startBtn = h("button", { class: "btn btn-primary", type: "button", id: "btn-start" }, icon("play", 18), h("span", {}, "Start agent"));
   startBtn.addEventListener("click", () => { if (!isDisabled(startBtn)) handlers.onStart(); });
 
@@ -68,6 +72,14 @@ export function createControls(root, scenarios, handlers) {
   });
   const dial = h("div", { class: "segmented autonomy-dial", role: "group", "aria-label": "Autonomy" }, dialBtns);
 
+  // The two views of the workspace (js/view.js): the Customer view for the call, the Full view's board.
+  const viewBtns = VIEWS.map((v) => {
+    const b = h("button", { type: "button", "aria-pressed": "false", dataset: { view: v.id }, title: v.title, "aria-label": `${v.label} view` }, v.label);
+    b.addEventListener("click", () => handlers.onView?.(v.id));
+    return b;
+  });
+  const viewGroup = h("div", { class: "segmented view-switch", role: "group", "aria-label": "View" }, viewBtns);
+
   const pill = h("div", { class: "status-pill", role: "status", "aria-live": "polite" }, h("span", { class: "dot" }), h("span", { class: "text" }, "Idle"));
 
   const abortBtn = h("button", { class: "btn btn-danger", type: "button", id: "btn-abort" }, icon("stop", 18), "Abort");
@@ -80,15 +92,17 @@ export function createControls(root, scenarios, handlers) {
   root.append(
     startBtn,
     scenarioDd.el,
-    h("span", { class: "control-group" }, modelDd.el),
+    h("span", { class: "control-group ctl-model" }, modelDd.el),
     h("span", { class: "control-group" }, h("span", { class: "control-label" }, "Night"), speedGroup),
-    h("span", { class: "control-group" }, h("span", { class: "control-label" }, "Autonomy"), dial),
+    h("span", { class: "control-group ctl-autonomy" }, h("span", { class: "control-label" }, "Autonomy"), dial),
     h("span", { class: "spacer" }),
     pill,
     abortBtn,
     resetBtn,
+    ...(viewRoot ? [] : [h("span", { class: "control-group ctl-view" }, h("span", { class: "control-label" }, "View"), viewGroup)]),
     diagBtn
   );
+  viewRoot?.append(viewGroup);
 
   // The pill names the step the run waits for ("Awaiting your decision", then "Awaiting your
   // approval"); that can change without a new run state, right after an option is approved.
@@ -111,6 +125,7 @@ export function createControls(root, scenarios, handlers) {
     modelDd.setDisabled(running || (sim && !finished), running ? "Locked while the agent runs." : "Requires Live mode.");
 
     for (const [i, b] of speedBtns.entries()) b.setAttribute("aria-pressed", String(UI.speeds[i] === s.speed));
+    for (const b of viewBtns) b.setAttribute("aria-pressed", String(b.dataset.view === s.view));
     // A run keeps the level it started with: the dial is locked while it runs.
     for (const b of dialBtns) {
       const lv = b.dataset.level;

@@ -725,7 +725,7 @@ export function nightInfo(night, { seed } = {}) {
   });
   return {
     seed: seed ?? night.seed, volume: night.volume, orders, waves,
-    items: night.items.map((it) => ({ sku: it.sku, name: it.name, master_g: it.master_g, fragility: it.fragility, grip: it.grip, cell: it.cell, success: it.success, wave: it.wave })),
+    items: night.items.map((it) => ({ sku: it.sku, name: it.name, master_g: it.master_g, fragility: it.fragility, grip: it.grip, cell: it.cell, success: it.success, wave: it.wave, manual_reason: it.manual_reason ?? null, units: planned.filter((u) => u.sku === it.sku).length })),
     totals: { units: planned.length, cell_units: planned.filter((u) => u.eligible).length, manual_units: planned.filter((u) => !u.eligible).length },
     r_m: night.P.r_m, r_c: night.P.r_c, p: night.P.p,
     t_cell_ms: night.T_CELL, t_man_ms: night.T_MAN, tote_limit_g: night.toteLimit, risk_band_min: 15

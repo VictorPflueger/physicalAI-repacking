@@ -1,7 +1,8 @@
-// Intro window: what Repack Pilot does, how it works, why it pays off and what is real, readable in
-// about a minute (at most 238 words). It is the opener of the five-minute customer call (DEMO_SCRIPT.md,
-// TECH_NOTES D50): one sentence on what it does, the five steps of the progress rail in plain words, and what it is
-// worth, with the engine's figures at the presenter's inputs (js/worth.js). It opens by itself on a
+// Intro window: what Repack Pilot does, how its world model works, why it pays off and what is real,
+// readable in about a minute (at most 238 words). It is the opener of the five-minute customer call
+// (DEMO_SCRIPT.md, TECH_NOTES D50 and D65): one paragraph on what it does, the world model in four steps
+// (what it knows, how camera and scale check it, how it learns, what it hands to a person), and what it
+// is worth, with the engine's figures at the presenter's inputs (js/worth.js). It opens by itself on a
 // visitor's first visit (remembered in this browser's local storage) and any time from the "How it
 // works" button in the header.
 
@@ -9,20 +10,17 @@ import { h } from "./dom.js";
 import { icon } from "./icons.js";
 import { openModal } from "./modal.js";
 import { STORAGE } from "./config.js";
-import { STEPS as RAIL } from "./progress.js";
 import { worth } from "./worth.js";
 
-// The five steps are the same as the progress rail above the console. Their numbers use the
-// colours the app uses for the same moments: blue for readings and checks, ink for the agent's
-// planning, green for picks that land, amber for a night at risk, burgundy for your decision.
-const TEXT = {
-  perceive: "Camera and scale check each item; a reading that differs corrects the world model.",
-  plan: "The agent orders the work so every store makes its truck.",
-  pick: "The robot rehearses each grasp, then picks. What it cannot grip safely goes to a person.",
-  replan: "When the night changes, the agent prices three options against doing nothing; you decide.",
-  prepare: "It drafts messages and the night's summary; nothing is sent without your approval."
-};
-const STEPS = RAIL.map((s) => ({ tone: s.id, title: s.label, text: TEXT[s.id] }));
+// The world model at work, in the colours the Customer view uses for the same things: ink for what the
+// model holds, blue for the camera's and the scale's checks, slate for the model taking a correction,
+// burgundy for a person.
+const STEPS = [
+  { tone: "know", title: "Knows", text: "Every item on the pallet: weight, size, fragility and how to grip it." },
+  { tone: "check", title: "Checks", text: "Camera and scale compare each item with the model; the robot rehearses every grasp against it first." },
+  { tone: "learn", title: "Learns", text: "A reading that differs is written back for every unit of that item." },
+  { tone: "ask", title: "Asks", text: "What the model does not know, or the robot cannot grip safely, goes to a person. You decide." }
+];
 
 /** Why it pays off: three figures from the engine at the current inputs, each with what it means. */
 function valueItems(v) {
@@ -80,10 +78,10 @@ export function openIntro({ startLabel = "Start agent", onStart = null, getInput
 
     modal = openModal({
       title: "How Repack Pilot works",
-      intro: "A robot cell and an AI agent run a retail distribution centre's night shift: the robot repacks most of each mixed pallet into 12 store orders, people do the rest, and the agent keeps every store on its truck. You decide.",
+      intro: "A robot cell repacks mixed pallets into store orders at night. What makes it work is its world model: what the robot knows about every item it lifts. An AI agent plans the night with it, and people do the rest.",
       className: "intro-modal",
       body: [
-        h("h3", {}, "How it works"),
+        h("h3", {}, "The world model at work"),
         steps,
         h("h3", {}, "Why it pays off"),
         value,

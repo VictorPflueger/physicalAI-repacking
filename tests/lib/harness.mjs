@@ -84,13 +84,24 @@ export const NETWORK_NOISE = /Failed to load resource|net::ERR_|ERR_BLOCKED_BY_C
 export const MOCK_KEY = "sk-ant-test-MOCKKEY-0123456789abcdefghijklmnopqrstuvwxyz0123456789";
 
 /** Browser storage keys of the app (js/config.js STORAGE), for tests that inspect storage. */
-export const KEYS = { apiKey: "rp.anthropic.key", introSeen: "rp.introSeen", diagnostics: "rp.diag", consoleView: "rp.consoleView" };
+export const KEYS = { apiKey: "rp.anthropic.key", introSeen: "rp.introSeen", diagnostics: "rp.diag", consoleView: "rp.consoleView", view: "rp.view", scenario: "rp.scenario" };
 
 /**
  * Init script for browser contexts: marks the intro window as seen, so it does not open by itself
  * and cover the controls. The smoke suite's "intro" case runs without it.
  */
 export const SKIP_INTRO = () => { try { localStorage.setItem("rp.introSeen", "1"); } catch { /* file:// or blocked storage */ } };
+
+/**
+ * Init script for the M4 cases: the Full view (the cell board and the console beside it) with scenario 1
+ * selected, the screen and the main run those cases were written for. Since 19 Oct 2026 a first visit
+ * opens the Customer view on scenario 3 (TECH_NOTES D62, D63); the Customer-view cases run without this
+ * script. It only fills what a case has not set itself, so a reload keeps a choice made during the case.
+ */
+export const M4_SCREEN = () => {
+  try { if (!localStorage.getItem("rp.view")) localStorage.setItem("rp.view", "full"); } catch { /* blocked storage */ }
+  try { if (!sessionStorage.getItem("rp.scenario")) sessionStorage.setItem("rp.scenario", "SC1-EXPRESS"); } catch { /* blocked storage */ }
+};
 
 /** The viewports the layout is tested in, from a 1080p projector down to a small laptop. */
 export const VIEWPORTS = [[1920, 1080], [1600, 900], [1536, 864], [1366, 768], [1280, 720]];

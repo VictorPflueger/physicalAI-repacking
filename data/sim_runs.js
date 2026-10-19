@@ -16,8 +16,9 @@
  * replications; a rule in code instead of its number; the seed only where the KPI board and the audit
  * keep it. Every night ends with what it is worth (sim_kpis) in the management summary.
  *
- * Scenario 1 is the main run (M3), with scenario 2's glass jar on the way; scenarios 2 to 6 arrived with
- * M4. A recorded live run (js/recorder.js, "Save run as simulation") is appended at the end of this file
+ * Scenario 3 is the main run since 19 Oct 2026 (TECH_NOTES D63): the world model's night, with the glass
+ * jar it learns from and an item it does not know. Scenario 1 was the main run in M3; scenarios 2 to 6
+ * arrived with M4. A recorded live run (js/recorder.js, "Save run as simulation") is appended at the end of this file
  * and then replaces the authored script of its scenario.
  */
 window.SIM_RUNS = (() => {
@@ -259,23 +260,23 @@ window.SIM_RUNS = (() => {
       scenario: "SC3-UNKNOWN",
       world_version: "1.1.0",
       wakes: [
-        nightStart(),
+        nightStart(" The world model holds every item on tonight's pallet, and the robot rehearses each grasp against it."),
         jarCorrection(),
         {
           kinds: ["escalation"],
           steps: [
-            { say: "{{wake.clock}}: the camera reads a barcode the item master does not know, {{esc.1.barcode}}, on {{esc.1.units}} units. A rule in code sends them to {{esc.1.to}}, not to the robot. I check the item master and look the barcode up." },
+            { say: "{{wake.clock}}: the camera reads a barcode the world model does not know, {{esc.1.barcode}}, on {{esc.1.units}} units. A rule in code sends them to {{esc.1.to}}, not to the robot. I check the world model and look the barcode up." },
             { tools: [{ tool: "world_get_item", input: { barcode: "{{esc.1.barcode}}" } }, { tool: "open_lookup_barcode", input: { barcode: "{{esc.1.barcode}}" } }] },
-            { say: "Finding: the item master has no entry for {{esc.1.barcode}}, and {{lookup.sentence}}. The robot never picks an item it does not know, so the units stay with a person.\n\nI create a provisional entry from what we know, marked unverified, and ask you to confirm it." },
+            { say: "Finding: the world model has no entry for {{esc.1.barcode}}, and {{lookup.sentence}}. The robot never picks an item it does not know, so the units stay with a person.\n\nI create a provisional entry from what we know, marked unverified, and ask you to confirm it." },
             { tool: "world_propose_entry", input: { barcode: "{{esc.1.barcode}}", name: "{{lookup.name}}", net_content: "{{lookup.net_content}}", source: "{{lookup.entry_source}}" } },
             {
               confirm: {
                 input: {
                   subject: "Provisional entry for barcode {{entry.barcode}}: {{entry.name}}",
-                  reason: "The camera read a barcode the item master does not know, and {{lookup.sentence}}. The entry stays unverified until you decide; tonight its units stay with a person either way.",
+                  reason: "The camera read a barcode the world model does not know, and {{lookup.sentence}}. The entry stays unverified until you decide; tonight its units stay with a person either way.",
                   entry_barcode: "{{entry.barcode}}"
                 },
-                confirmed: [{ say: "You confirmed the entry: it goes into the item master as {{entry.name}}. Tonight's units of the item stay at the manual station." }],
+                confirmed: [{ say: "You confirmed the entry: the world model and the item master know the item from now on, as {{entry.name}}. Tonight's units of the item stay at the manual station." }],
                 rejected: [{ say: "You rejected the entry: the barcode stays unknown, and its units stay set aside for a person." }]
               }
             },
@@ -293,11 +294,11 @@ window.SIM_RUNS = (() => {
                 outcome: "escalation_only",
                 markdown: {
                   $by_decision: Object.fromEntries([
-                    ["confirmed", "A provisional entry, {{entry.name}}, was created unverified; you confirmed it for the item master. Tonight's units stayed at the manual station."],
+                    ["confirmed", "A provisional entry, {{entry.name}}, was created unverified; you confirmed it for the world model and the item master. Tonight's units stayed at the manual station."],
                     ["rejected", "A provisional entry, {{entry.name}}, was created unverified; you rejected it. The barcode stays unknown and its units stay set aside for a person."]
                   ].map(([id, decision]) => [id, md(
                     "## Ruhrkorb DC Unna, night shift: an unknown item on the pallet",
-                    "**What happened.** At {{esc.at}} the camera read barcode {{esc.1.barcode}} on {{esc.1.units}} units; the item master does not know it. A rule in code sent every unit to a person: the robot never picks an item it does not know.",
+                    "**What happened.** At {{esc.at}} the camera read barcode {{esc.1.barcode}} on {{esc.1.units}} units; the world model does not know it. A rule in code sent every unit to a person: the robot never picks an item it does not know.",
                     "**Lookup.** {{lookup.Sentence}}. One lookup of at most three per run. Product data: Open Food Facts, ODbL.",
                     `**Decision.** ${decision}`,
                     TONIGHT,

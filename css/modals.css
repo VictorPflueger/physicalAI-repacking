@@ -128,10 +128,11 @@
 .intro-modal .modal-head p { font-size: var(--fs-lg); line-height: 1.4; color: var(--text); max-width: 64ch; }
 .intro-modal .modal-body h3 { margin: 6px 0 14px; font-family: var(--font-figures); font-size: 1.25rem; color: var(--text); }
 
-/* Five steps on one track; each number takes the colour the board uses for that moment of a run. */
+/* The world model's four steps on one track; each number takes the colour the Customer view uses for the
+   same thing. */
 .intro-steps {
   list-style: none; margin: 0 0 26px; padding: 0;
-  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;
 }
 .intro-step { position: relative; display: flex; flex-direction: column; gap: 4px; padding-top: 52px; min-width: 0; }
 .intro-step::before {
@@ -146,13 +147,12 @@
   border: 2px solid;
   font-family: var(--font-figures); font-weight: 700; font-size: 1.25rem; line-height: 1;
 }
-/* Perceive: blue, the readings and checks. Plan: ink, the agent's own work. Pick: green, picks that
-   land. Replan: amber, a night at risk. Prepare: burgundy, your decision and approval. */
-.intro-step[data-tone="perceive"] .intro-num { color: var(--info-text); border-color: var(--info-line); background: var(--info-fill); }
-.intro-step[data-tone="plan"] .intro-num { color: var(--text); border-color: var(--ink-11); background: var(--porcelain); }
-.intro-step[data-tone="pick"] .intro-num { color: var(--success-text); border-color: var(--success-line); background: var(--success-fill); }
-.intro-step[data-tone="replan"] .intro-num { color: var(--warning-text); border-color: var(--warning-line); background: var(--warning-fill); }
-.intro-step[data-tone="prepare"] .intro-num { color: var(--brand); border-color: var(--brand); background: var(--brand-soft); }
+/* Knows: ink, what the model holds. Checks: blue, the camera's and the scale's readings. Learns: slate,
+   the model taking a correction (the world model's node on the stage). Asks: burgundy, a person. */
+.intro-step[data-tone="know"] .intro-num { color: var(--text); border-color: var(--ink-11); background: var(--porcelain); }
+.intro-step[data-tone="check"] .intro-num { color: var(--info-text); border-color: var(--info-line); background: var(--info-fill); }
+.intro-step[data-tone="learn"] .intro-num { color: var(--slate-11); border-color: var(--slate-9); background: var(--slate-4); }
+.intro-step[data-tone="ask"] .intro-num { color: var(--brand); border-color: var(--brand); background: var(--brand-soft); }
 .intro-step-title { font-family: var(--font-figures); font-size: 1.2rem; font-weight: 700; color: var(--text); }
 .intro-step-text { color: var(--text-muted); line-height: 1.4; }
 

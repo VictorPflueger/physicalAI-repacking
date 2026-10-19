@@ -2,6 +2,7 @@
 
 import { DEFAULT_MODEL, STORAGE, UI } from "./config.js";
 import { DEFAULT_LEVEL } from "./autonomy.js";
+import { readView, writeView } from "./view.js";
 
 const listeners = new Set();
 
@@ -17,6 +18,7 @@ const state = {
   keyPresent: false,
   simSource: null,         // "authored" | "recorded" while a simulation runs
   drawerOpen: false,
+  view: readView(),        // "customer" (the default) | "full" (js/view.js), remembered in this browser
   assumptions: readJson(STORAGE.assumptions) || {} // changed engine inputs { id: value } (js/engine.js)
 };
 
@@ -37,6 +39,7 @@ export function setState(patch) {
   if (patch.scenarioId) writeSession(STORAGE.scenario, patch.scenarioId);
   if (patch.autonomy && ["advise", "approve"].includes(patch.autonomy)) writeSession(STORAGE.autonomy, patch.autonomy);
   if (patch.assumptions) writeSession(STORAGE.assumptions, JSON.stringify(patch.assumptions));
+  if (patch.view) writeView(patch.view);
   if (changed) for (const fn of listeners) fn(getState());
 }
 

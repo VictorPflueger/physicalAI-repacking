@@ -18,11 +18,19 @@
 // projected, the stores at risk beneath) and the KPI board's Tonight row (trucks gone so far, orders
 // still open). The night runs on Playwright's clock, paused after boot: it moves only when the suite
 // advances it, so it stands still while a state is measured and every size meets the same moments.
-// Usage: node tests/layout.mjs [case…]   (cases: the sizes, for example 1280x720)
+// The Customer view (TECH_NOTES D62) at the same five sizes, in seven states of scenario 3 (idle; idle
+// with the KPI board open; the jar at 22:17; the unknown item waiting for the person; the entry confirmed;
+// night over; Your DC, which opens the KPI board on a short window): no horizontal overflow, the header as
+// above, the world model fitting its panel with its parts, stations and items whole and clear of each
+// other (with the drawer open: strip or flow, tonight's pallet stepped aside), its Synthetic label and
+// Simulated cell tag in view, What it is worth fitting beside it (with the drawer open: fitting or
+// stepped aside) and the console at least 200 px high, Confirm entry and Reject in view, Your DC's
+// inputs whole in view and at least 40 px, every target at least 40 px.
+// Usage: node tests/layout.mjs [case…]   (cases: the sizes, for example 1280x720, or customer-1280x720)
 import path from "node:path";
 import { writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import { APP_ROOT, outDir, ONLY, launchBrowser, serveStatic, NETWORK_NOISE, SKIP_INTRO, VIEWPORTS } from "./lib/harness.mjs";
+import { APP_ROOT, outDir, ONLY, launchBrowser, serveStatic, NETWORK_NOISE, SKIP_INTRO, M4_SCREEN, VIEWPORTS } from "./lib/harness.mjs";
 
 // Scenario 1's scripted replay in Node (option B approved at 02:00), for the store-order figures at the
 // 02:00 pause: the night as played up to the decision is the same on every path (the agent closes
@@ -182,6 +190,7 @@ for (const [w, hgt] of VIEWPORTS) {
   if (ONLY.length && !ONLY.includes(name)) continue;
   const context = await browser.newContext({ viewport: { width: w, height: hgt } });
   await context.addInitScript(SKIP_INTRO);
+  await context.addInitScript(M4_SCREEN);
   const external = [];
   await context.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => { external.push(route.request().url()); return route.abort("blockedbyclient"); });
   const page = await context.newPage();
@@ -271,6 +280,166 @@ for (const [w, hgt] of VIEWPORTS) {
   if (errors.length) extra.push(`page errors: ${errors.join(" | ")}`);
   if (external.length) extra.push(`external requests: ${external.join(", ")}`);
   results.push({ name: `${name}: eight states, store orders at 02:00 as the replay's night, no error, no external request`, ok: extra.length === 0, problems: extra, figures, expected: AT_0200 });
+  await context.close();
+}
+
+// ---- the Customer view (TECH_NOTES D62): scenario 3, the five-minute run -------------------------------------
+/** What the Customer view's layout must hold, measured in the page. */
+const measureCustomer = () => {
+  const r = (el) => el.getBoundingClientRect();
+  const overlap = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+  const inside = (a, b) => a.left >= b.left - 1 && a.right <= b.right + 1 && a.top >= b.top - 1 && a.bottom <= b.bottom + 1;
+  const shown = (e) => e && e.offsetParent !== null && getComputedStyle(e).visibility !== "hidden" && r(e).width > 0;
+  const controls = [...document.getElementById("controls").children].filter((e) => shown(e) && !e.classList.contains("spacer"));
+  const first = r(controls[0]);
+  const oneRow = controls.every((e) => { const b = r(e); return b.top < first.bottom && b.bottom > first.top; });
+  const badges = [...document.querySelectorAll(".header-badges > *")].filter(shown).map(r);
+  const tiles = [...document.querySelectorAll(".kpi")].map((t) => {
+    const b = r(t);
+    const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+    const v = t.querySelector(".kpi-value");
+    return { id: t.id, ok: b.top >= 0 && b.bottom <= innerHeight && b.left >= 0 && b.right <= innerWidth && t.contains(hit) && v.scrollWidth <= v.clientWidth + 1 };
+  });
+  const stage = document.querySelector(".world-stage");
+  const inner = document.querySelector(".world-stage-inner");
+  const stageBox = r(stage);
+  const parts = [".ws-head", ".ws-flow", ".ws-moment", ".ws-pallet", ".ws-learned"].map((s) => document.querySelector(s)).filter(shown);
+  const partBoxes = parts.map(r);
+  const nodes = [...document.querySelectorAll(".ws-node")].filter(shown).map(r);
+  const items = [...document.querySelectorAll(".ws-item")].map((e) => ({ key: e.dataset.key, box: r(e), shown: shown(e) }));
+  const worth = document.querySelector(".worth-panel");
+  const cons = document.querySelector(".console-panel");
+  const worthShown = shown(worth);
+  const drawerOpen = document.getElementById("drawer")?.dataset.open === "true";
+  // The workspace's parts stay inside it: nothing spills over the drawer's tabs below it.
+  const ws = r(document.querySelector(".workspace"));
+  const drawerTop = r(document.getElementById("drawer")).top;
+  const mainInside = [stage, worth, cons].filter(shown).every((e) => inside(r(e), ws)) && ws.bottom <= drawerTop + 1;
+  const actions = [...document.querySelectorAll(".wsm-actions .btn")].filter(shown).map(r);
+  // Your DC's inputs: in What it is worth, or on the KPI board in the drawer; whole inside the box that
+  // shows them (the panel, or the drawer's scrolling body) and inside the window.
+  const dcInputs = [...document.querySelectorAll(".wp-dc-input, .kb-dc-input")].filter((e) => shown(e) && (drawerOpen || !e.closest("#drawer"))).map((e) => {
+    const b = r(e);
+    const box = r(e.closest(".drawer-body") || worth);
+    return { h: Math.round(b.height), inView: b.top >= 0 && b.bottom <= innerHeight && inside(b, box) };
+  });
+  const targets = [...document.querySelectorAll("button, a[href], input")].filter((e) => shown(e) && !e.closest(".skip-link"))
+    .filter((e) => { const b = r(e); return b.bottom > 0 && b.top < innerHeight; })
+    .filter((e) => { const b = r(e); return b.width < 40 || b.height < 40; })
+    .map((e) => `${(e.textContent.trim() || e.getAttribute("aria-label") || e.id || "").slice(0, 24)} ${Math.round(r(e).width)}×${Math.round(r(e).height)}`);
+  return {
+    view: document.body.dataset.view, size: inner?.dataset.size, worthSize: worth?.dataset.size || "full", viewH: innerHeight,
+    hOverflow: document.documentElement.scrollWidth > innerWidth,
+    oneRow, badgesClear: badges.every((a, i) => badges.every((b, j) => i === j || !overlap(a, b))),
+    headerHeight: Math.round(r(document.querySelector(".app-header")).height),
+    tilesOk: tiles.length === 4 && tiles.every((x) => x.ok),
+    stageFits: inner.scrollHeight <= inner.clientHeight + 1,
+    partsInside: partBoxes.every((b) => inside(b, stageBox)), partsClear: partBoxes.every((a, i) => partBoxes.every((b, j) => i === j || !overlap(a, b))),
+    nodes: nodes.length, nodesClear: nodes.every((a, i) => nodes.every((b, j) => i === j || !overlap(a, b))) && nodes.every((b) => inside(b, stageBox)),
+    items: items.length, itemsWhole: items.every((x) => x.shown && inside(x.box, stageBox)), itemsClear: items.every((a, i) => items.every((b, j) => i === j || !overlap(a.box, b.box))),
+    palletShown: shown(document.querySelector(".ws-pallet")), learnedShown: shown(document.querySelector(".ws-learned")), drawerOpen,
+    mainInside, workspaceH: Math.round(ws.height),
+    synthetic: [...stage.querySelectorAll('.chip[data-tone="synthetic"]')].some((c) => shown(c) && inside(r(c), stageBox)),
+    tag: shown(stage.querySelector(".sim-cell-tag")) && inside(r(stage.querySelector(".sim-cell-tag")), stageBox),
+    worthShown, worthFits: worthShown && worth.scrollHeight <= worth.clientHeight + 1,
+    worthBesideStage: !overlap(r(cons), stageBox) && (!worthShown || (!overlap(r(worth), stageBox) && !overlap(r(worth), r(cons)))),
+    consoleH: Math.round(r(cons).height),
+    actions: actions.length, actionsInView: actions.every((b) => inside(b, stageBox) && b.bottom <= innerHeight),
+    dcInputs,
+    smallTargets: targets
+  };
+};
+
+function verdictCustomer(m, state) {
+  const bad = (list) => list.length ? `: ${list.join(", ")}` : "";
+  const itemsWanted = state.startsWith("idle") || state.startsWith("22:17") ? 24 : 25;
+  // The drawer open over the stage (the KPI board, or Your DC on a short window): the stage keeps the
+  // item's way and the moment (strip or flow, like the cell board's strip), tonight's pallet steps aside,
+  // and What it is worth either fits or steps aside for the KPI board, which carries its figures.
+  const open = m.drawerOpen;
+  return [
+    [m.view === "customer" && m.hOverflow === false && m.oneRow, `the Customer view, no horizontal overflow, a one-row control bar (${m.view})`],
+    [m.badgesClear && m.headerHeight <= Math.round(0.14 * m.viewH) && m.tilesOk, `header badges clear, header ${m.headerHeight} px of ${m.viewH}, four tiles in view and whole`],
+    [m.stageFits && m.partsInside && m.partsClear, `the world model fits its panel, its parts inside and clear of each other (size ${m.size})`],
+    [m.nodes === 5 && m.nodesClear, `five stations of the item's way, clear of each other (${m.nodes})`],
+    open
+      ? [["strip", "flow"].includes(m.size) && !m.palletShown, `the drawer open: the stage at strip or flow, tonight's pallet stepped aside (${m.size}, pallet ${m.palletShown ? "shown" : "aside"})`]
+      : [m.palletShown && m.items === itemsWanted && m.itemsWhole && m.itemsClear, `${itemsWanted} items of tonight's pallet, each whole and clear of the others (${m.items})`],
+    [m.synthetic && m.tag, "the Synthetic label and the Simulated cell tag in view"],
+    [m.mainInside, `the world model, What it is worth and the console inside the workspace, clear of the drawer's tabs (workspace ${m.workspaceH} px)`],
+    open
+      ? [(m.worthFits || !m.worthShown) && m.worthBesideStage && m.consoleH >= Math.min(200, m.workspaceH - 1), `the drawer open: What it is worth fits or steps aside (${m.worthSize}), the console at least 200 px or the whole column (${m.consoleH} of ${m.workspaceH})`]
+      : [m.worthFits && m.worthBesideStage && m.consoleH >= 200, `What it is worth fits (${m.worthSize}), beside the world model, the console at least 200 px (${m.consoleH})`],
+    ...(state.includes("waiting for you") ? [[m.actions === 2 && m.actionsInView, `Confirm entry and Reject in view in the world model (${m.actions})`]] : []),
+    ...(state.includes("Your DC") ? [[m.dcInputs.length === 2 && m.dcInputs.every((x) => x.h >= 40 && x.inView), `Your DC's two inputs in view, at least 40 px high (${JSON.stringify(m.dcInputs)})`]] : []),
+    [(m.smallTargets || []).length === 0, `targets at least 40 px${bad(m.smallTargets || [])}`]
+  ];
+}
+
+for (const [w, hgt] of VIEWPORTS) {
+  const name = `${w}x${hgt}`;
+  if (ONLY.length && !ONLY.includes(name) && !ONLY.includes(`customer-${name}`)) continue;
+  const context = await browser.newContext({ viewport: { width: w, height: hgt } });
+  await context.addInitScript(SKIP_INTRO);
+  const external = [];
+  await context.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => { external.push(route.request().url()); return route.abort("blockedbyclient"); });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e.message || e)));
+  page.on("console", (m) => { if (m.type() === "error" && !NETWORK_NOISE.test(m.text())) errors.push(m.text()); });
+  const states = {};
+  let failed = null;
+  const settle = () => page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => null))));
+  const snap = async (state, file, advance = 700) => {
+    await page.clock.runFor(advance);
+    await settle();
+    await page.clock.runFor(50);
+    await settle();
+    states[state] = await page.evaluate(measureCustomer);
+    if (w === 1920 || w === 1280) await page.screenshot({ path: path.join(OUT, `customer-${file}-${name}.png`) });
+  };
+  try {
+    await page.clock.install();
+    await page.goto(BASE);
+    await page.waitForSelector('html[data-boot="ready"]', { timeout: 20000 });
+    await page.clock.pauseAt(Date.now() + 500);
+    await page.clock.runFor(1000);
+    await snap("idle", "01-idle");
+    await page.click("#tab-kpiboard");
+    await snap("idle, the KPI board open", "01b-idle-drawer", 400);
+    await page.click(".drawer-end .btn");
+    await page.clock.runFor(600);
+    await page.click('button[aria-label="Night speed ×1"]');
+    await page.click("#btn-start");
+    await page.waitForSelector(".mode-card");
+    await page.click('.mode-card[data-mode="simulation"] .mode-cta button');
+    await page.$$eval(".banner", (els) => els.forEach((e) => e.remove()));
+    if (!await until(page, () => document.querySelector(".ws-moment")?.dataset.kind === "learned")) throw new Error("the night did not reach the jar");
+    await snap("22:17, the model learns", "02-jar", 100);
+    if (!await until(page, () => !!document.querySelector("#ws-confirm"), 240000)) throw new Error("the world model did not ask");
+    await snap("23:10, the unknown item waiting for you", "03-confirm", 100);
+    await page.click("#ws-confirm");
+    await snap("23:10, the entry confirmed", "04-decided", 100);
+    if (!await until(page, () => document.querySelector(".status-pill .text")?.textContent.trim() === "Done", 240000)) throw new Error("the night did not end");
+    await snap("06:00, night over", "05-end", 400);
+    // Your DC: in What it is worth, or on a short window the KPI board its button opens.
+    if (await page.isVisible("#wp-dc-N")) await page.focus("#wp-dc-N");
+    else await page.click("#wp-dc-open");
+    await snap("06:00, Your DC", "06-yourdc", 400);
+  } catch (err) {
+    failed = String(err.message).split("\n")[0];
+    await page.screenshot({ path: path.join(OUT, `customer-fail-${name}.png`) }).catch(() => {});
+  }
+  for (const [state, m] of Object.entries(states)) {
+    const problems = verdictCustomer(m, state).filter(([ok]) => !ok).map(([, msg]) => msg);
+    results.push({ name: `${name}, Customer view, ${state} (stage ${m.size}, worth ${m.worthSize})`, ok: problems.length === 0, problems, m });
+  }
+  const extra = [];
+  if (failed) extra.push(`exception: ${failed}`);
+  if (Object.keys(states).length !== 7) extra.push(`${Object.keys(states).length} of 7 states measured`);
+  if (errors.length) extra.push(`page errors: ${errors.join(" | ")}`);
+  if (external.length) extra.push(`external requests: ${external.join(", ")}`);
+  results.push({ name: `${name}: the Customer view in seven states of scenario 3, no error, no external request`, ok: extra.length === 0, problems: extra });
   await context.close();
 }
 

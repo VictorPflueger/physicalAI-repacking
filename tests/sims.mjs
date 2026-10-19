@@ -23,7 +23,7 @@
 import path from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import { APP_ROOT, outDir, wanted, launchBrowser, serveStatic, NETWORK_NOISE, SKIP_INTRO } from "./lib/harness.mjs";
+import { APP_ROOT, outDir, wanted, launchBrowser, serveStatic, NETWORK_NOISE, SKIP_INTRO, M4_SCREEN } from "./lib/harness.mjs";
 import { replayScenario1, loadData } from "./lib/scenario1.mjs";
 
 const NS = await import(pathToFileURL(path.join(APP_ROOT, "js/nightsim.js")).href);
@@ -39,6 +39,7 @@ const results = [];
 if (wanted("parity")) {
   const context = await browser.newContext();
   await context.addInitScript(SKIP_INTRO);
+  await context.addInitScript(M4_SCREEN);
   const external = [];
   await context.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => { external.push(route.request().url()); return route.abort("blockedbyclient"); });
   const page = await context.newPage();
@@ -215,6 +216,7 @@ async function scenario1Case(name, plan, golden) {
   const res = node.replay.session.run;
   const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, acceptDownloads: true });
   await context.addInitScript(SKIP_INTRO);
+  await context.addInitScript(M4_SCREEN);
   const external = [];
   await context.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => { external.push(route.request().url()); return route.abort("blockedbyclient"); });
   const page = await context.newPage();
@@ -281,6 +283,7 @@ async function scenarioCase(name, id, plan, label) {
   const node = await replayScript(data.SIM_RUNS[id], { world: data.WORLD, scenario: sc, refs: data.REFERENCE_CASES[id] || {}, plan });
   const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, acceptDownloads: true });
   await context.addInitScript(SKIP_INTRO);
+  await context.addInitScript(M4_SCREEN);
   const external = [];
   await context.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => { external.push(route.request().url()); return route.abort("blockedbyclient"); });
   const page = await context.newPage();

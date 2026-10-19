@@ -41,6 +41,9 @@ import { LEVELS } from "./autonomy.js";
 import { openGateDialog, currentGate } from "./autonomy_view.js";
 import { saveRunAsSimulation } from "./recorder.js";
 import { checkScript } from "./sim_check.js";
+import { createWorldStage } from "./world_stage.js";
+import { createWorthPanel } from "./worth_panel.js";
+import { applyView } from "./view.js";
 
 /** How long the night stands still at a wake-up at ×1 in a night preview (shorter at ×2 and ×4). */
 export const WAKE_PAUSE_MS = 1200;
@@ -67,9 +70,20 @@ export function initUI() {
   const planInputs = () => (runInputs && isRunning(getState()) ? runInputs : getInputs());
 
   // ---- components ------------------------------------------------------------------------------
+  // The Customer view (the world model and What it is worth) or the Full view (the cell board): one run,
+  // two views (js/view.js, TECH_NOTES D62). The board keeps the night's state for both.
+  applyView(getState().view);
   const badge = document.getElementById("mode-badge");
-  const cell = createCellBoard(document.getElementById("cell"), { scenarios, getParams: nightParams, nightDate });
+  let stage = null;
+  let worthPanel = null;
+  const cell = createCellBoard(document.getElementById("cell"), { scenarios, getParams: nightParams, nightDate, onRender: () => { stage?.update(); worthPanel?.update(); } });
   const orderName = (id) => cell.state()?.orders.get(id)?.name || id;
+  /** The person's answer to a confirmation request, from the console's card or the world model's focus. */
+  const confirmDecision = (d) => {
+    if (!isRunning(getState())) return notice("warn", "This run has ended. Start a new run to confirm.");
+    bus.emit("confirmation_decision", { ...d, by: "user" });
+  };
+  stage = createWorldStage(document.getElementById("stage"), { getState: () => cell.state(), onConfirm: confirmDecision });
   const consoleUI = createConsole(document.getElementById("console"), {
     getInputs: () => runInputs || getInputs(),
     onOpenOptions: () => drawer.show("options"),
@@ -81,10 +95,7 @@ export function initUI() {
       notice(r.ok ? "info" : "warn", r.message);
       return r;
     },
-    onConfirm: (d) => {
-      if (!isRunning(getState())) return notice("warn", "This run has ended. Start a new run to confirm.");
-      bus.emit("confirmation_decision", { ...d, by: "user" });
-    }
+    onConfirm: confirmDecision
   });
   const drawer = createDrawer(document.getElementById("drawer"), {
     onToggle: (open) => { setState({ drawerOpen: open }); setTimeout(() => cell.invalidate(), 260); }
@@ -117,6 +128,13 @@ export function initUI() {
     setOverrides: (next) => applyOverrides(next),
     isRunning: () => isRunning(getState())
   });
+  worthPanel = createWorthPanel(document.getElementById("worth"), {
+    getInputs: planInputs, getRunInputs: () => runInputs, getNightState: () => cell.state(),
+    getOverrides: () => getState().assumptions,
+    setOverrides: (next) => applyOverrides(next),
+    isRunning: () => isRunning(getState()),
+    onOpenBusinessCase: () => drawer.show("kpiboard")
+  });
   /**
    * The presenter's inputs changed (the Assumptions tab, or Your DC on the KPI board): every view follows.
    * The board shows the next night's preview only while no run is on screen: a finished night stays as
@@ -126,6 +144,7 @@ export function initUI() {
     setState({ assumptions: { ...next } });
     kpis.refresh();
     kpiBoard.render();
+    worthPanel.refresh();
     assumptions.render();
     if (getState().runState === "idle") cell.focusScenario(getState().scenarioId);
   }
@@ -150,6 +169,9 @@ export function initUI() {
     }
   });
 
+  // The view switch's slot in the header, beside the mode badge, in both views (js/controls.js).
+  const viewSlot = h("span", { class: "header-view ctl-view" });
+  document.getElementById("mode-badge")?.after(viewSlot);
   const controls = createControls(document.getElementById("controls"), scenarios, {
     onStart: () => start(),
     onSelectScenario: (id) => {
@@ -162,8 +184,18 @@ export function initUI() {
     onShowGate: () => openGateDialog(),
     onAbort: () => abort("Stopped by the user."),
     onReset: () => resetWorkspace(),
+    onView: (v) => setView(v),
     onDiagnostics: () => openDiagnostics()
-  });
+  }, { viewRoot: viewSlot });
+
+  /** Switches the workspace's view: the run goes on as it is; both views draw from the same state. */
+  function setView(v) {
+    if (v === getState().view) return;
+    setState({ view: v });
+    applyView(v);
+    // The view that appears measures its size again (it was hidden while the other one drew).
+    setTimeout(() => { cell.invalidate(); stage.invalidate(); worthPanel.refresh(); }, 0);
+  }
 
   // ---- intro window: "How it works" in the header, and once by itself on a first visit -----------
   const aboutBtn = h("button", {
@@ -346,6 +378,8 @@ export function initUI() {
     auditPanel.refresh();
     kpis.reset();
     kpiBoard.reset();
+    stage.reset();
+    worthPanel.reset();
   }
 
   function resetWorkspace({ keepMode = false } = {}) {
@@ -366,7 +400,7 @@ export function initUI() {
     if (!introSeen() && !document.querySelector(".modal-backdrop")) showIntro();
   }
 
-  return { cell, start, resetWorkspace, showIntro, introOnFirstVisit, player };
+  return { cell, stage, worthPanel, start, resetWorkspace, showIntro, introOnFirstVisit, player, setView };
 }
 
 /** "Night of Wed 23 to Thu 24 Dec 2026" for a scenario set on a particular night (scenario 5), else null. */

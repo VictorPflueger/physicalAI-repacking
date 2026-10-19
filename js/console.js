@@ -108,7 +108,8 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
   const noteIntent = () => { userIntentUntil = performance.now() + 900; };
   for (const type of ["wheel", "touchmove", "pointerdown", "keydown"]) log.addEventListener(type, noteIntent, { passive: true });
   const atBottom = () => log.scrollHeight - log.scrollTop - log.clientHeight < 80;
-  const pin = () => { if (follow) log.scrollTop = log.scrollHeight; };
+  // The welcome text before a run reads from its top; only a run's entries follow the newest one.
+  const pin = () => { if (follow && entries > 0) log.scrollTop = log.scrollHeight; };
 
   log.addEventListener("scroll", () => {
     if (atBottom()) {
@@ -134,6 +135,7 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
       h("p", {}, "When it needs you, the step turns burgundy. Nothing is sent without your approval. You choose between a free simulation and the live agent on your own API key."),
       h("p", {}, "The console shows the agent's words and the night's moments; Details adds every tool call.")));
     count.textContent = "";
+    log.scrollTop = 0;
   }
 
   function add(el) {
