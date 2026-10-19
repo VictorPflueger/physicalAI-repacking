@@ -97,7 +97,7 @@ On a first visit, the **How it works** window opens: what Repack Pilot does and 
 ## Reading the screen
 
 - **Two views of one run.** The switch in the header, beside the mode badge, changes between **Customer**, the default, and **Full**; switching never touches the night. The Customer view shows the robot's world model with What it is worth beside it and the console below; the Full view shows the cell board with every store lane, the model choice and the autonomy dial.
-- **"You are interacting with an AI system"** stays in the header at all times.
+- **"You are interacting with an AI system"** stays in the header at all times, and every dialog repeats it in its footer while its backdrop blurs the header.
 - **Burgundy is you.** Primary and Approve buttons are burgundy, and so is the step of the progress rail that waits for you.
 - **Violet is the AI.** The options, drafts and summary the agent wrote carry an **AI** label with a short explanation.
 - **Red, amber and green are the store orders against their trucks:** late, at risk, on time. A word or an icon always says the same thing.

@@ -59,7 +59,7 @@ function storeOrdersAt(m) {
   return {
     clock: `${NS.clockOf(t)} · paused`,
     tile: `${visible.length - late - risk} of ${visible.length}`,
-    sub: late ? `${late} late${risk ? ` · ${risk} at risk` : ""}` : risk ? `projected · ${risk} at risk` : "projected · on its trucks",
+    sub: late ? `${late} late${risk ? ` · ${risk} at risk` : ""}` : risk ? `projected · ${risk} at risk` : "projected · on their trucks",
     row: gone.length ? `${onTruck} of ${gone.length} so far · ${open} still open` : `no truck yet · ${open} still open`
   };
 }
@@ -327,8 +327,18 @@ const measureCustomer = () => {
     .filter((e) => { const b = r(e); return b.bottom > 0 && b.top < innerHeight; })
     .filter((e) => { const b = r(e); return b.width < 40 || b.height < 40; })
     .map((e) => `${(e.textContent.trim() || e.getAttribute("aria-label") || e.id || "").slice(0, 24)} ${Math.round(r(e).width)}×${Math.round(r(e).height)}`);
+  // Text cut off with an ellipsis in the world model or What it is worth: an item's name, a station's line,
+  // the moment's label, a line of what the model learned, a figure (the header's tiles are checked above).
+  const cut = [...document.querySelectorAll(".world-stage *, .worth-panel *")].filter((e) => {
+    if (!shown(e) || e.closest(".visually-hidden") || !e.textContent.trim()) return false;
+    const cs = getComputedStyle(e);
+    return (cs.textOverflow === "ellipsis" || (cs.overflowX === "hidden" && cs.whiteSpace === "nowrap")) && e.scrollWidth > e.clientWidth + 1;
+  }).map((e) => `"${e.innerText.trim().slice(0, 32)}" ${e.scrollWidth}>${e.clientWidth}`);
+  // The console's idle hint says "The five steps above" only where the progress rail is shown.
+  const railRef = document.querySelector(".idle-rail-ref");
   return {
-    view: document.body.dataset.view, size: inner?.dataset.size, worthSize: worth?.dataset.size || "full", viewH: innerHeight,
+    view: document.body.dataset.view, size: inner?.dataset.size, worthSize: worth?.dataset.size || "full", viewH: innerHeight, cut,
+    railHint: !railRef || Boolean(shown(document.querySelector("#console .rail"))) === Boolean(shown(railRef)),
     hOverflow: document.documentElement.scrollWidth > innerWidth,
     oneRow, badgesClear: badges.every((a, i) => badges.every((b, j) => i === j || !overlap(a, b))),
     headerHeight: Math.round(r(document.querySelector(".app-header")).height),
@@ -362,6 +372,7 @@ function verdictCustomer(m, state) {
     [m.badgesClear && m.headerHeight <= Math.round(0.14 * m.viewH) && m.tilesOk, `header badges clear, header ${m.headerHeight} px of ${m.viewH}, four tiles in view and whole`],
     [m.stageFits && m.partsInside && m.partsClear, `the world model fits its panel, its parts inside and clear of each other (size ${m.size})`],
     [m.nodes === 5 && m.nodesClear, `five stations of the item's way, clear of each other (${m.nodes})`],
+    [m.cut.length === 0, `no name, line or figure cut off in the world model or What it is worth${bad(m.cut)}`],
     open
       ? [["strip", "flow"].includes(m.size) && !m.palletShown, `the drawer open: the stage at strip or flow, tonight's pallet stepped aside (${m.size}, pallet ${m.palletShown ? "shown" : "aside"})`]
       : [m.palletShown && m.items === itemsWanted && m.itemsWhole && m.itemsClear, `${itemsWanted} items of tonight's pallet, each whole and clear of the others (${m.items})`],
@@ -371,6 +382,7 @@ function verdictCustomer(m, state) {
       ? [(m.worthFits || !m.worthShown) && m.worthBesideStage && m.consoleH >= Math.min(200, m.workspaceH - 1), `the drawer open: What it is worth fits or steps aside (${m.worthSize}), the console at least 200 px or the whole column (${m.consoleH} of ${m.workspaceH})`]
       : [m.worthFits && m.worthBesideStage && m.consoleH >= 200, `What it is worth fits (${m.worthSize}), beside the world model, the console at least 200 px (${m.consoleH})`],
     ...(state.includes("waiting for you") ? [[m.actions === 2 && m.actionsInView, `Confirm entry and Reject in view in the world model (${m.actions})`]] : []),
+    ...(state.startsWith("idle") ? [[m.railHint, "the console's idle hint names the progress rail only where the rail is shown"]] : []),
     ...(state.includes("Your DC") ? [[m.dcInputs.length === 2 && m.dcInputs.every((x) => x.h >= 40 && x.inView), `Your DC's two inputs in view, at least 40 px high (${JSON.stringify(m.dcInputs)})`]] : []),
     [(m.smallTargets || []).length === 0, `targets at least 40 px${bad(m.smallTargets || [])}`]
   ];

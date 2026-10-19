@@ -37,8 +37,9 @@ export async function replayScenario3(plan = { option: null, confirm: "confirm" 
   const fig = NS.tonightFigures(night, run);
   const v = E.defaults();
   const eur = E.tonightEuros(v, fig);
-  const byHand = E.night(v, fig.units_repacked);
   const setAside = events.filter((e) => e.type === "manual_pick" && e.payload.set_aside).length;
+  // The same units by hand, the set-aside ones included (TECH_NOTES D69).
+  const byHand = E.night(v, fig.units_repacked + setAside);
   return {
     data, scenario: sc, replay: r, run, hash: run.hash, calls: r.calls, events, info, robot, hand,
     correction, rehearsal, e1, fig, setAside,

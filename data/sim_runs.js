@@ -276,7 +276,7 @@ window.SIM_RUNS = (() => {
                   reason: "The camera read a barcode the world model does not know, and {{lookup.sentence}}. The entry stays unverified until you decide; tonight its units stay with a person either way.",
                   entry_barcode: "{{entry.barcode}}"
                 },
-                confirmed: [{ say: "You confirmed the entry: the world model and the item master know the item from now on, as {{entry.name}}. Tonight's units of the item stay at the manual station." }],
+                confirmed: [{ say: "You confirmed the entry: the world model and the item master know barcode {{entry.barcode}} from now on, as a provisional item without weight or grip. Its units tonight stay at the manual station; all of them reached the camera before you decided." }],
                 rejected: [{ say: "You rejected the entry: the barcode stays unknown, and its units stay set aside for a person." }]
               }
             },
@@ -294,8 +294,8 @@ window.SIM_RUNS = (() => {
                 outcome: "escalation_only",
                 markdown: {
                   $by_decision: Object.fromEntries([
-                    ["confirmed", "A provisional entry, {{entry.name}}, was created unverified; you confirmed it for the world model and the item master. Tonight's units stayed at the manual station."],
-                    ["rejected", "A provisional entry, {{entry.name}}, was created unverified; you rejected it. The barcode stays unknown and its units stay set aside for a person."]
+                    ["confirmed", "A provisional entry for barcode {{entry.barcode}} was created unverified, without weight or grip; you confirmed it for the world model and the item master. Tonight's units stayed at the manual station."],
+                    ["rejected", "A provisional entry for barcode {{entry.barcode}} was created unverified, without weight or grip; you rejected it. The barcode stays unknown and its units stay set aside for a person."]
                   ].map(([id, decision]) => [id, md(
                     "## Ruhrkorb DC Unna, night shift: an unknown item on the pallet",
                     "**What happened.** At {{esc.at}} the camera read barcode {{esc.1.barcode}} on {{esc.1.units}} units; the world model does not know it. A rule in code sent every unit to a person: the robot never picks an item it does not know.",

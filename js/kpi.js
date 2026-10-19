@@ -72,10 +72,10 @@ export function createKpis(container, { getInputs, getNightState = () => null, g
     const risk = states.filter((s) => s === "at-risk").length;
     const ok = list.length - late - risk;
     const value = `${int(ok)} of ${int(list.length)}`;
-    if (ended) set(ontime, value, late ? "late" : "on-time", late ? `tonight · ${int(late)} late` : "tonight · every truck in time");
+    if (ended) set(ontime, value, late ? "late" : "on-time", late ? `tonight · ${int(late)} late` : "tonight · every truck on time");
     else if (late) set(ontime, value, "late", `${int(late)} late${risk ? ` · ${int(risk)} at risk` : ""}`);
     else if (risk) set(ontime, value, "at-risk", `projected · ${int(risk)} at risk`);
-    else set(ontime, value, "on-time", "projected · on its trucks");
+    else set(ontime, value, "on-time", "projected · on their trucks");
   }
 
   /** Why the night stands still: the person's step while one waits, else the agent's turn. */

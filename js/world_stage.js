@@ -11,6 +11,8 @@
 // Every value comes from the board's state (js/cell_data.js, fed by the night's events) and from the
 // agent's own events (provisional_entry, confirmation_request, confirmation_decision), so both
 // producers draw the same view. Items go by their names: no SKU id, tool name, rule code or seed.
+// A station's two lines stay short (about 16 and 20 characters), so they fit its width at 1280 × 720;
+// the moment below says the same at length.
 //
 // The stage takes its size from its free height, like the cell board (TECH_NOTES D19): "full" with the
 // lede and two lines per node, "compact" and "short" with less, stepping down while its content does not
@@ -38,6 +40,18 @@ export function grams(g) {
 
 /** The item's name up to its first comma: "Apricot jam 200 g, glass jar" → "Apricot jam 200 g". */
 const shortName = (name) => String(name || "").split(",")[0];
+
+/**
+ * An item's name in two parts, so a tile can drop the second below the stage's full size and the camera's
+ * line always does: "Apricot jam" and " 200 g", "Barcode" and " 4037848020859". A multipack keeps its
+ * whole name ("Still water 6 × 1.5 l"), so it never reads like the single bottle.
+ */
+function nameParts(name) {
+  const b = /^(Barcode)(\s+\d+)$/.exec(name);
+  if (b) return [b[1], b[2]];
+  const q = /^(.+?)(\s+\d[\d.,]*\s?(?:g|kg|l|ml))$/.exec(name);
+  return q && !/×$/.test(q[1].trim()) ? [q[1], q[2]] : [name, ""];
+}
 
 const FRAGILITY = { low: "sturdy", medium: "handle with care", high: "fragile", "very high": "very fragile" };
 
@@ -209,9 +223,14 @@ export function createWorldStage(root, { getState = () => null, onConfirm = () =
   }
 
   // ---- the way of one item -------------------------------------------------------------------------------
+  /**
+   * l1 is a text, or { name } for an item's name, which the camera's line shows without its pack size
+   * ("Chopped tomatoes"): its tile and the moment name the item in full.
+   */
   function setNode(id, l1, l2, tone = "") {
     const n = nodeEls.get(id);
-    if (n.l1.textContent !== l1) n.l1.textContent = l1;
+    const text = l1 && typeof l1 === "object" ? nameParts(l1.name || "")[0] : l1;
+    if (n.l1.textContent !== text) n.l1.textContent = text;
     if (n.l2.textContent !== l2) n.l2.textContent = l2;
     if (n.el.dataset.tone !== tone) n.el.dataset.tone = tone;
   }
@@ -222,12 +241,12 @@ export function createWorldStage(root, { getState = () => null, onConfirm = () =
 
   function people(st, tone = "") {
     if (!running && !ended && st.t === 0) {
-      setNode("people", `${int(st.info.totals.manual_units)} units by hand`, "what the robot may not grip");
+      setNode("people", `${int(st.info.totals.manual_units)} units by hand`, "not for the robot");
       return;
     }
     const aside = st.manual.set_aside;
     const unsure = unsureCount(st);
-    setNode("people", `${int(byHand(st))} units by hand`, aside ? `${int(aside)} unknown, set aside` : unsure ? `${int(unsure)} unsure grasps handed over` : "the work planned for people", tone);
+    setNode("people", `${int(byHand(st))} units by hand`, aside ? `${int(aside)} unknown, set aside` : unsure ? `${int(unsure)} unsure ${unsure === 1 ? "grasp" : "grasps"}` : "as planned", tone);
   }
 
   function renderFlow(st, m) {
@@ -235,7 +254,7 @@ export function createWorldStage(root, { getState = () => null, onConfirm = () =
     if (m.kind === "idle") {
       setNode("camera", "Identifies each item", "and reads its barcode");
       setNode("model", `${int(st.info.items.length)} items`, "weight, size, fragility, grip");
-      setNode("robot", "Rehearses each grasp", "against the model, then picks");
+      setNode("robot", "Rehearses grasps", "on the model first");
       setNode("scale", "Weighs what it lifts", "against the model");
       people(st);
       return;
@@ -243,10 +262,10 @@ export function createWorldStage(root, { getState = () => null, onConfirm = () =
     if (m.kind === "learned") {
       const it = item(m.fix.sku);
       const r = st.cell.rehearsal && st.cell.rehearsal.sku === m.fix.sku ? st.cell.rehearsal : null;
-      setNode("camera", shortName(it?.name), "identified");
+      setNode("camera", { name: shortName(it?.name) }, "identified");
       setNode("model", `now ${grams(m.fix.observed_g)}`, `was ${grams(m.fix.expected_g)}, for every unit`, "check");
-      setNode("robot", r ? `rehearsed again: ${pct(r.expected_success, 0)}` : "rehearses again", "with the new weight", "check");
-      setNode("scale", grams(m.fix.observed_g), `the model expected ${grams(m.fix.expected_g)}`, "check");
+      setNode("robot", r ? `rehearsed: ${pct(r.expected_success, 0)}` : "rehearses again", "with the new weight", "check");
+      setNode("scale", grams(m.fix.observed_g), `expected ${grams(m.fix.expected_g)}`, "check");
       people(st);
       return;
     }
@@ -254,19 +273,19 @@ export function createWorldStage(root, { getState = () => null, onConfirm = () =
       const u = st.unknown;
       const e = u ? entries.get(u.barcode) : null;
       const units = m.esc?.units ?? lastE1(st)?.units ?? u?.seen ?? 0;
-      setNode("camera", "not in the model", u ? `barcode ${u.barcode}` : "an unknown barcode", "risk");
+      setNode("camera", "not in the model", "unknown barcode", "risk");
       setNode("model", e ? (e.status === "confirmed" ? "entry confirmed" : e.status === "rejected" ? "entry rejected" : "provisional entry") : "no entry",
         e ? (e.status === "unverified" ? "unverified: you decide" : "by you") : "it does not know the item", e && e.status !== "unverified" ? "person" : "risk");
-      setNode("robot", "does not pick it", "never an item it does not know");
+      setNode("robot", "does not pick it", "never unknown items");
       setNode("scale", "not weighed", "");
       setNode("people", `${int(units)} units to a person`, request && !request.decided ? "you confirm the entry" : "by a rule in code", "person");
       return;
     }
     if (m.kind === "unsafe") {
       const it = item(m.esc.sku);
-      setNode("camera", shortName(it?.name), "identified");
+      setNode("camera", { name: shortName(it?.name) }, "identified");
       setNode("model", FRAGILITY[it?.fragility] || "fragile", it?.grip || "");
-      setNode("robot", `grip confidence ${fixed(m.esc.grasp_confidence, 2)}`, "below 0.80: not tried", "person");
+      setNode("robot", `confidence ${fixed(m.esc.grasp_confidence, 2)}`, "below 0.80", "person");
       setNode("scale", "not weighed", "");
       people(st, "person");
       return;
@@ -274,14 +293,14 @@ export function createWorldStage(root, { getState = () => null, onConfirm = () =
     if (m.kind === "wear") {
       const rate = m.esc.rolling_success;
       journey(st, item);
-      setNode("robot", `${pct(rate, 0)} of its last 100 grasps`, "below 75 %: a person is called", "late");
+      setNode("robot", `${pct(rate, 0)} of last 100`, "below 75 %", "late");
       return;
     }
     if (m.kind === "end") {
-      setNode("camera", `${int(st.camera.detections)} items identified`, st.camera.unknown ? `${int(st.camera.unknown)} not in the model` : "all in the model");
+      setNode("camera", `${int(st.camera.detections)} units read`, st.camera.unknown ? `${int(st.camera.unknown)} not in the model` : "all in the model");
       setNode("model", `${int(st.corrections.length + entries.size)} learned tonight`, `${int(st.info.items.length)} items${entries.size ? ` and ${int(entries.size)} new` : ""}`);
       setNode("robot", `${int(st.cell.successes)} picked`, `of ${int(st.cell.attempts)} grasps`);
-      setNode("scale", `${int(st.scale.readings)} weighed`, `${int(st.corrections.length)} corrected the model`);
+      setNode("scale", `${int(st.scale.readings)} weighed`, `${int(st.corrections.length)} ${st.corrections.length === 1 ? "correction" : "corrections"}`);
       people(st);
       return;
     }
@@ -294,18 +313,18 @@ export function createWorldStage(root, { getState = () => null, onConfirm = () =
     if (!c) {
       setNode("camera", "Identifies each item", "and reads its barcode");
       setNode("model", `${int(st.info.items.length)} items`, "weight, size, fragility, grip");
-      setNode("robot", "Rehearses each grasp", "against the model, then picks");
+      setNode("robot", "Rehearses grasps", "on the model first");
       setNode("scale", "Weighs what it lifts", "against the model");
       people(st);
       return;
     }
     const it = item(c.sku);
     const conf = st.camera.recent.get(c.unit_id);
-    setNode("camera", shortName(it?.name), conf !== undefined ? `confidence ${fixed(conf, 2)}` : "identified");
+    setNode("camera", { name: shortName(it?.name) }, conf !== undefined ? `confidence ${fixed(conf, 2)}` : "identified");
     setNode("model", `expects ${grams(it?.expected_g)}`, `${it?.grip || ""}${it?.fragility ? ` · ${FRAGILITY[it.fragility] || it.fragility}` : ""}`);
     setNode("robot", `rehearsed: ${pct(c.expected_success, 0)}`, c.ok ? "picked" : "missed: to a person", c.ok ? "on-time" : "");
     const r = st.scale.last && st.scale.last.unit_id === c.unit_id ? st.scale.last : null;
-    if (r) setNode("scale", grams(r.observed_g), Math.abs(r.observed_g - r.expected_g) / r.expected_g > 0.25 ? `the model expected ${grams(r.expected_g)}` : "as the model expects", Math.abs(r.observed_g - r.expected_g) / r.expected_g > 0.25 ? "check" : "");
+    if (r) setNode("scale", grams(r.observed_g), Math.abs(r.observed_g - r.expected_g) / r.expected_g > 0.25 ? `expected ${grams(r.expected_g)}` : "as expected", Math.abs(r.observed_g - r.expected_g) / r.expected_g > 0.25 ? "check" : "");
     else setNode("scale", c.ok ? "weighing" : "not weighed", c.ok ? "" : "a person picks it");
     people(st);
   }
@@ -330,7 +349,9 @@ export function createWorldStage(root, { getState = () => null, onConfirm = () =
       const e = u ? entries.get(u.barcode) : null;
       const esc = m.esc || lastE1(st);
       const units = esc?.units ?? u?.seen ?? 0;
-      label = `Not in the model${esc?.sim_t !== undefined ? ` · ${clockOf(esc.sim_t)}` : u ? ` · ${clockOf(u.t)}` : ""}`;
+      const at = esc?.sim_t !== undefined ? ` · ${clockOf(esc.sim_t)}` : u ? ` · ${clockOf(u.t)}` : "";
+      // After the person's decision the card says what was decided.
+      label = request?.decided === "confirm" ? `Entry confirmed${at}` : request?.decided === "reject" ? `Entry rejected${at}` : `Not in the model${at}`;
       const what = `The camera read barcode ${u?.barcode || "?"}, which the model does not know. The robot never picks an unknown item: its ${int(units)} units go to a person.`;
       if (request && !request.decided) {
         text = `${what} A provisional entry waits for your decision${e?.name ? `: ${e.name}` : ""}${e && !e.name ? "; the lookup found no product" : ""}.`;
@@ -339,7 +360,7 @@ export function createWorldStage(root, { getState = () => null, onConfirm = () =
           h("button", { class: "btn btn-sm btn-reject", type: "button", id: "ws-reject", on: { click: () => decide("reject") } }, "Reject"));
       } else if (request?.decided) {
         text = request.decided === "confirm"
-          ? `You confirmed the entry for barcode ${u?.barcode || "?"}: the model knows the item from now on. Tonight's ${int(units)} units stay with a person.`
+          ? `You confirmed the provisional entry for barcode ${u?.barcode || "?"}: the model knows the barcode from now on, still without weight or grip, so tonight's ${int(units)} units stay with a person.`
           : `You rejected the entry for barcode ${u?.barcode || "?"}: the item stays unknown, and its ${int(units)} units stay with a person.`;
       } else {
         text = `${what} The agent looks the barcode up.`;
@@ -427,17 +448,22 @@ export function createWorldStage(root, { getState = () => null, onConfirm = () =
       const metaEl = h("span", { class: "wsi-meta" });
       const fill = h("span", { class: "wsi-fill" });
       const badgeEl = h("span", { class: "wsi-badge" });
-      // On a short stage the badge's one word sits beside the name, so a tile keeps one line.
+      // On a short stage the badge's one word sits beside the bar, so the name keeps the tile's width.
       const shortEl = h("span", { class: "wsi-badge-short", "aria-hidden": "true" });
       const howEl = h("span", { class: "wsi-how", "aria-hidden": "true" });
       const el = h("li", { class: "ws-item", dataset: { key } },
-        h("span", { class: "wsi-top" }, howEl, nameEl, shortEl), metaEl, h("span", { class: "wsi-bar", "aria-hidden": "true" }, fill), badgeEl);
+        h("span", { class: "wsi-top" }, howEl, nameEl), metaEl,
+        h("span", { class: "wsi-row" }, h("span", { class: "wsi-bar", "aria-hidden": "true" }, fill), shortEl), badgeEl);
       t = { el, nameEl, metaEl, fill, badgeEl, shortEl, howEl, how: null };
       tileEls.set(key, t);
       grid.append(el);
       if (running && key.startsWith("unknown:")) el.classList.add("arrived");
     }
-    if (t.nameEl.textContent !== name) t.nameEl.textContent = name;
+    if (t.name !== name) {
+      t.name = name;
+      const [main, rest] = nameParts(name);
+      t.nameEl.replaceChildren(h("span", { class: "wsi-name-main" }, main), rest ? h("span", { class: "wsi-name-rest" }, rest) : "");
+    }
     if (t.metaEl.textContent !== meta) t.metaEl.textContent = meta;
     const w = `${Math.round(share * 1000) / 10}%`;
     if (t.fill.style.width !== w) t.fill.style.width = w;

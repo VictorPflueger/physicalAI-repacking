@@ -68,7 +68,7 @@ import path from "node:path";
 import vm from "node:vm";
 import { readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import { APP_ROOT, outDir, wanted, launchBrowser, serveStatic, NETWORK_NOISE, MOCK_KEY, SKIP_INTRO, M4_SCREEN, KEYS } from "./lib/harness.mjs";
+import { APP_ROOT, outDir, wanted, launchBrowser, serveStatic, NETWORK_NOISE, MOCK_KEY, SKIP_INTRO, M4_SCREEN, KEYS, VIEWPORTS } from "./lib/harness.mjs";
 import { contrastShortfalls } from "./lib/contrast.mjs";
 
 // The night simulation, the engine and the formatting, in Node: what the screen must show.
@@ -287,6 +287,22 @@ if (wanted("intro")) {
     await page.waitForTimeout(200);
     checks.focus = await page.evaluate(() => document.activeElement?.textContent?.trim());
     await shot(page, "02-intro.png");
+    // The window at the five sizes: no scrolling in its body, What is real inside it (css/modals.css closes
+    // it up on windows up to 900 px high).
+    const vp = page.viewportSize();
+    checks.sizes = [];
+    for (const [w, hgt] of VIEWPORTS) {
+      await page.setViewportSize({ width: w, height: hgt });
+      await page.waitForTimeout(150);
+      checks.sizes.push(await page.evaluate((size) => {
+        const body = document.querySelector(".intro-modal .modal-body");
+        const box = body.getBoundingClientRect();
+        const real = document.querySelector(".intro-real")?.getBoundingClientRect();
+        const win = document.querySelector(".intro-modal").getBoundingClientRect();
+        return { size, scroll: body.scrollHeight, client: body.clientHeight, ok: body.scrollHeight <= body.clientHeight + 1 && !!real && real.bottom <= box.bottom + 1 && win.top >= 0 && win.bottom <= innerHeight };
+      }, `${w}x${hgt}`));
+    }
+    await page.setViewportSize(vp);
     await page.click('.intro-modal .modal-foot button:has-text("Close")');
     await page.waitForSelector(".intro-modal", { state: "detached", timeout: 3000 });
     checks.flag = await page.evaluate((k) => localStorage.getItem(k), KEYS.introSeen);
@@ -319,6 +335,7 @@ if (wanted("intro")) {
     // About a minute to read: 238 words a minute is the average adult reading rate (TECH_NOTES D50).
     [checks.words <= 238, `the intro reads in about a minute (${checks.words} words of at most 238)`],
     [checks.fits, "the intro fits the screen"],
+    [checks.sizes?.length === VIEWPORTS.length && checks.sizes.every((x) => x.ok), `the intro fits without scrolling at the five sizes, What is real in view (${(checks.sizes || []).map((x) => `${x.size} ${x.scroll}/${x.client}`).join(", ")})`],
     [checks.focus === "Start agent", "the main button has focus"],
     [checks.flag === "1" && checks.reopenedOnReload === false, "once closed, it does not open again on reload"],
     [checks.buttonLabel === "How it works" && checks.focusBack === "btn-about", "How it works reopens it; Escape returns the focus"],
@@ -1078,13 +1095,13 @@ if (wanted("worldnight")) {
   await finish("worldnight: scenario 3 in the Customer view: the model learns, asks and pays off", t, checks, [
     [checks.jar?.label === `The model learned · ${NS.clockOf(sc3.correction?.at)}` && checks.jar?.text === `${jarItem?.name} weighs ${F.int(sc3.correction?.new)} g on the scale, not ${F.int(sc3.correction?.old)} g as in the master data. The model now holds ${F.int(sc3.correction?.new)} g for every unit of this item, and the next one is rehearsed with it: ${pct0(sc3.rehearsal?.expected_success)} expected success.`,
       `the jar's moment (${JSON.stringify({ label: checks.jar?.label, text: checks.jar?.text })})`],
-    [checks.jar?.nodes?.model === `now ${F.int(sc3.correction?.new)} g | was ${F.int(sc3.correction?.old)} g, for every unit` && checks.jar?.nodes?.scale === `${F.int(sc3.correction?.new)} g | the model expected ${F.int(sc3.correction?.old)} g` && checks.jar?.nodes?.robot === `rehearsed again: ${pct0(sc3.rehearsal?.expected_success)} | with the new weight`,
+    [checks.jar?.nodes?.model === `now ${F.int(sc3.correction?.new)} g | was ${F.int(sc3.correction?.old)} g, for every unit` && checks.jar?.nodes?.scale === `${F.int(sc3.correction?.new)} g | expected ${F.int(sc3.correction?.old)} g` && checks.jar?.nodes?.robot === `rehearsed: ${pct0(sc3.rehearsal?.expected_success)} | with the new weight`,
       `the jar's way through the cell (${JSON.stringify(checks.jar?.nodes)})`],
     [checks.jar?.tiles?.[sc3.correction?.sku]?.state === "corrected" && checks.jar?.tiles?.[sc3.correction?.sku]?.badge === `corrected ${NS.clockOf(sc3.correction?.at)}`
       && checks.jar?.log?.[0] === `${NS.clockOf(sc3.correction?.at)} ${jarItem?.name}: ${F.int(sc3.correction?.old)} g → ${F.int(sc3.correction?.new)} g by the scale, for every unit of the item`,
       `the jar's tile and what the model learned (${JSON.stringify(checks.jar?.tiles?.[sc3.correction?.sku])}; ${JSON.stringify(checks.jar?.log)})`],
     [checks.unknown?.kind === "unknown" && checks.unknown?.label === `Not in the model · ${NS.clockOf(sc3.e1?.sim_t ?? 0)}` && checks.unknown?.text?.startsWith(`The camera read barcode ${barcode}, which the model does not know. The robot never picks an unknown item: its ${sc3.e1?.units} units go to a person. A provisional entry waits for your decision`)
-      && checks.unknown?.nodes?.camera === `not in the model | barcode ${barcode}` && checks.unknown?.nodes?.people === `${sc3.e1?.units} units to a person | you confirm the entry` && checks.unknown?.tiles?.[`unknown:${barcode}`]?.state === "unknown" && checks.consoleCard,
+      && checks.unknown?.nodes?.camera === "not in the model | unknown barcode" && checks.unknown?.nodes?.people === `${sc3.e1?.units} units to a person | you confirm the entry` && checks.unknown?.tiles?.[`unknown:${barcode}`]?.state === "unknown" && checks.consoleCard,
       `the unknown item's moment, its tile and the console's card (${JSON.stringify({ label: checks.unknown?.label, text: checks.unknown?.text, nodes: checks.unknown?.nodes, tile: checks.unknown?.tiles?.[`unknown:${barcode}`], card: checks.consoleCard })})`],
     [checks.consoleStatus === "Confirmed" && checks.decided?.kind === "decided" && checks.decided?.tiles?.[`unknown:${barcode}`]?.state === "confirmed" && checks.decided?.tiles?.[`unknown:${barcode}`]?.badge === "confirmed by you" && JSON.stringify(checks.audit?.decisions) === JSON.stringify(["confirm"]),
       `Confirm entry in the world model decides the console's request once (${JSON.stringify({ console: checks.consoleStatus, kind: checks.decided?.kind, tile: checks.decided?.tiles?.[`unknown:${barcode}`], decisions: checks.audit?.decisions })})`],

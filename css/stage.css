@@ -135,11 +135,12 @@ body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) 
 .wsi-how { flex: none; color: var(--ink-11); line-height: 0; }
 .wsi-name { font-weight: 600; font-size: var(--fs-sm); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wsi-meta { color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.25; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wsi-bar { height: 5px; border-radius: 3px; background: var(--porcelain-2); overflow: hidden; }
+.wsi-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.wsi-bar { flex: 1 1 auto; min-width: 0; height: 5px; border-radius: 3px; background: var(--porcelain-2); overflow: hidden; }
 .wsi-fill { display: block; height: 100%; width: 0; background: var(--goods); border-radius: 3px; transition: width 0.25s linear; }
 .ws-item[data-how="hand"] .wsi-fill { background: var(--ink-9); }
 .wsi-badge { font-size: var(--fs-xs); font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wsi-badge-short { display: none; flex: none; margin-left: auto; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+.wsi-badge-short { display: none; flex: none; font-size: 0.75rem; font-weight: 700; line-height: 1; white-space: nowrap; }
 .ws-item[data-state="corrected"] .wsi-badge-short { color: var(--info-text); }
 .ws-item[data-state="unknown"] .wsi-badge-short { color: var(--warning-text); }
 .ws-item[data-state="confirmed"] .wsi-badge-short, .ws-item[data-state="rejected"] .wsi-badge-short, .ws-item[data-state="handed"] .wsi-badge-short { color: var(--brand-text); }
@@ -170,8 +171,11 @@ body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) 
 .world-stage-inner[data-size="compact"] .ws-item { padding: 5px 9px 6px; gap: 2px; }
 .world-stage-inner[data-size="compact"] .wsi-meta { display: none; }
 .world-stage-inner[data-size="compact"] .ws-grid { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); }
+/* Below the full size a tile drops its pack size ("Chopped tomatoes", "Barcode"), as the camera's line always
+   does (js/world_stage.js); a multipack keeps its whole name, so it never reads like the single bottle. */
+.world-stage-inner:not([data-size="full"]) .wsi-name-rest { display: none; }
 
-.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) { gap: 6px; padding: 8px 12px 8px; overflow-y: auto; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) { gap: 5px; padding: 8px 12px 8px; overflow-y: auto; }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-lede, .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-legend, .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsi-meta { display: none; }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-title { font-size: var(--fs-lg); }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-node { padding: 5px 8px 6px; gap: 1px; }
@@ -182,9 +186,12 @@ body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) 
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-moment { min-height: 44px; padding: 6px 10px 7px 12px; gap: 10px; }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsm-label { font-size: var(--fs-sm); }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsm-text { margin-top: 1px; font-size: var(--fs-xs); line-height: 1.35; }
-.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 5px; }
-.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-item { padding: 3px 8px 4px; gap: 2px; }
+/* The tiles close up a pixel, so the rows whose badge sits beside the bar still fit a 720 px window. */
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 3px 5px; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-item { padding: 3px 6px 3px; gap: 2px; }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsi-name { font-size: var(--fs-xs); }
+/* A short tile puts its badge's one word beside the bar, so the name keeps the tile's width ("Tomato passata",
+   "to a person"). */
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsi-badge { display: none; }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsi-badge-short:not([hidden]) { display: inline; }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-learned { gap: 3px; }
@@ -280,6 +287,8 @@ body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) 
    200 px, so What it is worth keeps the year with its qualifier, cells and break-even beside the night. */
 @media (max-height: 820px) {
   body:not([data-view="full"]) .console-panel .rail { display: none; }
+  /* The console's idle hint names the rail ("The five steps above"), so that sentence goes with it. */
+  body:not([data-view="full"]) .console-panel .idle-rail-ref { display: none; }
 }
 @media (max-height: 760px) {
   body:not([data-view="full"]) .workspace { grid-template-rows: minmax(0, max-content) minmax(min(200px, 100%), 1fr); }

@@ -170,7 +170,8 @@ async function playScenario1(page, plan, { drafts: draftCount }) {
   got.optionLines = await page.$$eval('#console .entry[data-type="decision"] .entry-body', (els) => els.map((e) => e.textContent.replace(/\s+/g, " ").trim()).filter((x) => /^You (approved|rejected) option [A-C]\b|^You (chose to do nothing|rejected doing nothing)/i.test(x)));
   got.tile = (await page.textContent("#kpi-ontime-value")).trim();
   got.lanes = Object.fromEntries(await page.$$eval(".lane", (els) => els.map((e) => [e.dataset.order, e.dataset.state])));
-  got.facts = (await page.$$eval("#console .entry .entry-body", (els) => els.map((e) => e.textContent.trim()).find((x) => /agent turns; /.test(x)) || ""));
+  // The facts line itself: the run's last entry also carries Open management summary (TECH_NOTES D69).
+  got.facts = (await page.$$eval("#console .entry .run-facts", (els) => els.map((e) => e.textContent.trim()).find((x) => /agent turns; /.test(x)) || ""));
   got.view = await page.getAttribute("#console", "data-view");
   got.simple = await page.$$eval("#console .entry", (els) => els.filter((e) => getComputedStyle(e).display !== "none").map((e) => e.innerText).join("\n"));
   got.board = await page.$eval(".cell-board", (el) => el.innerText);

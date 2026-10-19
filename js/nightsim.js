@@ -700,6 +700,8 @@ export function tonightFigures(night, res) {
     orders: res.orders.length,
     escalations: res.escalations.length,
     corrections: res.corrections.length,
+    // Units a person set aside, not repacked: an item the world model does not know (scenario 3).
+    set_aside: res.stats.set_aside || 0,
     seed: res.seed
   };
 }

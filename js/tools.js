@@ -515,11 +515,13 @@ export function createToolbox(ctx) {
     const late = final ? orders.filter((o) => !o.on_time && !o.moved).map((o) => o.name) : visibleOrders(st).filter((o) => o.status === "late" || o.status === "late_done").map((o) => o.name);
     const units = final ? f.units_repacked : f.units_packed;
     // The same units by hand, at the manual rate: what tonight's labour compares with (TECH_NOTES D50).
-    const byHand = engineNight(v, units);
+    // Units a person set aside count on both sides, since tonight's labour includes them (D69).
+    const setAside = final ? (f.set_aside || 0) : (st.manual.set_aside || 0);
+    const byHand = engineNight(v, units + setAside);
     const moved = final ? orders.filter((o) => o.moved).map((o) => o.name) : visibleOrders(st).filter((o) => o.status === "moved").map((o) => o.name);
     return {
       final, at: clockOf(final ? ses.run.end_ms : ses.now()), seed: ses.seed,
-      units_repacked: units,
+      units_repacked: units, ...(setAside ? { units_set_aside: setAside } : {}),
       grasp_attempts: f.attempts, successes: f.successes, failed_grasps: f.failures, manual_picks: f.manual_picks,
       escalations: f.escalations, corrections: f.corrections,
       labour_hours: r2(f.labour_hours), labour_eur: r2(eur.labour_eur),

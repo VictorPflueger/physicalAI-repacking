@@ -131,8 +131,9 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
     clear(log);
     log.appendChild(h("div", { class: "log-empty" },
       h("h3", {}, "Pick a scenario, then start the agent"),
-      h("p", {}, "The five steps above are the agent's plan for the night. It perceives each item, plans the store orders against the truck departures, picks with the cell, replans when the night changes and prepares the drafts."),
-      h("p", {}, "When it needs you, the step turns burgundy. Nothing is sent without your approval. You choose between a free simulation and the live agent on your own API key."),
+      // The first sentence points at the progress rail, so it goes where the rail does (css/stage.css).
+      h("p", {}, h("span", { class: "idle-rail-ref" }, "The five steps above are the agent's plan for the night. "), "The agent perceives each item, plans the store orders against the truck departures, picks with the cell, replans when the night changes and prepares the drafts."),
+      h("p", {}, "Whatever waits for your decision is marked in burgundy. Nothing is sent without your approval. You choose between a free simulation and the live agent on your own API key."),
       h("p", {}, "The console shows the agent's words and the night's moments; Details adds every tool call.")));
     count.textContent = "";
     log.scrollTop = 0;
@@ -346,7 +347,8 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
   bus.on("confirmation_request", (ev) => {
     const p = ev.payload;
     const actions = h("div", { class: "entry-actions confirm-actions" },
-      h("button", { class: "btn btn-sm btn-approve", type: "button", on: { click: () => decideConfirmation(p, "confirm") } }, icon("check", 16), "Confirm"),
+      // The same words as the world model's own buttons for an entry (js/world_stage.js).
+      h("button", { class: "btn btn-sm btn-approve", type: "button", on: { click: () => decideConfirmation(p, "confirm") } }, icon("check", 16), p.entry_barcode ? "Confirm entry" : "Confirm"),
       h("button", { class: "btn btn-sm btn-reject", type: "button", on: { click: () => decideConfirmation(p, "reject") } }, "Reject"));
     const card = h("div", { class: "confirm-card" }, h("strong", {}, p.subject), h("p", {}, p.reason), actions);
     confirmations.set(p.request_id, { actions, decided: false });
@@ -369,7 +371,13 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
     add(entry("decision", ev, "user", h("p", {}, h("strong", {}, p.choice === "confirm" ? "You confirmed " : "You rejected "), `${p.subject || p.request_id}.`), { decision: p.choice === "confirm" ? "approved" : "rejected" }));
   });
 
+  // The run's management summary, for the run's last line too: the log follows the newest entry, so the
+  // summary's card can scroll out of view at the night's end (TECH_NOTES D69).
+  let lastReport = null;
+  bus.on("run_start", () => { lastReport = null; });
+
   bus.on("report", (ev) => {
+    lastReport = ev.payload.markdown;
     // The simple view shows the summary's heading and its button, so the night's closing card stays in
     // view above it; the whole summary is one click away and in Details (TECH_NOTES D50).
     const body = renderMarkdown(ev.payload.markdown);
@@ -415,10 +423,14 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
     const save = runMode === "live" && status === "done" && onSaveSimulation
       ? h("button", { class: "btn btn-sm", type: "button", id: "btn-console-save-simulation", title: "Download this run as a simulation script that can replace the scripted replay of this scenario", on: { click: () => onSaveSimulation() } }, icon("download", 16), "Save run as simulation")
       : null;
+    const report = lastReport;
+    const openSummary = status === "done" && report && onOpenReport
+      ? h("button", { class: "btn btn-sm", type: "button", id: "btn-console-open-summary", on: { click: () => onOpenReport(report) } }, icon("external", 16), "Open management summary")
+      : null;
     add(entry("notice", ev, status === "done" ? "check" : "stop", h("div", {},
       h("span", {}, h("strong", {}, text), reason ? ` ${reason}` : ""),
       facts ? h("div", { class: "run-facts" }, h("strong", {}, runMode === "simulation" ? "Replay facts: " : "Run facts: "), facts) : null,
-      save ? h("div", { class: "entry-actions" }, save) : null),
+      save || openSummary ? h("div", { class: "entry-actions" }, openSummary, save) : null),
     { level: status === "error" ? "error" : "info", end: status }));
     for (const el of byMsg.values()) { el.classList.remove("streaming"); el.removeAttribute("aria-busy"); }
     runMode = null;

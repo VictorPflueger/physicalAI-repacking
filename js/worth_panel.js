@@ -181,7 +181,8 @@ export function createWorthPanel(root, { getInputs, getRunInputs = () => null, g
     } else {
       const f = tonightSoFar(st);
       const eur = tonightEuros(rv, f);
-      const byHand = engineNight(rv, f.units_packed);
+      // The same units by hand, the ones a person set aside included, as tonight's labour includes them (D69).
+      const byHand = engineNight(rv, f.units_packed + (st.manual.set_aside || 0));
       const done = ended || st.ended;
       set(tonightHead, done ? "Tonight" : "Tonight so far");
       const total = [...st.orders.values()].reduce((n, o) => n + o.units, 0);
