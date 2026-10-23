@@ -21,7 +21,7 @@
  */
 window.SCENARIOS = [
   {
-    id: "SC1-EXPRESS", number: 1, main_run: true,
+    id: "SC1-EXPRESS", number: 1,
     title: "Express order for the flagship store at 02:00",
     short: "Express order at 02:00",
     category: "The order book changes",
@@ -50,11 +50,13 @@ window.SCENARIOS = [
     basis: "Detecon, Two AI Worlds, One Robot, p. 7: the cup that weighs 400 g instead of the stored 200 g"
   },
   {
-    id: "SC3-UNKNOWN", number: 3,
-    title: "Unknown SKU on the pallet",
-    short: "Unknown SKU",
+    // The main run since 19 Oct 2026 (Victor; TECH_NOTES D63): the world model's night, with the glass jar
+    // it learns from and an item it does not know.
+    id: "SC3-UNKNOWN", number: 3, main_run: true,
+    title: "Unknown item on the pallet",
+    short: "Unknown item",
     category: "The item differs from its master data",
-    trigger: "The camera reads a barcode that is not in the item master.",
+    trigger: "The camera reads a barcode the world model does not know.",
     barcode: "4037848020859",
     night: { volume: "n1", seed: 7, unknown: { barcode: "4037848020859", units: 6, at: "23:10" } },
     ends_in: "escalation",

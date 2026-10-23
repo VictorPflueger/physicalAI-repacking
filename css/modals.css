@@ -27,6 +27,10 @@
 .modal-body { padding: 14px 24px 20px; overflow-y: auto; }
 .modal-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 24px 18px; border-top: 1px solid var(--line); flex-wrap: wrap; background: var(--porcelain); border-radius: 0 0 var(--r-lg) var(--r-lg); }
 .modal-foot .left { margin-right: auto; color: var(--text-muted); font-size: var(--fs-sm); }
+/* The AI disclosure, repeated in every dialog's footer while the backdrop blurs the header's (js/modal.js). */
+.modal-ai { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; color: var(--text); font-size: var(--fs-sm); white-space: nowrap; }
+.modal-ai.beside-note { margin-right: 0; }
+.modal-ai svg { color: var(--violet-line); flex: none; }
 
 /* Mode selection ----------------------------------------------------------------------------- */
 .run-summary {
@@ -128,10 +132,11 @@
 .intro-modal .modal-head p { font-size: var(--fs-lg); line-height: 1.4; color: var(--text); max-width: 64ch; }
 .intro-modal .modal-body h3 { margin: 6px 0 14px; font-family: var(--font-figures); font-size: 1.25rem; color: var(--text); }
 
-/* Five steps on one track; each number takes the colour the board uses for that moment of a run. */
+/* The world model's four steps on one track; each number takes the colour the Customer view uses for the
+   same thing. */
 .intro-steps {
   list-style: none; margin: 0 0 26px; padding: 0;
-  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;
 }
 .intro-step { position: relative; display: flex; flex-direction: column; gap: 4px; padding-top: 52px; min-width: 0; }
 .intro-step::before {
@@ -146,13 +151,12 @@
   border: 2px solid;
   font-family: var(--font-figures); font-weight: 700; font-size: 1.25rem; line-height: 1;
 }
-/* Perceive: blue, the readings and checks. Plan: ink, the agent's own work. Pick: green, picks that
-   land. Replan: amber, a night at risk. Prepare: burgundy, your decision and approval. */
-.intro-step[data-tone="perceive"] .intro-num { color: var(--info-text); border-color: var(--info-line); background: var(--info-fill); }
-.intro-step[data-tone="plan"] .intro-num { color: var(--text); border-color: var(--ink-11); background: var(--porcelain); }
-.intro-step[data-tone="pick"] .intro-num { color: var(--success-text); border-color: var(--success-line); background: var(--success-fill); }
-.intro-step[data-tone="replan"] .intro-num { color: var(--warning-text); border-color: var(--warning-line); background: var(--warning-fill); }
-.intro-step[data-tone="prepare"] .intro-num { color: var(--brand); border-color: var(--brand); background: var(--brand-soft); }
+/* Knows: ink, what the model holds. Checks: blue, the camera's and the scale's readings. Learns: slate,
+   the model taking a correction (the world model's node on the stage). Asks: burgundy, a person. */
+.intro-step[data-tone="know"] .intro-num { color: var(--text); border-color: var(--ink-11); background: var(--porcelain); }
+.intro-step[data-tone="check"] .intro-num { color: var(--info-text); border-color: var(--info-line); background: var(--info-fill); }
+.intro-step[data-tone="learn"] .intro-num { color: var(--slate-11); border-color: var(--slate-9); background: var(--slate-4); }
+.intro-step[data-tone="ask"] .intro-num { color: var(--brand); border-color: var(--brand); background: var(--brand-soft); }
 .intro-step-title { font-family: var(--font-figures); font-size: 1.2rem; font-weight: 700; color: var(--text); }
 .intro-step-text { color: var(--text-muted); line-height: 1.4; }
 
@@ -174,6 +178,25 @@
 .intro-real-item[data-tone="simulated"] { border-style: dashed; background: var(--porcelain); }
 .intro-real-item strong { font-family: var(--font-figures); font-size: 1.15rem; color: var(--text); }
 .intro-real-item span { color: var(--text-muted); line-height: 1.4; }
+
+/* Windows 900 px high or less (laptops): the window keeps What is real in view without scrolling. */
+@media (max-height: 900px) {
+  .intro-modal .modal-head { padding-top: 12px; }
+  .intro-modal .modal-head p { font-size: var(--fs-md); line-height: 1.35; }
+  .intro-modal .modal-body { padding-top: 6px; padding-bottom: 10px; }
+  .intro-modal .modal-body h3 { margin: 2px 0 8px; font-size: 1.1rem; }
+  .intro-steps { margin-bottom: 14px; }
+  .intro-step { padding-top: 38px; }
+  .intro-step::before { top: 15px; left: 38px; }
+  .intro-num { width: 32px; height: 32px; font-size: 1.05rem; }
+  .intro-step-title { font-size: 1.1rem; }
+  .intro-step-text, .intro-value .intro-value-text, .intro-real-item span { font-size: var(--fs-sm); line-height: 1.35; }
+  .intro-value { margin-bottom: 14px; }
+  .intro-value .intro-value-figure { font-size: 1.5rem; }
+  .intro-real-item { padding: 7px 12px; }
+  .intro-real-item strong { font-size: 1.05rem; }
+  .intro-modal .modal-foot { padding: 10px 24px 12px; }
+}
 
 @media (max-width: 760px) {
   .intro-steps { grid-template-columns: 1fr; gap: 14px; }

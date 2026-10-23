@@ -181,7 +181,8 @@ export function attachNightLog(ctx) {
     live = false;
     const v = ctx.getInputs();
     const eur = tonightEuros(v, f);
-    const byHand = engineNight(v, f.units_repacked);
+    // The same units by hand, the ones a person set aside included, as tonight's labour includes them (D69).
+    const byHand = engineNight(v, f.units_repacked + (f.set_aside || 0));
     const w = worth(v).text;
     const late = (ev.payload.orders || []).filter((o) => !o.on_time);
     // The express order is the night's thirteenth order (id XPR): name it, so "13 orders" matches the 12 stores.

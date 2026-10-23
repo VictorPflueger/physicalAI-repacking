@@ -28,6 +28,7 @@ const P = {
   spark: '<path d="M12 3.5l1.8 5.2 5.2 1.8-5.2 1.8L12 17.5l-1.8-5.2L5 10.5l5.2-1.8z"/><path d="M18.5 15.5l.8 2 2 .7-2 .8-.8 2-.7-2-2-.8 2-.7z"/>',
   list: '<path d="M8.5 7h11M8.5 12h11M8.5 17h11"/><circle cx="4.8" cy="7" r=".9"/><circle cx="4.8" cy="12" r=".9"/><circle cx="4.8" cy="17" r=".9"/>',
   shield: '<path d="M12 3.5l7.5 3v5.5c0 4.5-3.2 7.6-7.5 8.5-4.3-.9-7.5-4-7.5-8.5V6.5z"/>',
+  cube: '<path d="M12 3.5l8 4.5v8l-8 4.5-8-4.5v-8z"/><path d="M4 8l8 4.5L20 8M12 12.5v8"/>',
   // The physical side: the inbound pallet, the cell's sensors and gripper, the store totes and trucks.
   pallet: '<path d="M3.5 19.5h17M5 19.5v-2h14v2"/><rect x="6" y="9.5" width="5.5" height="8" rx=".8"/><rect x="12.5" y="11.5" width="5.5" height="6" rx=".8"/>',
   camera: '<rect x="3.5" y="7" width="17" height="12" rx="2"/><circle cx="12" cy="13" r="3.2"/><path d="M8.5 7l1.5-2.5h4L15.5 7"/>',

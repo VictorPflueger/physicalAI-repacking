@@ -25,6 +25,7 @@
   <link rel="stylesheet" href="css/console.css">
   <link rel="stylesheet" href="css/drawer.css">
   <link rel="stylesheet" href="css/modals.css">
+  <link rel="stylesheet" href="css/stage.css">
 
   <!-- Synthetic world, scenarios, shadow record, the Open Food Facts snapshot, the reference inputs and
        the simulation scripts: plain scripts that set window globals (no fetch needed). -->
@@ -68,11 +69,14 @@
   <nav id="controls" class="controls" aria-label="Run controls"></nav>
 
   <main class="workspace">
-    <!-- The workspace's first panel holds the cell board: the inbound pallet, the simulated cell with
-         its camera, scale and gripper, the manual station and the store totes. -->
+    <!-- Two views of one run (js/view.js). The Customer view, the default: the robot's world model at the
+         centre, What it is worth beside it, the agent console below. The Full view: the cell board with
+         the inbound pallet, the simulated cell, the manual station and the store totes, and the console. -->
+    <section id="stage" class="world-stage" aria-label="The robot's world model: what it knows about every item on tonight's pallet"></section>
     <section class="cell-panel" aria-label="Cell board: the simulated robot cell, the manual station and the store totes">
       <div id="cell"></div>
     </section>
+    <section id="worth" class="worth-panel" aria-label="What it is worth"></section>
     <section id="console" class="console-panel" aria-label="Agent console" tabindex="-1"></section>
   </main>
 

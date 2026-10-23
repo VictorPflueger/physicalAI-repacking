@@ -125,8 +125,8 @@ export function checkWorld(world, scenarios = [], shadowRecord = null, offSnapsh
   const sc5 = scenarios.find((s) => s.number === 5);
   const xmas = new Date(Date.UTC(2026, 11, 24)).getUTCDay(); // 4 = Thursday
   const scenOk = scenarios.length === 6 && nums === "1,2,3,4,5,6" && new Set(scenarios.map((s) => s.id)).size === 6
-    && mains.length === 1 && mains[0].number === 1 && sc5?.night_start_date === "2026-12-23" && xmas === 4;
-  add("Six scenarios, one main run (scenario 1), scenario 5 on the night into Thursday 24 Dec 2026", scenOk,
+    && mains.length === 1 && mains[0].number === 3 && sc5?.night_start_date === "2026-12-23" && xmas === 4;
+  add("Six scenarios, one main run (scenario 3, the world model's night: TECH_NOTES D63), scenario 5 on the night into Thursday 24 Dec 2026", scenOk,
     `${scenarios.length} scenarios (${nums}); main run ${mains.map((s) => s.number).join(",") || "none"}; scenario 5 starts ${sc5?.night_start_date || "?"}`);
 
   // ---- each scenario's night ----------------------------------------------------------------------------

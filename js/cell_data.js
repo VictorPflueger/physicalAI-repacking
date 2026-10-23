@@ -23,7 +23,7 @@ export function createNightState(info) {
   return {
     info, t: 0, paused: false, pause_reason: null, ended: false,
     orders, order_ids: info.orders.map((o) => o.id),
-    camera: { last: null, detections: 0, unknown: 0 },
+    camera: { last: null, detections: 0, unknown: 0, recent: new Map() },
     cell: { attempts: 0, successes: 0, failures: 0, current: null, ring: [], ring_ok: 0, last_ok: null, rehearsal: null },
     scale: { last: null, readings: 0 },
     // Units that reached the manual station: manual-only units with their wave or order, failed
@@ -31,6 +31,11 @@ export function createNightState(info) {
     manual: { picks: 0, by_picker: {}, last: null, arrived: info.waves.filter((w) => w.at_ms <= 0).reduce((n, w) => n + w.manual_units, 0), set_aside: 0 },
     inbound: info.waves.map((w) => ({ ...w, arrived: w.at_ms <= 0 })),
     world, corrections: [], focus: null,
+    // Tonight's pallet item by item (the Customer view's tiles): the planned units of each item, and how
+    // many the robot picked, how many a person picked and how many grasps failed. An item the model does
+    // not know arrives as `unknown` when the camera reads its barcode.
+    items: new Map((info.items || []).map((it) => [it.sku, { sku: it.sku, units: it.units ?? 0, robot: 0, hand: 0, failed: 0, attempts: 0 }])),
+    unknown: null,
     escalations: [], handed: [], wakes: [], risks: [], projection_t: null, express_arrived: false,
     // The levers in force (decisions and safety actions, from plan_update events) and the pickers
     // called in, whose billed hours count as labour from the moment they start.
@@ -114,7 +119,7 @@ export function tonightSoFar(st) {
 
 /**
  * Applies one event (type, payload, t in ms after 22:00) and returns what changed: a set of names
- * among "clock", "camera", "cell", "scale", "manual", "orders", "world", "escalations", "inbound".
+ * among "clock", "camera", "cell", "scale", "manual", "orders", "world", "escalations", "inbound", "items".
  */
 export function applyEvent(st, type, p, t) {
   const dirty = new Set();
@@ -124,7 +129,15 @@ export function applyEvent(st, type, p, t) {
     case "detection": {
       st.camera.last = { unit_id: p.unit_id, sku: p.sku, store: p.store, barcode: p.barcode, confidence: p.confidence, known: p.known, t };
       st.camera.detections += 1;
-      if (!p.known) { st.camera.unknown += 1; st.manual.arrived += 1; dirty.add("manual"); }
+      // The last few detections by unit, so a unit's way through the cell can name its own confidence.
+      st.camera.recent.set(p.unit_id, p.confidence);
+      if (st.camera.recent.size > 8) st.camera.recent.delete(st.camera.recent.keys().next().value);
+      if (!p.known) {
+        st.camera.unknown += 1; st.manual.arrived += 1; dirty.add("manual");
+        if (!st.unknown) st.unknown = { barcode: p.barcode, seen: 0, hand: 0, t };
+        st.unknown.seen += 1;
+        dirty.add("items");
+      }
       dirty.add("camera");
       break;
     }
@@ -138,6 +151,8 @@ export function applyEvent(st, type, p, t) {
       c.current = { unit_id: p.unit_id, sku: p.sku, store: p.store, grip: p.grip, expected_success: p.expected_success, grasp_confidence: p.grasp_confidence, ok: p.ok, t };
       c.last_ok = p.ok;
       if (!p.ok) { st.manual.arrived += 1; dirty.add("manual"); }
+      const it = st.items.get(p.sku);
+      if (it) { it.attempts += 1; if (p.ok) it.robot += 1; else it.failed += 1; dirty.add("items"); }
       dirty.add("cell");
       break;
     }
@@ -167,7 +182,10 @@ export function applyEvent(st, type, p, t) {
       st.manual.by_picker[p.picker] = (st.manual.by_picker[p.picker] || 0) + 1;
       st.manual.last = { unit_id: p.unit_id, sku: p.sku, store: p.store, reason: p.reason, picker: p.picker, t };
       if (p.set_aside) st.manual.set_aside += 1;
-      dirty.add("manual");
+      const it = p.sku ? st.items.get(p.sku) : null;
+      if (it) it.hand += 1;
+      else if (p.set_aside && st.unknown) st.unknown.hand += 1;
+      dirty.add("manual"); dirty.add("items");
       break;
     }
     case "tote_update": {

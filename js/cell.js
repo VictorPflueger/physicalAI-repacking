@@ -43,7 +43,11 @@ export function idleInfo(scenario, params = {}) {
   return { ...nightInfo(night, { seed: scenario.night.seed }), scenario_id: scenario.id };
 }
 
-export function createCellBoard(root, { scenarios = [], getParams = () => ({}), nightDate = () => null } = {}) {
+/**
+ * onRender(dirty, st): called after every frame that applied the night's events or loaded a night, so the
+ * Customer view (js/world_stage.js, js/worth_panel.js) draws from the same state in the same frame.
+ */
+export function createCellBoard(root, { scenarios = [], getParams = () => ({}), nightDate = () => null, onRender = () => {} } = {}) {
   const byId = (id) => scenarios.find((s) => s.id === id);
   let scenario = null;
   let st = null;
@@ -161,7 +165,7 @@ export function createCellBoard(root, { scenarios = [], getParams = () => ({}), 
   if (typeof ResizeObserver === "function") new ResizeObserver(remeasure).observe(board);
 
   // ---- state → view --------------------------------------------------------------------------------------
-  function markAll() { for (const k of ["clock", "camera", "cell", "scale", "manual", "orders", "world", "inbound", "escalations"]) dirty.add(k); request(); }
+  function markAll() { for (const k of ["clock", "camera", "cell", "scale", "manual", "orders", "world", "inbound", "escalations", "items"]) dirty.add(k); request(); }
   function request() { if (!frame) frame = (typeof requestAnimationFrame === "function" ? requestAnimationFrame : (f) => setTimeout(f, 16))(render); }
 
   function render() {
@@ -178,6 +182,7 @@ export function createCellBoard(root, { scenarios = [], getParams = () => ({}), 
     if (d.has("orders") || d.has("clock")) { if (renderLanes()) remeasure(); }
     if (d.has("world")) worldPanel.render(st);
     if (pop.isOpen() && popFor && st && d.size) refreshPopover();
+    if (d.size) onRender(d, st);
   }
 
   function refreshPopover() {

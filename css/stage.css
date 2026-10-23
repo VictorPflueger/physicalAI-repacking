@@ -1,0 +1,305 @@
+/* Repack Pilot — the Customer view (js/world_stage.js, js/worth_panel.js, js/view.js; TECH_NOTES D62):
+ * the robot's world model at the centre, What it is worth beside it, the agent console below that.
+ * The Full view (body[data-view="full"]) is the M4 screen, unchanged.
+ *
+ * Colour grammar as on the cell board (DESIGN.md §3): blue is a reading or a check (camera, scale, a
+ * correction the model takes), amber an item the model does not know, burgundy a person (an item handed
+ * over, the person's decision), green a grasp that lands, red the robot below its rule, slate goods at
+ * rest, ink everything else. The value figures carry the brand burgundy as the opener does.
+ *
+ * Sizes (js/world_stage.js sets data-size from the stage's free height, stepping down while it does not
+ * fit): full ≥ 760 px, compact ≥ 560 px (no lede, tighter tiles), short below (one line per node, tiles
+ * without their details, the stage scrolls as a last resort); under 400 px (the drawer open) strip
+ * without tonight's pallet and flow without what the model learned. What it is worth steps from full to
+ * compact (the year with a Your DC button, the qualifier without its sources) and tight (rows closed
+ * up), and steps aside (hidden) when the drawer leaves it no room: the KPI board and the header tiles
+ * carry its figures. The year keeps its cells, break-even and "gross, before cell costs" at every size. */
+
+/* ---- the two layouts ----------------------------------------------------------------------------------- */
+/* The right column: What it is worth at its own height, the console below it with at least 220 px (or
+   all of the workspace when a drawer leaves it less, so nothing spills over the drawer's tabs); on a
+   short window the worth panel tightens rather than squeezing the console away. */
+body:not([data-view="full"]) .workspace {
+  grid-template-columns: minmax(0, 62fr) minmax(0, 38fr);
+  grid-template-rows: minmax(0, max-content) minmax(min(220px, 100%), 1fr);
+}
+body:not([data-view="full"]) .cell-panel { display: none; }
+body:not([data-view="full"]) .world-stage { grid-column: 1; grid-row: 1 / span 2; }
+body:not([data-view="full"]) .worth-panel { grid-column: 2; grid-row: 1; }
+body:not([data-view="full"]) .console-panel { grid-column: 2; grid-row: 2; }
+body[data-view="full"] .world-stage, body[data-view="full"] .worth-panel { display: none; }
+/* The Customer view's control bar: what the call needs. Model and autonomy live in the Full view. */
+body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) .controls .ctl-autonomy { display: none; }
+
+/* ---- the stage --------------------------------------------------------------------------------------------- */
+.world-stage { position: relative; min-height: 0; overflow: hidden; background: var(--canvas); border-right: 1px solid var(--line); }
+.world-stage-inner {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 14px 16px 16px;
+  overflow: hidden;
+}
+.ws-head { flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.ws-titles { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ws-title-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ws-title { margin: 0; font-family: var(--font-figures); font-weight: 700; font-size: var(--fs-xl); line-height: 1.1; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-lede { margin: 0; max-width: 78ch; color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.4; }
+.ws-head-right { flex: none; display: flex; align-items: center; gap: 10px; }
+.ws-clock { font-family: var(--font-figures); font-weight: 700; font-size: var(--fs-lg); font-variant-numeric: tabular-nums lining-nums; color: var(--text); white-space: nowrap; padding: 0 4px; }
+
+/* ---- one item's way: camera → world model → robot → scale ⇢ people ------------------------------------------ */
+.ws-flow { flex: none; list-style: none; margin: 0; padding: 0; display: flex; align-items: stretch; gap: 6px; }
+.ws-arrow { flex: none; align-self: center; color: var(--text-faint); font-size: 1.25rem; line-height: 1; }
+.ws-arrow.to-people { margin-left: 6px; }
+.ws-node {
+  flex: 1 1 0; min-width: 0;
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 10px 12px 11px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  box-shadow: var(--shadow-soft);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+.ws-node[data-node="model"] { flex-grow: 1.3; border: 2px solid var(--slate-9); }
+.wsn-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.wsn-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--porcelain); color: var(--ink-11); flex: none; }
+.ws-node[data-node="camera"] .wsn-icon, .ws-node[data-node="scale"] .wsn-icon { background: var(--info-fill); color: var(--info-line); }
+.ws-node[data-node="model"] .wsn-icon { background: var(--slate-4); color: var(--slate-11); }
+.ws-node[data-node="people"] .wsn-icon { background: var(--brand-soft); color: var(--brand); }
+.wsn-label { font-weight: 700; font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wsn-l1 { font-family: var(--font-figures); font-weight: 600; font-size: 1.05rem; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.wsn-l2 { color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ws-node[data-tone="check"] { border-color: var(--info-line); background: var(--info-fill); }
+.ws-node[data-tone="check"] .wsn-l1 { color: var(--info-text); }
+.ws-node[data-tone="risk"] { border-color: var(--warning-line); background: var(--warning-fill); }
+.ws-node[data-tone="risk"] .wsn-l1 { color: var(--warning-text); }
+.ws-node[data-tone="person"] { border-color: var(--brand-mid); background: var(--brand-wash); }
+.ws-node[data-tone="person"] .wsn-l1 { color: var(--brand-text); }
+.ws-node[data-tone="on-time"] .wsn-l2 { color: var(--success-text); font-weight: 600; }
+.ws-node[data-tone="late"] { border-color: var(--danger-line); background: var(--danger-fill); }
+.ws-node[data-tone="late"] .wsn-l1 { color: var(--danger-text); }
+
+/* ---- the moment ------------------------------------------------------------------------------------------- */
+.ws-moment {
+  flex: none;
+  display: flex; align-items: center; gap: 14px;
+  min-height: 64px;
+  padding: 11px 14px 12px 16px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-strong);
+  border-left: 5px solid var(--ink-9);
+  background: var(--paper);
+  box-shadow: var(--shadow-soft);
+}
+.wsm-icon { display: none; }
+.wsm-body { flex: 1 1 auto; min-width: 0; }
+.wsm-label { display: block; font-family: var(--font-figures); font-weight: 700; font-size: 1.05rem; line-height: 1.2; color: var(--text); }
+.wsm-text { margin: 3px 0 0; color: var(--text); line-height: 1.4; }
+.wsm-actions { flex: none; display: flex; gap: 8px; }
+.wsm-actions:empty { display: none; }
+.wsm-actions .btn { min-height: 44px; }
+.ws-moment[data-kind="learned"] { border-left-color: var(--info-line); border-color: var(--info-mid); background: var(--info-fill); }
+.ws-moment[data-kind="learned"] .wsm-label { color: var(--info-text); }
+.ws-moment[data-kind="unknown"] { border-left-color: var(--warning-line); border-color: var(--warning-mid); background: var(--warning-fill); }
+.ws-moment[data-kind="unknown"] .wsm-label { color: var(--warning-text); }
+.ws-moment[data-kind="decided"], .ws-moment[data-kind="unsafe"] { border-left-color: var(--brand); border-color: var(--brand-line); background: var(--brand-wash); }
+.ws-moment[data-kind="decided"] .wsm-label, .ws-moment[data-kind="unsafe"] .wsm-label { color: var(--brand-text); }
+.ws-moment[data-kind="wear"] { border-left-color: var(--danger-line); border-color: var(--danger-mid); background: var(--danger-fill); }
+.ws-moment[data-kind="wear"] .wsm-label { color: var(--danger-text); }
+.ws-moment[data-kind="end"] { border-left-color: var(--on-time); }
+
+/* ---- tonight's pallet ------------------------------------------------------------------------------------- */
+.ws-pallet { flex: none; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.ws-pallet-head { display: flex; align-items: baseline; gap: 6px 12px; flex-wrap: wrap; }
+.ws-pallet-head h3, .ws-learned h3 { margin: 0; font-family: var(--font-figures); font-size: 1.1rem; font-weight: 700; color: var(--text); }
+.ws-pallet-meta { color: var(--text-muted); font-size: var(--fs-sm); }
+.ws-legend { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; color: var(--text-muted); font-size: var(--fs-xs); }
+.wsl-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.wsl-swatch { width: 14px; height: 10px; border-radius: 3px; background: var(--goods); }
+.wsl-item[data-tone="check"] .wsl-swatch { background: var(--info-line); }
+.wsl-item[data-tone="risk"] .wsl-swatch { background: var(--warning-line); }
+.ws-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; align-content: start; }
+.ws-item {
+  position: relative; min-width: 0;
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 7px 10px 8px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--goods);
+  background: var(--paper);
+}
+.ws-item > * { flex: none; }
+.ws-item[data-how="hand"] { border-left-color: var(--ink-8); }
+.wsi-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.wsi-how { flex: none; color: var(--ink-11); line-height: 0; }
+.wsi-name { font-weight: 600; font-size: var(--fs-sm); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wsi-meta { color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.25; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wsi-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.wsi-bar { flex: 1 1 auto; min-width: 0; height: 5px; border-radius: 3px; background: var(--porcelain-2); overflow: hidden; }
+.wsi-fill { display: block; height: 100%; width: 0; background: var(--goods); border-radius: 3px; transition: width 0.25s linear; }
+.ws-item[data-how="hand"] .wsi-fill { background: var(--ink-9); }
+.wsi-badge { font-size: var(--fs-xs); font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wsi-badge-short { display: none; flex: none; font-size: 0.75rem; font-weight: 700; line-height: 1; white-space: nowrap; }
+.ws-item[data-state="corrected"] .wsi-badge-short { color: var(--info-text); }
+.ws-item[data-state="unknown"] .wsi-badge-short { color: var(--warning-text); }
+.ws-item[data-state="confirmed"] .wsi-badge-short, .ws-item[data-state="rejected"] .wsi-badge-short, .ws-item[data-state="handed"] .wsi-badge-short { color: var(--brand-text); }
+.ws-item[data-state="done"] .wsi-fill { background: var(--on-time); }
+.ws-item[data-state="corrected"] { border-color: var(--info-mid); border-left-color: var(--info-line); background: var(--info-fill); }
+.ws-item[data-state="corrected"] .wsi-badge { color: var(--info-text); }
+.ws-item[data-state="unknown"] { border-color: var(--warning-mid); border-left-color: var(--warning-line); background: var(--warning-fill); }
+.ws-item[data-state="unknown"] .wsi-badge { color: var(--warning-text); }
+.ws-item[data-state="confirmed"], .ws-item[data-state="rejected"], .ws-item[data-state="handed"] { border-color: var(--brand-line); border-left-color: var(--brand); background: var(--brand-wash); }
+.ws-item[data-state="confirmed"] .wsi-badge, .ws-item[data-state="rejected"] .wsi-badge, .ws-item[data-state="handed"] .wsi-badge { color: var(--brand-text); }
+.ws-item.arrived { animation: laneIn 0.6s ease-out; }
+
+/* ---- what the model learned --------------------------------------------------------------------------------- */
+.ws-learned { flex: none; display: flex; flex-direction: column; gap: 6px; }
+.ws-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sm); }
+.ws-log li { padding: 2px 0 2px 10px; border-left: 3px solid var(--line-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-log li[data-tone="check"] { border-left-color: var(--info-line); }
+.ws-log li[data-tone="risk"] { border-left-color: var(--warning-line); }
+.ws-log li[data-tone="person"] { border-left-color: var(--brand); }
+.ws-log li.ws-none { color: var(--text-muted); }
+.ws-log-time { font-family: var(--font-mono); font-size: 0.86em; color: var(--text); margin-right: 4px; }
+
+/* ---- sizes ------------------------------------------------------------------------------------------------- */
+.world-stage-inner[data-size="compact"] { gap: 10px; padding: 12px 14px 14px; }
+.world-stage-inner[data-size="compact"] .ws-lede { display: none; }
+.world-stage-inner[data-size="compact"] .ws-node { padding: 8px 10px 9px; }
+.world-stage-inner[data-size="compact"] .ws-moment { min-height: 56px; padding: 9px 12px 10px 14px; }
+.world-stage-inner[data-size="compact"] .ws-item { padding: 5px 9px 6px; gap: 2px; }
+.world-stage-inner[data-size="compact"] .wsi-meta { display: none; }
+.world-stage-inner[data-size="compact"] .ws-grid { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); }
+/* Below the full size a tile drops its pack size ("Chopped tomatoes", "Barcode"), as the camera's line always
+   does (js/world_stage.js); a multipack keeps its whole name, so it never reads like the single bottle. */
+.world-stage-inner:not([data-size="full"]) .wsi-name-rest { display: none; }
+
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) { gap: 5px; padding: 8px 12px 8px; overflow-y: auto; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-lede, .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-legend, .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsi-meta { display: none; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-title { font-size: var(--fs-lg); }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-node { padding: 5px 8px 6px; gap: 1px; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsn-icon { width: 22px; height: 22px; border-radius: 6px; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsn-label { font-size: var(--fs-xs); }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsn-l1 { font-size: var(--fs-sm); }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsn-l2 { font-size: 0.75rem; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-moment { min-height: 44px; padding: 6px 10px 7px 12px; gap: 10px; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsm-label { font-size: var(--fs-sm); }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsm-text { margin-top: 1px; font-size: var(--fs-xs); line-height: 1.35; }
+/* The tiles close up a pixel, so the rows whose badge sits beside the bar still fit a 720 px window. */
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 3px 5px; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-item { padding: 3px 6px 3px; gap: 2px; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsi-name { font-size: var(--fs-xs); }
+/* A short tile puts its badge's one word beside the bar, so the name keeps the tile's width ("Tomato passata",
+   "to a person"). */
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsi-badge { display: none; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsi-badge-short:not([hidden]) { display: inline; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-learned { gap: 3px; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-log { font-size: var(--fs-xs); gap: 2px; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-pallet-head h3, .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-learned h3 { font-size: var(--fs-md); }
+
+/* A drawer open over the stage leaves it under 400 px, like the cell board's strip: tonight's pallet steps
+   aside ("strip"), then what the model learned and each station's second line ("flow"); the item's way
+   and the moment stay. */
+.world-stage-inner:is([data-size="strip"], [data-size="flow"]) .ws-pallet, .world-stage-inner[data-size="flow"] .ws-learned,
+.world-stage-inner[data-size="flow"] .wsn-l2 { display: none; }
+
+/* ---- what it is worth -------------------------------------------------------------------------------------- */
+.worth-panel { min-height: 0; overflow-y: auto; background: var(--paper); border-bottom: 1px solid var(--line); }
+.worth-inner { display: flex; flex-direction: column; gap: 12px; padding: 14px 18px 16px; }
+.wp-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 12px; flex-wrap: wrap; }
+.wp-title { margin: 0; font-family: var(--font-figures); font-size: var(--fs-xl); font-weight: 700; line-height: 1.1; color: var(--text); }
+.wp-engine { color: var(--text-muted); font-size: var(--fs-xs); }
+.wp-headline { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 16px; align-items: center; }
+.wp-big-wrap { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wp-big { font-family: var(--font-figures); font-weight: 700; font-size: 2.4rem; line-height: 1.05; color: var(--brand); }
+.wp-big-sub { color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.35; }
+.wp-bars { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px 10px; font-size: var(--fs-sm); }
+.wp-saving { grid-column: 2 / -1; justify-self: end; font-weight: 700; color: var(--text); }
+.wp-bar-label { color: var(--text-muted); white-space: nowrap; }
+.wp-bar { height: 12px; border-radius: 6px; background: var(--porcelain-2); overflow: hidden; }
+.wp-bar-fill { display: block; height: 100%; width: 0; border-radius: 6px; background: var(--ink-8); transition: width 0.3s ease; }
+.wp-bar-fill[data-kind="hybrid"] { background: var(--brand); }
+.wp-bar-value { font-family: var(--font-figures); font-weight: 700; white-space: nowrap; }
+.wp-head { margin: 0 0 4px; font-family: var(--font-figures); font-size: 1.1rem; font-weight: 700; color: var(--text); }
+.wp-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 14px; margin: 0; font-size: var(--fs-sm); }
+.wp-list dt { color: var(--text-muted); }
+.wp-list dd { margin: 0; font-variant-numeric: tabular-nums; }
+.wp-tonight, .wp-dc { padding-top: 10px; border-top: 1px solid var(--line); }
+.wp-dc-fields { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px 12px; }
+.wp-dc-field { display: flex; flex-direction: column; gap: 3px; }
+.wp-dc-label { color: var(--text-muted); font-size: var(--fs-xs); }
+.wp-dc-row { display: flex; align-items: center; gap: 6px; }
+.wp-dc-input { width: 9.5em; min-height: 40px; }
+#wp-dc-c { width: 5.5em; }
+.wp-dc-unit { color: var(--text-muted); font-size: var(--fs-sm); white-space: nowrap; }
+.wp-dc-msg { color: var(--danger-text); font-size: var(--fs-xs); min-height: 0; }
+.wp-dc-msg:empty { display: none; }
+#wp-dc-reset { min-height: 40px; }
+.wp-year-wrap { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-top: 8px; }
+.wp-dc-open { display: none; }
+.wp-year { font-family: var(--font-figures); font-weight: 700; font-size: 1.6rem; line-height: 1.1; color: var(--brand); }
+.wp-year-sub { color: var(--text); font-size: var(--fs-sm); }
+.wp-qual { display: block; margin-top: 4px; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.35; }
+
+/* The view switch in the header, beside the mode badge (js/controls.js; the Full view's control bar has
+   no room for it at laptop widths): a segmented control like the dial, 40 px high like How it works. */
+.header-view { display: inline-flex; flex: none; }
+/* Its buttons are the 40 px targets; the group's line is drawn outside them, so the row stays 40 px. */
+.header-view .segmented { border: 0; box-shadow: 0 0 0 1px var(--line-strong); }
+.header-view .segmented button { min-height: 40px; min-width: 64px; padding: 0 12px; font-family: var(--font-ui); font-size: var(--fs-sm); }
+/* Below 1400 px the badges take two rows; a closer row gap keeps the header at most 14 % of a 720 px window. */
+@media (max-width: 1400px) { .header-badges { row-gap: 3px; } }
+
+/* A short right column: the worth panel tightens (js/worth_panel.js sets data-size="compact" when its
+   content does not fit above the console's 220 px), and Your DC shows the year with one button to the KPI
+   board's inputs. */
+.worth-panel:is([data-size="compact"], [data-size="tight"]) .worth-inner { gap: 7px; padding: 8px 14px 8px; }
+.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-title { font-size: var(--fs-lg); }
+.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-big { font-size: 1.75rem; }
+.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-headline { gap: 12px; }
+.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-bars { gap: 3px 8px; font-size: var(--fs-xs); }
+.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-bar { height: 9px; }
+.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-head { margin-bottom: 2px; font-size: var(--fs-md); }
+.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-list { font-size: var(--fs-xs); gap: 2px 10px; }
+.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-tonight, .worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-dc { padding-top: 6px; }
+.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-dc > .wp-head, .worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-dc-fields { display: none; }
+.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-dc-open { display: inline-flex; min-height: 40px; margin-left: auto; }
+.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-year-wrap { margin-top: 0; align-items: center; flex-wrap: nowrap; }
+.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-year { font-size: 1.3rem; white-space: nowrap; }
+.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-year-sub { font-size: var(--fs-xs); line-height: 1.3; }
+.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-qual { margin-top: 2px; }
+.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-qual-sources { display: none; }
+.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-saving { font-size: var(--fs-xs); }
+
+/* Tight (a 720 px window at the night's end, when the night's rows fill the panel): rows and bars close up;
+   the year keeps its cells, its break-even and its qualifier. */
+.worth-panel[data-size="tight"] .worth-inner { gap: 6px; }
+.worth-panel[data-size="tight"] .wp-list { line-height: 1.3; }
+.worth-panel[data-size="tight"] .wp-bars { gap: 1px 8px; }
+.worth-panel[data-size="tight"] .wp-headline { align-items: start; }
+/* The saving stays in the header's labour tile ("planned · €89.50 by hand · −64 %"), the store orders in its
+   store-order tile ("12 of 12"). */
+.worth-panel[data-size="tight"] .wp-saving, .worth-panel[data-size="tight"] .wp-orders { display: none; }
+/* A value's second part ("by hand 7.52 h · €269.04") keeps together when its line breaks. */
+.wp-keep { white-space: nowrap; }
+.worth-panel[data-size="hidden"] { display: none; }
+
+/* A short window (a 720 px laptop): the console drops its progress rail in the Customer view; the world
+   model shows the moment, and the Full view keeps the rail. At 760 px and less the console keeps at least
+   200 px, so What it is worth keeps the year with its qualifier, cells and break-even beside the night. */
+@media (max-height: 820px) {
+  body:not([data-view="full"]) .console-panel .rail { display: none; }
+  /* The console's idle hint names the rail ("The five steps above"), so that sentence goes with it. */
+  body:not([data-view="full"]) .console-panel .idle-rail-ref { display: none; }
+}
+@media (max-height: 760px) {
+  body:not([data-view="full"]) .workspace { grid-template-rows: minmax(0, max-content) minmax(min(200px, 100%), 1fr); }
+}
+
+@media (max-width: 860px) {
+  body:not([data-view="full"]) .workspace { grid-template-columns: 1fr; grid-template-rows: auto auto auto; }
+  body:not([data-view="full"]) .world-stage, body:not([data-view="full"]) .worth-panel, body:not([data-view="full"]) .console-panel { grid-column: 1; grid-row: auto; }
+  .world-stage { height: 90vh; border-right: 0; border-bottom: 1px solid var(--line); }
+  .worth-panel { max-height: none; }
+}

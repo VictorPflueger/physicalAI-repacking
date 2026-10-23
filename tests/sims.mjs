@@ -23,7 +23,7 @@
 import path from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import { APP_ROOT, outDir, wanted, launchBrowser, serveStatic, NETWORK_NOISE, SKIP_INTRO } from "./lib/harness.mjs";
+import { APP_ROOT, outDir, wanted, launchBrowser, serveStatic, NETWORK_NOISE, SKIP_INTRO, M4_SCREEN } from "./lib/harness.mjs";
 import { replayScenario1, loadData } from "./lib/scenario1.mjs";
 
 const NS = await import(pathToFileURL(path.join(APP_ROOT, "js/nightsim.js")).href);
@@ -39,6 +39,7 @@ const results = [];
 if (wanted("parity")) {
   const context = await browser.newContext();
   await context.addInitScript(SKIP_INTRO);
+  await context.addInitScript(M4_SCREEN);
   const external = [];
   await context.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => { external.push(route.request().url()); return route.abort("blockedbyclient"); });
   const page = await context.newPage();
@@ -169,7 +170,8 @@ async function playScenario1(page, plan, { drafts: draftCount }) {
   got.optionLines = await page.$$eval('#console .entry[data-type="decision"] .entry-body', (els) => els.map((e) => e.textContent.replace(/\s+/g, " ").trim()).filter((x) => /^You (approved|rejected) option [A-C]\b|^You (chose to do nothing|rejected doing nothing)/i.test(x)));
   got.tile = (await page.textContent("#kpi-ontime-value")).trim();
   got.lanes = Object.fromEntries(await page.$$eval(".lane", (els) => els.map((e) => [e.dataset.order, e.dataset.state])));
-  got.facts = (await page.$$eval("#console .entry .entry-body", (els) => els.map((e) => e.textContent.trim()).find((x) => /agent turns; /.test(x)) || ""));
+  // The facts line itself: the run's last entry also carries Open management summary (TECH_NOTES D69).
+  got.facts = (await page.$$eval("#console .entry .run-facts", (els) => els.map((e) => e.textContent.trim()).find((x) => /agent turns; /.test(x)) || ""));
   got.view = await page.getAttribute("#console", "data-view");
   got.simple = await page.$$eval("#console .entry", (els) => els.filter((e) => getComputedStyle(e).display !== "none").map((e) => e.innerText).join("\n"));
   got.board = await page.$eval(".cell-board", (el) => el.innerText);
@@ -215,6 +217,7 @@ async function scenario1Case(name, plan, golden) {
   const res = node.replay.session.run;
   const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, acceptDownloads: true });
   await context.addInitScript(SKIP_INTRO);
+  await context.addInitScript(M4_SCREEN);
   const external = [];
   await context.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => { external.push(route.request().url()); return route.abort("blockedbyclient"); });
   const page = await context.newPage();
@@ -281,6 +284,7 @@ async function scenarioCase(name, id, plan, label) {
   const node = await replayScript(data.SIM_RUNS[id], { world: data.WORLD, scenario: sc, refs: data.REFERENCE_CASES[id] || {}, plan });
   const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, acceptDownloads: true });
   await context.addInitScript(SKIP_INTRO);
+  await context.addInitScript(M4_SCREEN);
   const external = [];
   await context.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => { external.push(route.request().url()); return route.abort("blockedbyclient"); });
   const page = await context.newPage();

@@ -3,7 +3,7 @@
 //                 (twelve store lanes with their cut-offs, five stations, the world model's Synthetic
 //                 label), the header tiles at the manual baseline, six scenarios, no external request,
 //                 storage keys under rp.
-//   intro         first visit opens the intro window, the five-minute call's opener: five steps, three
+//   intro         first visit opens the intro window, the five-minute call's opener: the world model's four steps, three
 //                 value points with the engine's figures at the inputs (€32.49 against €89.50, −64 %,
 //                 €342,069 a year on 4.2 cells, €40.72 an hour), what is real; "How it works" reopens it;
 //                 its Start agent leads to the mode choice
@@ -42,11 +42,22 @@
 //   world         scenario 2: the scale writes the glass jar back once (22:17, 200 g → 400 g) in the
 //                 console, the corrections log and the item's popover; the audit holds that one
 //                 correction and no tote over 15 kg
+//   customer      a first visit opens the Customer view (TECH_NOTES D62): the world model with tonight's
+//                 24 items and their planned units, What it is worth from the engine, the console; scenario
+//                 3 selected; Full shows the board, is remembered and kept on reload; back to Customer
+//   worldnight    scenario 3 in the Customer view at ×4: the jar's moment, way and tile, the unknown item's
+//                 moment, tile and the console's card; Confirm entry in the world model decides the request
+//                 once; at night end What it is worth and every item's done count equal the replay in
+//                 Node; two view switches leave the night's hash and tool calls unchanged; plain words,
+//                 with the console's Details as the control
 //   contrast      every visible text in seventeen states (intro, idle, Diagnostics, five drawer tabs, mode
 //                 choice, key dialog, banners of each level, the running replay, the replay with the
 //                 drawer open, the options, the drafts with the console's notice, the night's end with the
 //                 summary card and run facts, the management summary) meets its WCAG contrast duty; a
 //                 control is caught
+//   contrast-customer  the Customer view at 1920×1080 and 1280×720 in five states of scenario 3 (idle, the
+//                 jar, the unknown item waiting for you, the entry confirmed, night end): every visible
+//                 text meets its WCAG contrast duty; a control is caught
 //   csp           the page's policy blocks a connection to any other host
 //   file          opened from file://: the page explains how to start a server
 //   missing-data  a data file is missing: the boot screen names it
@@ -57,7 +68,7 @@ import path from "node:path";
 import vm from "node:vm";
 import { readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import { APP_ROOT, outDir, wanted, launchBrowser, serveStatic, NETWORK_NOISE, MOCK_KEY, SKIP_INTRO, KEYS } from "./lib/harness.mjs";
+import { APP_ROOT, outDir, wanted, launchBrowser, serveStatic, NETWORK_NOISE, MOCK_KEY, SKIP_INTRO, M4_SCREEN, KEYS, VIEWPORTS } from "./lib/harness.mjs";
 import { contrastShortfalls } from "./lib/contrast.mjs";
 
 // The night simulation, the engine and the formatting, in Node: what the screen must show.
@@ -114,9 +125,11 @@ function anthropicStandIn({ models = [401, 200] } = {}) {
   return handler;
 }
 
-async function newPage({ anthropic = null, intro = false, viewport = { width: 1920, height: 1080 } } = {}) {
+async function newPage({ anthropic = null, intro = false, viewport = { width: 1920, height: 1080 }, customer = false } = {}) {
   const context = await browser.newContext({ viewport, acceptDownloads: true });
   if (!intro) await context.addInitScript(SKIP_INTRO);
+  // The M4 cases run on the Full view with scenario 1; the Customer-view cases see a first visit's screen.
+  if (!customer) await context.addInitScript(M4_SCREEN);
   await context.addInitScript(() => {
     window.__csp = [];
     document.addEventListener("securitypolicyviolation", (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`.trim()));
@@ -202,8 +215,8 @@ if (wanted("boot")) {
     checks.disclosure = (await page.textContent(".ai-disclosure")).replace(/\s+/g, " ").trim();
     checks.disclosureVisible = await page.isVisible(".ai-disclosure");
     checks.fontsLoaded = await page.evaluate(async () => { await document.fonts.ready; return [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family.replace(/"/g, "")); });
-    checks.cellTag = (await page.textContent(".sim-cell-tag")).trim();
-    checks.cellTagVisible = await page.isVisible(".sim-cell-tag");
+    checks.cellTag = (await page.textContent(".cell-board .sim-cell-tag")).trim();
+    checks.cellTagVisible = await page.isVisible(".cell-board .sim-cell-tag");
     checks.synthetic = await page.$$eval(".world-card .chip, .wm-chip .chip", (els) => els.filter((e) => e.offsetParent !== null).map((e) => e.textContent.trim()));
     checks.lanes = await page.$$eval(".lane", (els) => els.map((e) => `${e.querySelector(".lane-name").textContent} ${e.querySelector(".lane-cut").textContent}`));
     checks.stations = await page.$$eval(".station .st-label", (els) => els.map((e) => e.textContent));
@@ -274,6 +287,22 @@ if (wanted("intro")) {
     await page.waitForTimeout(200);
     checks.focus = await page.evaluate(() => document.activeElement?.textContent?.trim());
     await shot(page, "02-intro.png");
+    // The window at the five sizes: no scrolling in its body, What is real inside it (css/modals.css closes
+    // it up on windows up to 900 px high).
+    const vp = page.viewportSize();
+    checks.sizes = [];
+    for (const [w, hgt] of VIEWPORTS) {
+      await page.setViewportSize({ width: w, height: hgt });
+      await page.waitForTimeout(150);
+      checks.sizes.push(await page.evaluate((size) => {
+        const body = document.querySelector(".intro-modal .modal-body");
+        const box = body.getBoundingClientRect();
+        const real = document.querySelector(".intro-real")?.getBoundingClientRect();
+        const win = document.querySelector(".intro-modal").getBoundingClientRect();
+        return { size, scroll: body.scrollHeight, client: body.clientHeight, ok: body.scrollHeight <= body.clientHeight + 1 && !!real && real.bottom <= box.bottom + 1 && win.top >= 0 && win.bottom <= innerHeight };
+      }, `${w}x${hgt}`));
+    }
+    await page.setViewportSize(vp);
     await page.click('.intro-modal .modal-foot button:has-text("Close")');
     await page.waitForSelector(".intro-modal", { state: "detached", timeout: 3000 });
     checks.flag = await page.evaluate((k) => localStorage.getItem(k), KEYS.introSeen);
@@ -298,7 +327,7 @@ if (wanted("intro")) {
   }
   await finish("intro: first visit, reopen, start", t, checks, [
     [checks.title === "How Repack Pilot works", "the intro opens by itself on the first visit"],
-    [checks.steps === "Perceive,Plan,Pick,Replan,Prepare" && checks.values === 3, "five steps and three value points"],
+    [checks.steps === "Knows,Checks,Learns,Asks" && checks.values === 3, `the world model's four steps and three value points (${checks.steps}; ${checks.values})`],
     [JSON.stringify(checks.figures) === JSON.stringify([F.eur2(G1.per_thousand.hybrid_eur), `${F.eur0(G1.per_year.eur_avoided)} a year`, `${F.eur2(G1.per_cell_hour.break_even_eur)} an hour`])
       && checks.valueTexts?.[0]?.includes(`instead of ${F.eur2(G1.per_thousand.manual_eur)} by hand: −64 %`) && checks.valueTexts?.[1]?.includes("with 4.2 cells on the night shift"),
       `what it is worth, from the engine (${JSON.stringify(checks.figures)}; ${JSON.stringify(checks.valueTexts)})`],
@@ -306,6 +335,7 @@ if (wanted("intro")) {
     // About a minute to read: 238 words a minute is the average adult reading rate (TECH_NOTES D50).
     [checks.words <= 238, `the intro reads in about a minute (${checks.words} words of at most 238)`],
     [checks.fits, "the intro fits the screen"],
+    [checks.sizes?.length === VIEWPORTS.length && checks.sizes.every((x) => x.ok), `the intro fits without scrolling at the five sizes, What is real in view (${(checks.sizes || []).map((x) => `${x.size} ${x.scroll}/${x.client}`).join(", ")})`],
     [checks.focus === "Start agent", "the main button has focus"],
     [checks.flag === "1" && checks.reopenedOnReload === false, "once closed, it does not open again on reload"],
     [checks.buttonLabel === "How it works" && checks.focusBack === "btn-about", "How it works reopens it; Escape returns the focus"],
@@ -437,7 +467,8 @@ if (wanted("diag")) {
   try {
     await boot(page);
     await page.click("#btn-diagnostics");
-    await page.waitForSelector(".diag-table", { timeout: 5000 });
+    // 15 s, not 5: on a loaded machine the panel once took longer to open (19 Oct 2026), never on an idle one.
+    await page.waitForSelector(".diag-table", { timeout: 15000 });
     await page.click("#btn-run-tests");
     await page.waitForFunction(() => document.querySelectorAll('.diag-status[data-s="pass"]').length === 4 && !document.querySelector('.diag-status[data-s="running"]'), null, { timeout: 30000 });
     checks.rows = await page.$$eval(".diag-table tbody tr", (rows) => rows.map((r) => `${r.dataset.test}:${r.querySelector(".diag-status")?.dataset.s}`));
@@ -463,7 +494,7 @@ if (wanted("diag")) {
     [/^Live reads are off in this build .* No request is sent\.$/.test(checks.off || ""), `the Open Food Facts row (${checks.off})`],
     [/^Connections limited to api\.anthropic\.com, as configured; no key stored; audit export checked\.$/.test(checks.privacy || ""), `privacy row (${checks.privacy})`],
     [checks.worldChecks === 14 && checks.worldFails === 0, `14 world checks listed, none failing (${checks.worldChecks}, ${checks.worldFails})`],
-    [new RegExp(`^Repack Pilot ${APP.version.replace(/\./g, "\\.")}\\.`).test(checks.footer || "") && APP.version === "0.4.0", `the footer shows the version (${checks.footer})`],
+    [new RegExp(`^Repack Pilot ${APP.version.replace(/\./g, "\\.")}\\.`).test(checks.footer || "") && APP.version === "0.4.1", `the footer shows the version (${checks.footer})`],
     [(checks.requests || []).length === 1 && /^POST \/v1\/messages key=no browser=true$/.test(checks.requests[0]), `one keyless probe with the browser header (${JSON.stringify(checks.requests)})`],
     [checks.remembered === "pass", "the result is remembered for this session"]
   ]);
@@ -685,6 +716,7 @@ if (wanted("board")) {
   // Reduced motion: nothing on the board animates.
   const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 }, reducedMotion: "reduce" });
   await ctx.addInitScript(SKIP_INTRO);
+  await ctx.addInitScript(M4_SCREEN);
   await ctx.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => route.abort("blockedbyclient"));
   const rp = await ctx.newPage();
   try {
@@ -951,6 +983,143 @@ if (wanted("world")) {
   ]);
 }
 
+// ---- customer: a first visit opens the Customer view (TECH_NOTES D62) ---------------------------------------
+if (wanted("customer")) {
+  const t = await newPage({ customer: true });
+  const { page } = t;
+  const checks = {};
+  const want = expected("SC3-UNKNOWN");
+  try {
+    await boot(page);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    checks.view = await page.evaluate(() => document.body.dataset.view);
+    checks.visible = { stage: await page.isVisible("#stage"), worth: await page.isVisible("#worth"), console: await page.isVisible("#console"), cell: await page.isVisible(".cell-panel") };
+    checks.hiddenControls = { model: await page.isVisible("#dd-model"), dial: await page.isVisible(".autonomy-dial") };
+    checks.scenarioLabel = (await page.textContent("#dd-scenario .value")).trim();
+    checks.pressed = await page.$$eval(".ctl-view button", (els) => els.map((e) => `${e.dataset.view}:${e.getAttribute("aria-pressed")}`).join(","));
+    checks.title = (await page.textContent(".ws-title")).trim();
+    checks.tiles = await page.$$eval(".ws-item", (els) => els.map((e) => ({ key: e.dataset.key, how: e.dataset.how, label: e.getAttribute("aria-label") })));
+    checks.moment = await page.evaluate(() => ({ kind: document.querySelector(".ws-moment")?.dataset.kind, label: document.querySelector(".wsm-label")?.textContent, text: document.querySelector(".wsm-text")?.textContent }));
+    checks.worth = { big: (await page.textContent("#wp-hybrid")).trim(), year: (await page.textContent("#wp-year")).trim() };
+    await shot(page, "16-customer-idle.png");
+    await page.click('button[aria-label="Full view"]');
+    await page.waitForTimeout(300);
+    checks.full = { view: await page.evaluate(() => document.body.dataset.view), cell: await page.isVisible(".cell-panel"), stage: await page.isVisible("#stage"), stored: await page.evaluate((k) => localStorage.getItem(k), KEYS.view), dial: await page.isVisible(".autonomy-dial") };
+    await page.reload();
+    await page.waitForSelector('html[data-boot="ready"]', { timeout: 20000 });
+    checks.reloaded = await page.evaluate(() => document.body.dataset.view);
+    await page.click('button[aria-label="Customer view"]');
+    await page.waitForTimeout(300);
+    checks.back = { view: await page.evaluate(() => document.body.dataset.view), stored: await page.evaluate((k) => localStorage.getItem(k), KEYS.view), stage: await page.isVisible("#stage") };
+  } catch (err) {
+    checks.FAILED = String(err.message).split("\n")[0];
+    await shot(page, "customer-fail.png");
+  }
+  const units = (checks.tiles || []).map((x) => Number((/: ([\d,]+) units/.exec(x.label || "") || [0, "0"])[1].replace(/,/g, "")));
+  const handItems = want.info.items.filter((i) => !i.cell).map((i) => i.sku).sort().join(",");
+  await finish("customer: a first visit opens the Customer view: the world model and what it is worth", t, checks, [
+    [checks.view === "customer" && checks.visible?.stage && checks.visible?.worth && checks.visible?.console && !checks.visible?.cell, `the Customer view by default: world model, What it is worth and the console; the board hidden (${JSON.stringify({ view: checks.view, ...checks.visible })})`],
+    [checks.hiddenControls && !checks.hiddenControls.model && !checks.hiddenControls.dial, "the model and the autonomy dial stay in the Full view"],
+    [checks.scenarioLabel === "Unknown item" && checks.pressed === "customer:true,full:false", `scenario 3 selected, the Customer switch pressed (${checks.scenarioLabel}; ${checks.pressed})`],
+    [checks.title === "The robot's world model", `the stage's title (${checks.title})`],
+    [(checks.tiles || []).length === want.info.items.length && units.reduce((a, b) => a + b, 0) === want.info.totals.units && (checks.tiles || []).filter((x) => x.how === "hand").map((x) => x.key).sort().join(",") === handItems,
+      `tonight's ${want.info.items.length} items with their planned units (${units.reduce((a, b) => a + b, 0)} of ${want.info.totals.units}) and the items for people (${handItems})`],
+    [checks.moment?.kind === "idle" && checks.moment?.label === "Tonight's pallet" && checks.moment?.text === `The model holds all ${want.info.items.length} items of tonight's ${F.int(want.info.totals.units)} units. The robot may take ${F.int(want.info.totals.cell_units)} of them; ${F.int(want.info.totals.manual_units)} are for people: items it may not grip.`, `the idle moment (${JSON.stringify(checks.moment)})`],
+    [checks.worth?.big === F.eur2(G1.per_thousand.hybrid_eur) && checks.worth?.year === `${F.eur0(G1.per_year.eur_avoided)} a year`, `What it is worth from the engine (${JSON.stringify(checks.worth)})`],
+    [checks.full?.view === "full" && checks.full?.cell && !checks.full?.stage && checks.full?.stored === "full" && checks.full?.dial && checks.reloaded === "full", `Full shows the board, is stored and kept on reload (${JSON.stringify(checks.full)}; ${checks.reloaded})`],
+    [checks.back?.view === "customer" && checks.back?.stored === "customer" && checks.back?.stage, `back to the Customer view (${JSON.stringify(checks.back)})`]
+  ]);
+}
+
+// ---- worldnight: scenario 3 in the Customer view, the five-minute run --------------------------------------
+if (wanted("worldnight")) {
+  const t = await newPage({ customer: true });
+  const { page } = t;
+  const checks = {};
+  const { replayScenario3 } = await mod("tests/lib/scenario3.mjs");
+  const { NOT_PLAIN } = await mod("js/sim_check.js");
+  const sc3 = await replayScenario3({ option: null, confirm: "confirm" });
+  const read = () => page.evaluate(() => ({
+    kind: document.querySelector(".ws-moment")?.dataset.kind,
+    label: document.querySelector(".wsm-label")?.textContent,
+    text: document.querySelector(".wsm-text")?.textContent,
+    nodes: Object.fromEntries([...document.querySelectorAll(".ws-node")].map((n) => [n.dataset.node, `${n.querySelector(".wsn-l1").textContent} | ${n.querySelector(".wsn-l2").textContent}`])),
+    tiles: Object.fromEntries([...document.querySelectorAll(".ws-item")].map((e) => [e.dataset.key, { state: e.dataset.state, badge: e.querySelector(".wsi-badge")?.textContent || "", label: e.getAttribute("aria-label") }])),
+    log: [...document.querySelectorAll(".ws-log li")].map((l) => l.textContent.trim()),
+    words: [document.querySelector("#stage")?.innerText || "", document.querySelector("#worth")?.innerText || "",
+      [...document.querySelectorAll("#console .entry")].filter((e) => getComputedStyle(e).display !== "none").map((e) => e.innerText).join("\n")].join("\n")
+  }));
+  try {
+    await boot(page);
+    await page.click('button[aria-label="Night speed ×4"]');
+    await page.click("#btn-start");
+    await page.waitForSelector(".mode-card", { timeout: 5000 });
+    await page.click('.mode-card[data-mode="simulation"] .mode-cta button');
+    await page.waitForFunction(() => document.querySelector(".ws-moment")?.dataset.kind === "learned", null, { timeout: 60000 });
+    checks.jar = await read();
+    await shot(page, "17-customer-jar.png");
+    // A view switch during the run: the night goes on, neither restarted nor doubled (TECH_NOTES D62).
+    await page.click('button[aria-label="Full view"]');
+    await page.waitForTimeout(250);
+    await page.click('button[aria-label="Customer view"]');
+    await page.waitForSelector("#ws-confirm", { timeout: 120000 });
+    checks.unknown = await read();
+    checks.consoleCard = await page.isVisible("#console .confirm-actions .btn-approve");
+    await shot(page, "18-customer-confirm.png");
+    await page.click("#ws-confirm");
+    await page.waitForSelector("#console .confirm-card .option-status", { state: "attached", timeout: 10000 });
+    checks.consoleStatus = (await page.textContent("#console .confirm-card .option-status")).trim();
+    // The console marks its card at once; the world model redraws on its next frame (a slow CI runner read
+    // it a frame early on 19 Oct 2026). A stage that never shows the decision still fails below.
+    await page.waitForFunction(() => document.querySelector(".ws-moment")?.dataset.kind === "decided", null, { timeout: 10000 }).catch(() => {});
+    checks.decided = await read();
+    await waitStatus(page, "Done", 240000);
+    await page.waitForTimeout(300);
+    checks.end = await read();
+    checks.tonight = await page.$$eval("#wp-tonight dt", (dts) => Object.fromEntries(dts.map((dt) => [dt.textContent, dt.nextElementSibling?.textContent])));
+    await shot(page, "19-customer-end.png");
+    // The positive control of the plain-words check: Details shows the tool calls.
+    await page.click("#btn-console-details").catch(() => page.click('#console button:has-text("Details")'));
+    await page.waitForTimeout(200);
+    checks.details = await page.$$eval("#console .entry", (els) => els.filter((e) => getComputedStyle(e).display !== "none").map((e) => e.innerText).join("\n"));
+    await page.click("#tab-audit");
+    const [download] = await Promise.all([page.waitForEvent("download"), page.click("#btn-export-audit")]);
+    const audit = JSON.parse(await readFile(await download.path(), "utf8"));
+    const ev = audit.events || [];
+    checks.audit = { hash: audit.run?.night_hash, calls: ev.filter((e) => e.type === "tool_call").map((e) => e.payload.name), decisions: ev.filter((e) => e.type === "confirmation_decision").map((e) => e.payload.choice) };
+  } catch (err) {
+    checks.FAILED = String(err.message).split("\n")[0];
+    await shot(page, "worldnight-fail.png");
+  }
+  const jarItem = sc3.item(sc3.correction?.sku);
+  const pct0 = (x) => F.pct(x, 0);
+  const barcode = sc3.e1?.barcode;
+  const doneOk = Object.entries(checks.end?.tiles || {}).filter(([k]) => !k.startsWith("unknown:")).every(([sku, x]) => new RegExp(`, ${F.int((sc3.robot[sku] || 0) + (sc3.hand[sku] || 0)).replace(",", "\\,")} done`).test(x.label || ""));
+  const plainAt = (x) => (NOT_PLAIN.exec(x?.words || "") || [])[0] || null;
+  await finish("worldnight: scenario 3 in the Customer view: the model learns, asks and pays off", t, checks, [
+    [checks.jar?.label === `The model learned · ${NS.clockOf(sc3.correction?.at)}` && checks.jar?.text === `${jarItem?.name} weighs ${F.int(sc3.correction?.new)} g on the scale, not ${F.int(sc3.correction?.old)} g as in the master data. The model now holds ${F.int(sc3.correction?.new)} g for every unit of this item, and the next one is rehearsed with it: ${pct0(sc3.rehearsal?.expected_success)} expected success.`,
+      `the jar's moment (${JSON.stringify({ label: checks.jar?.label, text: checks.jar?.text })})`],
+    [checks.jar?.nodes?.model === `now ${F.int(sc3.correction?.new)} g | was ${F.int(sc3.correction?.old)} g, for every unit` && checks.jar?.nodes?.scale === `${F.int(sc3.correction?.new)} g | expected ${F.int(sc3.correction?.old)} g` && checks.jar?.nodes?.robot === `rehearsed: ${pct0(sc3.rehearsal?.expected_success)} | with the new weight`,
+      `the jar's way through the cell (${JSON.stringify(checks.jar?.nodes)})`],
+    [checks.jar?.tiles?.[sc3.correction?.sku]?.state === "corrected" && checks.jar?.tiles?.[sc3.correction?.sku]?.badge === `corrected ${NS.clockOf(sc3.correction?.at)}`
+      && checks.jar?.log?.[0] === `${NS.clockOf(sc3.correction?.at)} ${jarItem?.name}: ${F.int(sc3.correction?.old)} g → ${F.int(sc3.correction?.new)} g by the scale, for every unit of the item`,
+      `the jar's tile and what the model learned (${JSON.stringify(checks.jar?.tiles?.[sc3.correction?.sku])}; ${JSON.stringify(checks.jar?.log)})`],
+    [checks.unknown?.kind === "unknown" && checks.unknown?.label === `Not in the model · ${NS.clockOf(sc3.e1?.sim_t ?? 0)}` && checks.unknown?.text?.startsWith(`The camera read barcode ${barcode}, which the model does not know. The robot never picks an unknown item: its ${sc3.e1?.units} units go to a person. A provisional entry waits for your decision`)
+      && checks.unknown?.nodes?.camera === "not in the model | unknown barcode" && checks.unknown?.nodes?.people === `${sc3.e1?.units} units to a person | you confirm the entry` && checks.unknown?.tiles?.[`unknown:${barcode}`]?.state === "unknown" && checks.consoleCard,
+      `the unknown item's moment, its tile and the console's card (${JSON.stringify({ label: checks.unknown?.label, text: checks.unknown?.text, nodes: checks.unknown?.nodes, tile: checks.unknown?.tiles?.[`unknown:${barcode}`], card: checks.consoleCard })})`],
+    [checks.consoleStatus === "Confirmed" && checks.decided?.kind === "decided" && checks.decided?.tiles?.[`unknown:${barcode}`]?.state === "confirmed" && checks.decided?.tiles?.[`unknown:${barcode}`]?.badge === "confirmed by you" && JSON.stringify(checks.audit?.decisions) === JSON.stringify(["confirm"]),
+      `Confirm entry in the world model decides the console's request once (${JSON.stringify({ console: checks.consoleStatus, kind: checks.decided?.kind, tile: checks.decided?.tiles?.[`unknown:${barcode}`], decisions: checks.audit?.decisions })})`],
+    [checks.end?.log?.[1] === `${NS.clockOf(sc3.e1?.sim_t ?? 0)} Barcode ${barcode}: confirmed by you; its ${sc3.e1?.units} units went to a person` && checks.end?.kind === "end",
+      `what the model learned at night end (${JSON.stringify(checks.end?.log)}; ${checks.end?.kind})`],
+    [checks.tonight?.["Units repacked"] === sc3.tonight.units && checks.tonight?.Labour === sc3.tonight.labour && checks.tonight?.["Per 1,000 repacked"] === sc3.tonight.per1000 && checks.tonight?.["Store orders"] === sc3.tonight.orders
+      && checks.tonight?.["Caught by the model"] === `1 weight corrected · 1 unknown item, ${sc3.e1?.units} units to a person`,
+      `What it is worth at night end equals the night in Node (${JSON.stringify(checks.tonight)}; Node ${JSON.stringify(sc3.tonight)})`],
+    [doneOk && Object.keys(checks.end?.tiles || {}).length === sc3.info.items.length + 1, `every item's done count equals its robot and hand picks in Node (${Object.keys(checks.end?.tiles || {}).length} tiles)`],
+    [checks.audit?.hash === sc3.hash && JSON.stringify(checks.audit?.calls) === JSON.stringify(sc3.calls), `the night after two view switches equals the replay in Node (${checks.audit?.hash}; Node ${sc3.hash}; ${(checks.audit?.calls || []).length} tool calls, Node ${sc3.calls.length})`],
+    [!plainAt(checks.jar) && !plainAt(checks.unknown) && !plainAt(checks.end) && NOT_PLAIN.test(checks.details || ""), `plain words in the Customer view, Details as the control (${[plainAt(checks.jar), plainAt(checks.unknown), plainAt(checks.end)].join(", ")}; control ${(NOT_PLAIN.exec(checks.details || "") || ["none"])[0]})`]
+  ]);
+}
+
 // ---- contrast: every visible text meets its WCAG 2.2 contrast duty (tests/lib/contrast.mjs) -------------
 if (wanted("contrast")) {
   for (const [w, hgt] of [[1920, 1080], [1280, 720]]) {
@@ -1041,6 +1210,51 @@ if (wanted("contrast")) {
       [Object.keys(checks.states).length === 17 && thin.length === 0, `seventeen states, each with at least five text elements measured (${Object.entries(checks.states).map(([k, r]) => `${k} ${r.measured}`).join(", ")})`],
       [below.length === 0, `text below its duty: ${JSON.stringify(below)}`],
       [checks.control && checks.controlFound?.length === 1 && checks.controlFound[0].ratio === 4.44, `the control is caught at 4.44:1 (${JSON.stringify(checks.controlFound)})`]
+    ]);
+  }
+}
+
+// ---- contrast in the Customer view: the world model and What it is worth at every moment of scenario 3 ------
+if (wanted("contrast-customer")) {
+  for (const [w, hgt] of [[1920, 1080], [1280, 720]]) {
+    const t = await newPage({ customer: true, viewport: { width: w, height: hgt } });
+    const { page } = t;
+    const checks = { states: {} };
+    const measure = async (state) => { await settle(page); checks.states[state] = await contrastShortfalls(page); };
+    try {
+      await boot(page);
+      await measure("idle");
+      await page.click('button[aria-label="Night speed ×4"]');
+      await page.click("#btn-start");
+      await page.waitForSelector(".mode-card", { timeout: 5000 });
+      await page.click('.mode-card[data-mode="simulation"] .mode-cta button');
+      await page.waitForFunction(() => document.querySelector(".ws-moment")?.dataset.kind === "learned", null, { timeout: 60000 });
+      await measure("the jar");
+      await page.waitForSelector("#ws-confirm", { timeout: 120000 });
+      await measure("the unknown item, waiting for you");
+      await page.click("#ws-confirm");
+      await page.waitForFunction(() => document.querySelector(".ws-moment")?.dataset.kind === "decided", null, { timeout: 10000 });
+      await measure("the entry confirmed");
+      await waitStatus(page, "Done", 120000);
+      await measure("night end");
+      checks.controlProbe = await page.evaluate(() => {
+        const probe = document.createElement("p");
+        probe.textContent = "Contrast control";
+        Object.assign(probe.style, { position: "fixed", left: "0", top: "0", margin: "0", padding: "4px", fontSize: "14px", fontWeight: "400", color: "var(--text-faint)", background: "var(--porcelain)", zIndex: "9999" });
+        document.body.append(probe);
+        return probe.getBoundingClientRect().width > 0;
+      });
+      checks.controlFound = (await contrastShortfalls(page)).below.filter((s) => s.text === "Contrast control");
+    } catch (err) {
+      checks.FAILED = String(err.message).split("\n")[0];
+      await shot(page, `contrast-customer-fail-${w}.png`);
+    }
+    const below = Object.entries(checks.states).flatMap(([state, r]) => r.below.map((s) => `${state}: "${s.text}" ${s.ratio}:1 (needs ${s.need}) ${s.color} on ${s.bg}`));
+    const thin = Object.entries(checks.states).filter(([, r]) => r.measured < 20).map(([state, r]) => `${state} (${r.measured})`);
+    await finish(`contrast-customer: every visible text of the Customer view meets its duty at ${w}×${hgt}`, t, checks, [
+      [Object.keys(checks.states).length === 5 && thin.length === 0, `five states, each with at least twenty text elements measured (${Object.entries(checks.states).map(([k, r]) => `${k} ${r.measured}`).join(", ")})`],
+      [below.length === 0, `text below its duty: ${JSON.stringify(below)}`],
+      [checks.controlProbe && checks.controlFound?.length === 1 && checks.controlFound[0].ratio === 4.44, `the control is caught at 4.44:1 (${JSON.stringify(checks.controlFound)})`]
     ]);
   }
 }

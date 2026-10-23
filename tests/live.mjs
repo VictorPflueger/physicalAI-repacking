@@ -26,7 +26,7 @@
 import path from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import { APP_ROOT, outDir, wanted, launchBrowser, serveStatic, NETWORK_NOISE, SKIP_INTRO, CORS, MOCK_KEY, KEYS } from "./lib/harness.mjs";
+import { APP_ROOT, outDir, wanted, launchBrowser, serveStatic, NETWORK_NOISE, SKIP_INTRO, M4_SCREEN, CORS, MOCK_KEY, KEYS } from "./lib/harness.mjs";
 import { createFakeClaude, lastResults } from "./lib/fake-claude.mjs";
 import { replayScenario1, liveConversation, usageCost, loadData } from "./lib/scenario1.mjs";
 import { conversationFromReplay } from "./lib/script_fake.mjs";
@@ -51,6 +51,7 @@ const SC1_B = await replayScenario1({ option: "B" });
 async function newLivePage(fake, { viewport = { width: 1920, height: 1080 } } = {}) {
   const context = await browser.newContext({ viewport, acceptDownloads: true });
   await context.addInitScript(SKIP_INTRO);
+  await context.addInitScript(M4_SCREEN);
   const external = [];
   const seen = [];
   await context.route(/^https?:\/\/(?!127\.0\.0\.1)/, async (route) => {
@@ -336,6 +337,7 @@ if (wanted("recorder")) {
   const replay = async (option) => {
     const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
     await ctx.addInitScript(SKIP_INTRO);
+    await ctx.addInitScript(M4_SCREEN);
     const external = [];
     await ctx.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => { external.push(route.request().url()); return route.abort("blockedbyclient"); });
     const original = await readFile(path.join(APP_ROOT, "data/sim_runs.js"), "utf8");

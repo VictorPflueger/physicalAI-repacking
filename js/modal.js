@@ -1,4 +1,6 @@
-// Accessible modal dialog: focus trap, Escape to close, focus restore, labelled by its title.
+// Accessible modal dialog: focus trap, Escape to close, focus restore, labelled by its title. Its footer
+// repeats the AI disclosure, which the backdrop's blur makes unreadable in the header while a dialog is
+// open (the brief: "You are interacting with an AI system" stays visible at all times).
 
 import { h } from "./dom.js";
 import { icon } from "./icons.js";
@@ -15,12 +17,16 @@ export function openModal({ title, intro = "", body = [], footer = [], size = ""
   const closeBtn = dismissible
     ? h("button", { class: "btn btn-ghost btn-icon", type: "button", "aria-label": "Close dialog", title: "Close" }, icon("x", 20))
     : null;
+  const disclosure = h("span", { class: "modal-ai" }, icon("spark", 16), h("span", {}, "You are interacting with an AI system"));
+  const foot = h("div", { class: "modal-foot" }, disclosure, footer && (!Array.isArray(footer) || footer.length) ? footer : []);
+  // A footer's own note (.left) keeps the space beside the disclosure.
+  if (foot.querySelector(".left")) disclosure.classList.add("beside-note");
   const dialog = h("div", { class: `modal ${size} ${className}`.trim(), role: "dialog", "aria-modal": "true", "aria-labelledby": `${id}-title` },
     h("div", { class: "modal-head" },
       h("div", {}, h("h2", { id: `${id}-title` }, title), intro ? h("p", {}, intro) : null),
       closeBtn),
     h("div", { class: "modal-body" }, body),
-    footer && (!Array.isArray(footer) || footer.length) ? h("div", { class: "modal-foot" }, footer) : null);
+    foot);
   const backdrop = h("div", { class: "modal-backdrop" }, dialog);
 
   let closed = false;
