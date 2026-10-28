@@ -250,7 +250,7 @@ if (wanted("boot")) {
     [checks.bootRemoved, "boot screen removed"],
     [checks.badge === "No run active", "idle badge"],
     [checks.disclosureVisible && /You are interacting with an AI system/.test(checks.disclosure || ""), "AI disclosure visible"],
-    [["Barlow", "Barlow Semi Condensed"].every((f) => (checks.fontsLoaded || []).includes(f)), `self-hosted fonts loaded (${(checks.fontsLoaded || []).join(", ")})`],
+    [["Inter", "Bricolage Grotesque"].every((f) => (checks.fontsLoaded || []).includes(f)), `Vici's self-hosted fonts loaded (${(checks.fontsLoaded || []).join(", ")})`],
     [checks.cellTagVisible && checks.cellTag === "Simulated cell", "the neutral Simulated cell tag"],
     [JSON.stringify(checks.synthetic) === JSON.stringify(["Synthetic"]), `the world model says Synthetic (${JSON.stringify(checks.synthetic)})`],
     [JSON.stringify(checks.lanes) === JSON.stringify(stores) && stores.length === 12, `twelve store lanes with the world's cut-offs (${JSON.stringify(checks.lanes)})`],

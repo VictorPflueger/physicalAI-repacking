@@ -11,7 +11,7 @@ import path from "node:path";
 import { APP_ROOT } from "./lib/harness.mjs";
 
 const SUITES = [
-  { id: "tokens", what: "colour system: WCAG 2.2 contrast, colour-blind separation, token files", file: "tools/palette.mjs", args: ["--check"], browser: false },
+  { id: "tokens", what: "colour system on Vici's tokens, light and dark: contrast, colour-blind separation", file: "tests/tokens.mjs", browser: false },
   { id: "world", what: "synthetic world, scenarios and their nights, calibration, shadow record, generated files", file: "tools/check_world.mjs", browser: false },
   { id: "unit", what: "streaming client, retries, cost maths, half-up formatting, world checks, autonomy gate, Open Food Facts lookup, placeholders, wake bridge, human channel, run facts", file: "tests/unit.mjs", browser: false },
   { id: "engine", what: "golden cases and display strings, night snapshots, calibration, escalation rules, world model, levers, option costing with the golden option cases of scenarios 1, 4 and 6, decisions, figure audit, rules in code, toolbox, every scenario's script on every path", file: "tests/engine.mjs", browser: false },

@@ -203,7 +203,8 @@ export function initUI() {
     "aria-label": "How it works", title: `What ${APP.name} does, how it works and what is real`
   }, icon("info", 18), h("span", { class: "btn-text" }, "How it works"));
   aboutBtn.addEventListener("click", () => showIntro());
-  document.querySelector(".header-badges")?.appendChild(aboutBtn);
+  // Beside the mode badge, so the badges need two rows at most next to the KPI tiles.
+  badge.after(aboutBtn);
 
   function showIntro() {
     const s = getState();

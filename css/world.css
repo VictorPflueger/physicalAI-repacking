@@ -9,46 +9,44 @@
   flex: none;
   display: flex; flex-direction: column; gap: 6px;
   padding: 10px 12px 11px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--line);
-  background: var(--paper);
-  box-shadow: var(--shadow-soft);
+  border-radius: var(--vc-radius-lg);
+  border: 1px solid var(--vc-border-subtle);
+  background: var(--vc-surface);
+  box-shadow: var(--vc-shadow-md);
 }
 .wm-head { display: flex; align-items: center; gap: 10px; }
-.wm-head strong { font-family: var(--font-figures); font-size: 1.05rem; }
+.wm-head strong { font-family: var(--vc-font-display); font-weight: var(--vc-weight-semibold); letter-spacing: var(--vc-tracking-heading); font-size: 1.05rem; }
 .wm-focus {
   min-height: 44px; width: 100%;
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   padding: 6px 10px;
-  border-radius: var(--r-sm);
-  border: 1px solid var(--line);
-  background: var(--paper); color: var(--text); text-align: left; font: inherit; cursor: pointer;
+  border-radius: var(--vc-radius-md);
+  border: 1px solid var(--vc-border-subtle);
+  background: var(--vc-surface); color: var(--vc-text); text-align: left; font: inherit; cursor: pointer;
 }
-.wm-focus:focus-visible { outline: none; box-shadow: var(--focus); }
-.wm-focus[data-corrected="true"] { border-color: var(--info-mid); background: var(--info-fill); }
+.wm-focus[data-corrected="true"] { border-color: var(--vc-info-border); background: var(--vc-info-bg); }
 .wm-sku { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wm-label { margin-right: 8px; color: var(--text-muted); font-weight: 400; font-size: var(--fs-sm); }
-.wm-focus[data-corrected="true"] .wm-label { color: var(--info-text); font-weight: 600; }
+.wm-label { margin-right: 8px; color: var(--vc-text-muted); font-weight: 400; font-size: var(--vc-font-size-sm); }
+.wm-focus[data-corrected="true"] .wm-label { color: var(--vc-info-text); font-weight: 600; }
 .wm-vals { display: flex; align-items: center; gap: 12px; font-variant-numeric: tabular-nums; flex: none; }
-.wm-exp { color: var(--text-muted); }
-.wm-obs { color: var(--info-text); font-weight: 600; }
-.wm-fix { display: inline-flex; align-items: center; gap: 4px; color: var(--info-text); font-weight: 600; }
-.wm-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-sm); color: var(--text-muted); }
+.wm-exp { color: var(--vc-text-muted); }
+.wm-obs { color: var(--vc-info-text); font-weight: 600; }
+.wm-fix { display: inline-flex; align-items: center; gap: 4px; color: var(--vc-info-text); font-weight: 600; }
+.wm-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: var(--vc-font-size-sm); color: var(--vc-text-muted); }
 .wm-log li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wm-time { font-family: var(--font-mono); font-size: 0.86em; color: var(--text); margin-right: 4px; }
+.wm-time { font-family: var(--vc-font-mono); font-size: 0.86em; color: var(--vc-text); margin-right: 4px; }
 .wm-chip {
   display: none; align-items: center; gap: 10px; min-height: 44px;
   padding: 6px 12px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--line);
-  background: var(--paper); color: var(--text); text-align: left; font: inherit; cursor: pointer;
-  box-shadow: var(--shadow-soft);
+  border-radius: var(--vc-radius-lg);
+  border: 1px solid var(--vc-border-subtle);
+  background: var(--vc-surface); color: var(--vc-text); text-align: left; font: inherit; cursor: pointer;
+  box-shadow: var(--vc-shadow-md);
   flex: 0 1 auto; min-width: 0; margin-right: auto;
 }
 .wm-chip .chip { flex: none; }
 .wm-chip strong { flex: none; white-space: nowrap; }
-.wm-chip:focus-visible { outline: none; box-shadow: var(--focus), var(--shadow-soft); }
-.wm-chip-text { display: flex; gap: 0.35em; min-width: 0; overflow: hidden; white-space: nowrap; color: var(--text-muted); }
+.wm-chip-text { display: flex; gap: 0.35em; min-width: 0; overflow: hidden; white-space: nowrap; color: var(--vc-text-muted); }
 /* The name gives way; the weights keep their width (a shrink share of a fraction of a pixel would
    already put an ellipsis on them) and are clipped by the text box only if even they do not fit. */
 .wm-chip-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }

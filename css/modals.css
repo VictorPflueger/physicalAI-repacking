@@ -1,10 +1,10 @@
-/* Repack Pilot — modal dialogs: mode selection, API key, diagnostics, intro (shared with Rebate Hunter). */
+/* Repack Pilot — modal dialogs: mode selection, API key, diagnostics, report. */
 
 .modal-backdrop {
   position: fixed; inset: 0; z-index: 2000;
   display: flex; align-items: center; justify-content: center;
   padding: 24px;
-  background: color-mix(in srgb, var(--ink-12) 38%, transparent);
+  background: color-mix(in oklab, var(--vc-scrim) 55%, transparent);
   backdrop-filter: blur(3px);
   animation: fadeIn 0.15s ease-out;
 }
@@ -14,134 +14,118 @@
   width: min(880px, 100%);
   max-height: calc(100dvh - 48px);
   display: flex; flex-direction: column;
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-pop);
+  background: var(--vc-surface);
+  border: 1px solid var(--vc-border-subtle);
+  border-radius: var(--vc-radius-xl);
+  box-shadow: var(--vc-shadow-lg);
 }
 .modal.narrow { width: min(620px, 100%); }
 .modal.wide { width: min(1080px, 100%); }
 .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 20px 6px 24px; }
-.modal-head h2 { margin: 0; font-family: var(--font-figures); font-size: 1.6rem; line-height: 1.15; color: var(--text); }
-.modal-head p { margin: 6px 0 0; color: var(--text-muted); max-width: 70ch; }
+.modal-head h2 { margin: 0; font-family: var(--vc-font-display); font-weight: var(--vc-weight-semibold); font-size: 1.6rem; line-height: 1.15; letter-spacing: var(--vc-tracking-heading); color: var(--vc-text); }
+.modal-head p { margin: 6px 0 0; color: var(--vc-text-muted); max-width: 70ch; }
 .modal-body { padding: 14px 24px 20px; overflow-y: auto; }
-.modal-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 24px 18px; border-top: 1px solid var(--line); flex-wrap: wrap; background: var(--porcelain); border-radius: 0 0 var(--r-lg) var(--r-lg); }
-.modal-foot .left { margin-right: auto; color: var(--text-muted); font-size: var(--fs-sm); }
-/* The AI disclosure, repeated in every dialog's footer while the backdrop blurs the header's (js/modal.js). */
-.modal-ai { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; color: var(--text); font-size: var(--fs-sm); white-space: nowrap; }
-.modal-ai.beside-note { margin-right: 0; }
-.modal-ai svg { color: var(--violet-line); flex: none; }
+.modal-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 24px 18px; border-top: 1px solid var(--vc-border-subtle); flex-wrap: wrap; background: var(--vc-bg); border-radius: 0 0 var(--vc-radius-xl) var(--vc-radius-xl); }
+.modal-foot .left { margin-right: auto; color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); }
 
 /* Mode selection ----------------------------------------------------------------------------- */
 .run-summary {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   padding: 10px 14px; margin-bottom: 14px;
-  border: 1px solid var(--line); border-radius: var(--r-md);
-  background: var(--porcelain);
+  border: 1px solid var(--vc-border-subtle); border-radius: var(--vc-radius-lg);
+  background: var(--vc-bg);
 }
-.run-summary .label { color: var(--text-muted); }
-.run-summary strong { font-weight: 700; color: var(--text); }
-/* The build's stage (M2: no agent yet), between the run and the two modes. */
-.stage-note {
-  display: flex; align-items: flex-start; gap: 8px;
-  margin: 0 0 12px; padding: 8px 12px;
-  border-radius: var(--r-md); border: 1px solid var(--info-mid); background: var(--info-fill);
-  color: var(--text); font-size: var(--fs-sm);
-}
-.stage-note .icon { flex: none; color: var(--info-text); margin-top: 1px; }
+.run-summary .label { color: var(--vc-text-muted); }
+.run-summary strong { font-weight: 700; color: var(--vc-text); }
 
 .mode-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .mode-card {
   display: flex; flex-direction: column; gap: 10px;
   padding: 18px 18px 16px;
-  border-radius: var(--r-lg);
-  border: 1px solid var(--line-strong);
-  background: var(--paper);
+  border-radius: var(--vc-radius-xl);
+  border: 1px solid var(--vc-border);
+  background: var(--vc-surface);
   min-width: 0;
 }
-.mode-card h3 { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 1.35rem; font-family: var(--font-figures); color: var(--text); }
-.mode-card ul { margin: 0; padding-left: 20px; color: var(--text-muted); }
+.mode-card h3 { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 1.35rem; font-family: var(--vc-font-display); font-weight: var(--vc-weight-semibold); letter-spacing: var(--vc-tracking-heading); color: var(--vc-text); }
+.mode-card ul { margin: 0; padding-left: 20px; color: var(--vc-text-muted); }
 .mode-card li { margin: 3px 0; }
 .mode-card .mode-cta { margin-top: auto; padding-top: 6px; }
 .mode-card .mode-cta .btn { width: 100%; }
-.mode-card[data-mode="simulation"] { border-top: 6px solid var(--butter-edge); background: var(--butter-wash); }
-.mode-card[data-mode="simulation"] h3 .icon { color: var(--butter-text); }
-.mode-card[data-mode="live"] { border-top: 6px solid var(--brand); background: var(--brand-wash); }
-.mode-card[data-mode="live"] h3 .icon { color: var(--brand); }
+/* The simulation card wears the tape along its top edge. */
+.mode-card[data-mode="simulation"] { padding-top: 23px; background: repeating-linear-gradient(-45deg, var(--vc-text) 0 6px, var(--vc-surface) 6px 12px) top / 100% 6px no-repeat, var(--vc-bg-subtle); }
+.mode-card[data-mode="simulation"] h3 .icon { color: var(--vc-text); }
+.mode-card[data-mode="live"] { border-top: 6px solid var(--vc-accent); background: var(--vc-surface-hover); }
+.mode-card[data-mode="live"] h3 .icon { color: var(--vc-accent); }
 .mode-card .badge-sim {
   align-self: flex-start;
   display: inline-block; padding: 2px 10px 2px 26px; border-radius: 999px;
-  color: var(--sim-black); font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.06em;
-  border: 1px solid var(--butter-edge);
-  background: repeating-linear-gradient(-45deg, var(--sim-black) 0 5px, var(--sim-yellow) 5px 10px) left / 18px 100% no-repeat, var(--sim-yellow);
+  color: var(--vc-text); font-size: var(--fs-xs); font-weight: 700; letter-spacing: var(--vc-tracking-caps);
+  border: 1px solid var(--vc-border-strong);
+  background: repeating-linear-gradient(-45deg, var(--vc-text) 0 5px, var(--vc-surface) 5px 10px) left / 18px 100% no-repeat, var(--vc-bg-subtle);
 }
-.mode-card .badge-live { align-self: flex-start; display: inline-block; padding: 2px 10px; border-radius: 999px; color: var(--on-brand); background: var(--live); font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.06em; }
+.mode-card .badge-live { align-self: flex-start; display: inline-block; padding: 2px 10px; border-radius: 999px; color: var(--vc-on-accent); background: var(--vc-accent); font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.06em; }
 .mode-card[aria-disabled="true"] { opacity: 0.55; }
-.mode-card .why-disabled { color: var(--warning-text); font-size: var(--fs-sm); }
+.mode-card .why-disabled { color: var(--vc-warning-text); font-size: var(--vc-font-size-sm); }
 
 /* API key ----------------------------------------------------------------------------------- */
 .key-advice {
   display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px;
   padding: 12px 14px; margin: 4px 0 14px;
-  border: 1px solid var(--warning-mid); border-radius: var(--r-md);
-  background: var(--warning-fill);
+  border: 1px solid var(--vc-warning-border); border-radius: var(--vc-radius-lg);
+  background: var(--vc-warning-bg);
 }
-.key-advice .icon { color: var(--warning-text); }
+.key-advice .icon { color: var(--vc-warning-text); }
 .key-advice p { margin: 0 0 4px; }
-.key-facts { display: grid; gap: 6px; margin: 14px 0 0; padding: 0; list-style: none; color: var(--text-muted); font-size: var(--fs-sm); }
+.key-facts { display: grid; gap: 6px; margin: 14px 0 0; padding: 0; list-style: none; color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); }
 .key-facts li { display: flex; gap: 8px; align-items: flex-start; }
-.key-facts .icon { color: var(--success-line); margin-top: 1px; }
-.key-current { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: var(--r-md); background: var(--porcelain); border: 1px solid var(--line); margin-bottom: 12px; }
-.key-current .icon { color: var(--brand); }
-.key-current code { font-family: var(--font-mono); font-size: var(--fs-sm); }
+.key-facts .icon { color: var(--vc-success-solid); margin-top: 1px; }
+.key-current { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: var(--vc-radius-lg); background: var(--vc-bg); border: 1px solid var(--vc-border-subtle); margin-bottom: 12px; }
+.key-current .icon { color: var(--vc-accent); }
+.key-current code { font-family: var(--vc-font-mono); font-size: var(--vc-font-size-sm); }
 
 /* Diagnostics -------------------------------------------------------------------------------- */
-.diag-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
-.diag-table th { text-align: left; color: var(--text-faint); font-weight: 600; padding: 6px 12px 6px 0; border-bottom: 1px solid var(--line-strong); }
-.diag-table td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.diag-table { width: 100%; border-collapse: collapse; font-size: var(--vc-font-size-sm); }
+.diag-table th { text-align: left; color: var(--vc-text-subtle); font-weight: 600; padding: 6px 12px 6px 0; border-bottom: 1px solid var(--vc-border); }
+.diag-table td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--vc-border-subtle); vertical-align: top; }
 .diag-table td.status { white-space: nowrap; font-weight: 700; }
-.diag-table td.ms { white-space: nowrap; color: var(--text-faint); font-variant-numeric: tabular-nums; }
-.diag-table .host { display: block; color: var(--text-faint); font-family: var(--font-mono); font-size: 0.78rem; }
-.diag-table .detail { color: var(--text-muted); }
+.diag-table td.ms { white-space: nowrap; color: var(--vc-text-subtle); font-variant-numeric: tabular-nums; }
+.diag-table .host { display: block; color: var(--vc-text-subtle); font-family: var(--vc-font-mono); font-size: 0.78rem; }
+.diag-table .detail { color: var(--vc-text-muted); }
 .diag-status { display: inline-flex; align-items: center; gap: 6px; }
-.diag-status[data-s="pass"] { color: var(--success-text); }
-.diag-status[data-s="fail"] { color: var(--danger-text); }
-.diag-status[data-s="warn"] { color: var(--warning-text); }
-.diag-status[data-s="skip"], .diag-status[data-s="idle"] { color: var(--text-faint); }
-.diag-status[data-s="running"] { color: var(--brand); }
+.diag-status[data-s="pass"] { color: var(--vc-success-text); }
+.diag-status[data-s="fail"] { color: var(--vc-danger-text); }
+.diag-status[data-s="warn"] { color: var(--vc-warning-text); }
+.diag-status[data-s="skip"], .diag-status[data-s="idle"] { color: var(--vc-text-subtle); }
+.diag-status[data-s="running"] { color: var(--vc-info-text); }
 .diag-section { margin-top: 18px; }
-.diag-section h3 { margin: 0 0 6px; font-size: var(--fs-md); color: var(--text); }
-.diag-section p { margin: 0 0 8px; color: var(--text-muted); font-size: var(--fs-sm); max-width: 80ch; }
-.world-checks { columns: 2; column-gap: 28px; font-size: var(--fs-sm); padding: 0; margin: 8px 0 0; list-style: none; }
-.world-checks li { break-inside: avoid; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; margin: 0 0 6px; color: var(--text-muted); }
+.diag-section h3 { margin: 0 0 6px; font-size: var(--vc-font-size-md); color: var(--vc-text); }
+.diag-section p { margin: 0 0 8px; color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); max-width: 80ch; }
+.world-checks { columns: 2; column-gap: 28px; font-size: var(--vc-font-size-sm); padding: 0; margin: 8px 0 0; list-style: none; }
+.world-checks li { break-inside: avoid; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; margin: 0 0 6px; color: var(--vc-text-muted); }
 
 /* Report ------------------------------------------------------------------------------------- */
 .report-modal .modal-body { font-size: 1.05rem; }
-/* The summary's status line wraps before its two buttons do, so Copy and Download stay side by side. */
-.report-modal .modal-foot { flex-wrap: nowrap; }
-.report-modal .modal-foot .left { flex: 1 1 0; min-width: 0; }
-.report-modal .modal-foot .btn { flex: none; }
 
 @media (max-width: 860px) {
   .mode-cards { grid-template-columns: 1fr; }
   .world-checks { columns: 1; }
 }
 
-/* Intro: what Repack Pilot does, how it works, why it pays off, what is real ------------------------- */
+/* Intro: what Repack Pilot does, how it works, why it pays off, what is real ---------------------- */
 .modal.intro-modal { width: min(1000px, 100%); }
-.intro-modal .modal-head p { font-size: var(--fs-lg); line-height: 1.4; color: var(--text); max-width: 64ch; }
-.intro-modal .modal-body h3 { margin: 6px 0 14px; font-family: var(--font-figures); font-size: 1.25rem; color: var(--text); }
+.intro-modal .modal-head p { font-size: var(--fs-lg); line-height: 1.4; color: var(--vc-text); max-width: 64ch; }
+.intro-modal .modal-body h3 { margin: 6px 0 14px; font-family: var(--vc-font-display); font-weight: var(--vc-weight-semibold); font-size: 1.25rem; line-height: 1.2; letter-spacing: var(--vc-tracking-heading); color: var(--vc-text); }
 
-/* The world model's four steps on one track; each number takes the colour the Customer view uses for the
-   same thing. */
+/* Five steps on one track; each number takes the colour the cell board uses for that moment of a run. */
 .intro-steps {
   list-style: none; margin: 0 0 26px; padding: 0;
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px;
 }
 .intro-step { position: relative; display: flex; flex-direction: column; gap: 4px; padding-top: 52px; min-width: 0; }
 .intro-step::before {
   content: ""; position: absolute; top: 20px; left: 50px; right: -8px;
-  height: 2px; background: var(--line-strong);
+  height: 2px; background: var(--vc-border);
 }
 .intro-step:last-child::before { display: none; }
 .intro-num {
@@ -149,40 +133,86 @@
   width: 42px; height: 42px; border-radius: 50%;
   display: grid; place-items: center;
   border: 2px solid;
-  font-family: var(--font-figures); font-weight: 700; font-size: 1.25rem; line-height: 1;
+  font-family: var(--vc-font-text); font-weight: 700; font-size: 1.25rem; line-height: 1; font-variant-numeric: tabular-nums;
 }
-/* Knows: ink, what the model holds. Checks: blue, the camera's and the scale's readings. Learns: slate,
-   the model taking a correction (the world model's node on the stage). Asks: burgundy, a person. */
-.intro-step[data-tone="know"] .intro-num { color: var(--text); border-color: var(--ink-11); background: var(--porcelain); }
-.intro-step[data-tone="check"] .intro-num { color: var(--info-text); border-color: var(--info-line); background: var(--info-fill); }
-.intro-step[data-tone="learn"] .intro-num { color: var(--slate-11); border-color: var(--slate-9); background: var(--slate-4); }
-.intro-step[data-tone="ask"] .intro-num { color: var(--brand); border-color: var(--brand); background: var(--brand-soft); }
-.intro-step-title { font-family: var(--font-figures); font-size: 1.2rem; font-weight: 700; color: var(--text); }
-.intro-step-text { color: var(--text-muted); line-height: 1.4; }
+.intro-step[data-tone="spot"] .intro-num { color: var(--vc-danger-text); border-color: var(--vc-danger-solid); background: var(--vc-danger-bg); }
+.intro-step[data-tone="check"] .intro-num { color: var(--vc-info-text); border-color: var(--vc-info-solid); background: var(--vc-info-bg); }
+.intro-step[data-tone="calculate"] .intro-num { color: var(--vc-warning-text); border-color: var(--vc-warning-text); background: var(--vc-warning-bg); }
+/* Your decision among the state colours: solid ink, not merlot (it would read as the red of step 1). */
+.intro-step[data-tone="propose"] .intro-num { color: var(--vc-surface); border-color: var(--vc-text); background: var(--vc-text); }
+.intro-step[data-tone="prepare"] .intro-num { color: var(--vc-success-text); border-color: var(--vc-success-solid); background: var(--vc-success-bg); }
+.intro-step-title { font-family: var(--vc-font-display); font-size: 1.2rem; font-weight: var(--vc-weight-semibold); line-height: 1.2; letter-spacing: var(--vc-tracking-heading); color: var(--vc-text); }
+.intro-step-text { color: var(--vc-text-muted); line-height: 1.4; }
 
 .intro-value {
   list-style: none; margin: 0; padding: 0;
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 28px;
 }
-.intro-value li { display: flex; flex-direction: column; gap: 2px; padding-top: 10px; border-top: 3px solid var(--brand-mid); }
-/* Each item: what the figure is, the engine's figure large, then what it means. */
-.intro-value .intro-value-label { font-family: var(--font-figures); font-size: 1.05rem; font-weight: 600; color: var(--text); line-height: 1.25; }
-.intro-value .intro-value-figure { font-family: var(--font-figures); font-size: 1.75rem; font-weight: 700; line-height: 1.15; color: var(--brand); }
-.intro-value .intro-value-text { color: var(--text-muted); line-height: 1.4; }
+.intro-value li { display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 3px solid var(--vc-accent-soft-hover); }
+.intro-value strong { font-family: var(--vc-font-display); font-size: 1.35rem; font-weight: var(--vc-weight-semibold); line-height: 1.15; letter-spacing: var(--vc-tracking-heading); color: var(--vc-text); }
+.intro-value span { color: var(--vc-text-muted); line-height: 1.4; }
+.intro-note { margin: 22px 0 0; color: var(--vc-text-subtle); font-size: var(--vc-font-size-sm); }
+
+@media (max-width: 760px) {
+  .intro-steps { grid-template-columns: 1fr; gap: 14px; }
+  .intro-step { padding: 2px 0 0 56px; min-height: 42px; }
+  .intro-step::before { top: 46px; bottom: -12px; left: 20px; right: auto; width: 2px; height: auto; }
+  .intro-value { grid-template-columns: 1fr; }
+}
+
+/* ------------------------------------------------------------------------------------------ */
+/* App-specific: not part of the shared shell                                                  */
+/* ------------------------------------------------------------------------------------------ */
+/* Repack Pilot's own: the AI disclosure in every dialog's footer, the stage note, the summary's footer,
+   the intro's four steps, its figures and what is real, and the autonomy gate's dialog. */
+
+/* The AI disclosure, repeated in every dialog's footer while the backdrop blurs the header's (js/modal.js). */
+.modal-ai { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; color: var(--vc-text); font-size: var(--vc-font-size-sm); white-space: nowrap; }
+.modal-ai.beside-note { margin-right: 0; }
+.modal-ai svg { color: var(--vc-feature-solid); flex: none; }
+
+/* The build's stage (the night preview: no agent), between the run and the two modes. */
+.stage-note {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 0 0 12px; padding: 8px 12px;
+  border-radius: var(--vc-radius-lg); border: 1px solid var(--vc-info-border); background: var(--vc-info-bg);
+  color: var(--vc-text); font-size: var(--vc-font-size-sm);
+}
+.stage-note .icon { flex: none; color: var(--vc-info-text); margin-top: 1px; }
+
+/* The summary's status line wraps before its two buttons do, so Copy and Download stay side by side. */
+.report-modal .modal-foot { flex-wrap: nowrap; }
+.report-modal .modal-foot .left { flex: 1 1 0; min-width: 0; }
+.report-modal .modal-foot .btn { flex: none; }
+
+/* The intro: the world model's four steps on one track; each number takes the colour the Customer view
+   uses for the same thing. Knows: ink, what the model holds. Checks: fjord, the camera's and the
+   scale's readings. Learns: neutral, the model taking a correction (the world model's node on the
+   stage). Asks: merlot, a person. */
+.intro-steps { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.intro-step[data-tone="know"] .intro-num { color: var(--vc-text); border-color: var(--vc-text-muted); background: var(--vc-bg); }
+.intro-step[data-tone="learn"] .intro-num { color: var(--vc-neutral-text); border-color: var(--vc-neutral-solid); background: var(--vc-neutral-bg); }
+.intro-step[data-tone="ask"] .intro-num { color: var(--vc-accent); border-color: var(--vc-accent); background: var(--vc-accent-soft); }
+
+/* Each value item: what the figure is, the engine's figure large, then what it means. */
+.intro-value li { gap: 2px; }
+.intro-value .intro-value-label { font-size: 1.05rem; font-weight: 600; color: var(--vc-text); line-height: 1.25; }
+.intro-value .intro-value-figure { font-family: var(--vc-font-display); font-weight: var(--vc-weight-semibold); letter-spacing: var(--vc-tracking-heading); font-size: 1.75rem; line-height: 1.15; color: var(--vc-text); }
+.intro-value .intro-value-text { color: var(--vc-text-muted); line-height: 1.4; }
 .intro-value { margin-bottom: 26px; }
 
 /* What is real: the simulated side in quiet ink with a dashed edge (like the Synthetic chip), the real
    side with a solid edge. Neither takes a status colour. */
 .intro-real { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.intro-real-item { display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; border-radius: var(--r-md); border: 1px solid var(--line-strong); background: var(--paper); }
-.intro-real-item[data-tone="simulated"] { border-style: dashed; background: var(--porcelain); }
-.intro-real-item strong { font-family: var(--font-figures); font-size: 1.15rem; color: var(--text); }
-.intro-real-item span { color: var(--text-muted); line-height: 1.4; }
+.intro-real-item { display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; border-radius: var(--vc-radius-lg); border: 1px solid var(--vc-border); background: var(--vc-surface); }
+.intro-real-item[data-tone="simulated"] { border-style: dashed; background: var(--vc-bg); }
+.intro-real-item strong { font-family: var(--vc-font-display); font-weight: var(--vc-weight-semibold); letter-spacing: var(--vc-tracking-heading); font-size: 1.15rem; color: var(--vc-text); }
+.intro-real-item span { color: var(--vc-text-muted); line-height: 1.4; }
 
 /* Windows 900 px high or less (laptops): the window keeps What is real in view without scrolling. */
 @media (max-height: 900px) {
   .intro-modal .modal-head { padding-top: 12px; }
-  .intro-modal .modal-head p { font-size: var(--fs-md); line-height: 1.35; }
+  .intro-modal .modal-head p { font-size: var(--vc-font-size-md); line-height: 1.35; }
   .intro-modal .modal-body { padding-top: 6px; padding-bottom: 10px; }
   .intro-modal .modal-body h3 { margin: 2px 0 8px; font-size: 1.1rem; }
   .intro-steps { margin-bottom: 14px; }
@@ -190,29 +220,24 @@
   .intro-step::before { top: 15px; left: 38px; }
   .intro-num { width: 32px; height: 32px; font-size: 1.05rem; }
   .intro-step-title { font-size: 1.1rem; }
-  .intro-step-text, .intro-value .intro-value-text, .intro-real-item span { font-size: var(--fs-sm); line-height: 1.35; }
+  .intro-step-text, .intro-value .intro-value-text, .intro-real-item span { font-size: var(--vc-font-size-sm); line-height: 1.35; }
   .intro-value { margin-bottom: 14px; }
   .intro-value .intro-value-figure { font-size: 1.5rem; }
   .intro-real-item { padding: 7px 12px; }
   .intro-real-item strong { font-size: 1.05rem; }
   .intro-modal .modal-foot { padding: 10px 24px 12px; }
 }
-
 @media (max-width: 760px) {
-  .intro-steps { grid-template-columns: 1fr; gap: 14px; }
-  .intro-step { padding: 2px 0 0 56px; min-height: 42px; }
-  .intro-step::before { top: 46px; bottom: -12px; left: 20px; right: auto; width: 2px; height: auto; }
-  .intro-value { grid-template-columns: 1fr; }
   .intro-real { grid-template-columns: 1fr; }
 }
 
 /* The autonomy gate (js/autonomy_view.js): each criterion against the shadow record. */
 .gate-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
-.gate-list li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--paper); }
-.gate-list li[data-ok="false"] { border-color: var(--danger-mid); background: var(--danger-fill); }
+.gate-list li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 8px 10px; border: 1px solid var(--vc-border-subtle); border-radius: var(--vc-radius-lg); background: var(--vc-surface); }
+.gate-list li[data-ok="false"] { border-color: var(--vc-danger-border); background: var(--vc-danger-bg); }
 .gate-list .gate-label { font-weight: 600; }
-.gate-list .gate-text { color: var(--text-muted); font-family: var(--font-figures); text-align: right; }
-.gate-list li[data-ok="false"] .gate-text { color: var(--danger-text); }
-.gate-record, .gate-policy { margin: 0 0 8px; color: var(--text-muted); }
-.gate-quote { margin: 12px 0 0; padding: 8px 12px; border-left: 3px solid var(--brand-line); color: var(--text); }
-.gate-quote cite { display: block; margin-top: 4px; color: var(--text-muted); font-style: normal; font-size: var(--fs-sm); }
+.gate-list .gate-text { color: var(--vc-text-muted); font-variant-numeric: tabular-nums; text-align: right; }
+.gate-list li[data-ok="false"] .gate-text { color: var(--vc-danger-text); }
+.gate-record, .gate-policy { margin: 0 0 8px; color: var(--vc-text-muted); }
+.gate-quote { margin: 12px 0 0; padding: 8px 12px; border-left: 3px solid var(--vc-accent-soft-hover); color: var(--vc-text); }
+.gate-quote cite { display: block; margin-top: 4px; color: var(--vc-text-muted); font-style: normal; font-size: var(--vc-font-size-sm); }
