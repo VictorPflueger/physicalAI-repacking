@@ -3,7 +3,7 @@
 // with the cell once the night's plan stands, with the figure by hand and the saving beneath (−64 % at
 // the defaults); all come from the engine with the run's inputs, or the presenter's between runs. Store orders on time counts orders on their truck plus orders
 // projected to make it with more than the risk band (15 minutes) to spare; an order inside the band is
-// named beneath as at risk and not counted (amber), one whose truck left without it as late (red).
+// named beneath as at risk and not counted (warning), one whose truck left without it as late (danger).
 
 import { bus } from "./events.js";
 import { h } from "./dom.js";

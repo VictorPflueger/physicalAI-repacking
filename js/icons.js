@@ -15,7 +15,10 @@ const VICI = {
   chevronDown: "chevron-down", chevronUp: "chevron-up", chevronRight: "chevron-right", eye: "eye",
   external: "external", spark: "sparkle",
   // The world model (the Customer view's centre), the night's clock and Bounded's lock.
-  cube: "cube", clock: "clock", lock: "lock"
+  cube: "cube", clock: "clock", lock: "lock",
+  // Vici's state icons, as Rebate Hunter's board uses them: the option cards' first line (on time,
+  // at risk, late), so that a state differs in form as well as in colour.
+  success: "success", warning: "warning", error: "error"
 };
 
 /** The app's own drawings (static, trusted strings; never built from data). */

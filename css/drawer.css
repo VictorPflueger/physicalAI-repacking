@@ -54,7 +54,7 @@
    drawer without scrolling on a 1080p projector. */
 .options-layout { display: grid; grid-template-columns: minmax(260px, 21%) minmax(0, 1fr); gap: 18px; align-items: start; }
 .options-summary h3 { margin: 0 0 4px; font-family: var(--vc-font-display); font-weight: var(--vc-weight-semibold); letter-spacing: var(--vc-tracking-heading); font-size: var(--fs-lg); color: var(--vc-text); }
-.options-summary > p { margin: 0 0 12px; color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); max-width: 60ch; }
+.options-summary > p { margin: 0 0 12px; color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); max-width: var(--vc-container-prose); }
 
 .options-grid {
   display: grid;
@@ -74,7 +74,7 @@
 .option-card[data-status="rejected"], .option-card[data-status="not_selected"], .option-card[data-status="expired"] { opacity: 0.55; }
 .option-top { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 10px; margin-bottom: 6px; }
 /* The recommended option's tag sits on the top edge of its frame, so that its title keeps the card's
-   width: Inter runs wider than the former Barlow, and the four cards still fit a 1080p drawer. */
+   width: Inter runs wider than the former font, and the four cards still fit a 1080p drawer. */
 .option-card.vc-card { overflow: visible; }
 .option-top > .vc-tag { position: absolute; top: -14px; right: 12px; }
 /* The option's letter in a hexagon cell: merlot's soft tint, solid merlot on the recommended option,
@@ -149,6 +149,7 @@
 .action-body {
   margin: 0; padding: 10px 14px;
   white-space: pre-wrap; font: 400 var(--vc-font-size-sm) / 1.5 var(--vc-font-text); color: var(--vc-text-muted);
+  max-width: calc(var(--vc-container-prose) + 28px);   /* a letter reads at Vici's prose measure */
   max-height: calc(9em + 20px); overflow: hidden; position: relative;   /* six lines */
 }
 .action-card[data-clipped="true"]:not([data-expanded="true"]) .action-body {
@@ -236,11 +237,15 @@
 
 /* What happens to the trucks over the simulated nights, in the night's state tones (TECH_NOTES D50):
    success when no truck is missed, warning when some nights miss one, danger when one is missed in
-   all; the words say which. */
+   all; Vici's state icon and the words say which. */
 .option-outcome {
-  margin: 0 0 6px; padding: 3px 8px; border-radius: var(--vc-radius-md); border-left: 3px solid;
+  display: flex; align-items: flex-start; gap: 5px;
+  margin: 0 0 6px; padding: 3px 5px 3px 6px; border-radius: var(--vc-radius-md); border-left: 3px solid;
   font-size: var(--vc-font-size-sm); font-weight: 600; line-height: 1.3;
 }
+/* Vici's state icon before the words, level with their first line; the line's padding gives the icon
+   its room, so doing nothing's "Soest late in 20 of 20 nights, Hamm in 17" stays one line at 1080p. */
+.option-outcome > .vc-icon { flex: none; margin-top: 2px; }
 .option-outcome[data-tone="on-time"] { color: var(--vc-success-text); background: var(--vc-success-bg); border-color: var(--vc-success-solid); }
 .option-outcome[data-tone="at-risk"] { color: var(--vc-warning-text); background: var(--vc-warning-bg); border-color: var(--vc-warning-text); }
 .option-outcome[data-tone="late"] { color: var(--vc-danger-text); background: var(--vc-danger-bg); border-color: var(--vc-danger-solid); }
@@ -268,3 +273,7 @@
 
 /* Advise mode: the person applies the option; the note stays when a short drawer hides the others. */
 .options-summary > p.options-advise { display: block; color: var(--vc-accent-text); }
+
+/* Reading text runs at most 75 characters per line: the Outbox's note on drafts at Vici's prose measure
+   (its icon and gap beside it), wrapped as Vici wraps a paragraph, without a word alone on its last line. */
+.outbox-safety { max-width: calc(var(--vc-container-prose) + 26px); text-wrap: pretty; }

@@ -31,6 +31,7 @@ import { tag } from "./tags.js";
 export const FLOW_MS = 700;
 const HOLD_MS = 2 * 60000; // a moment stays two simulated minutes after its time
 const SIZES = ["full", "compact", "short", "strip", "flow"];
+const CLOSES = new Set(["full", "compact"]); // the sizes that close up before they step down
 const SIZE_LIMITS = { strip: 400, short: 560, compact: 760 }; // stage heights in px
 
 /** "400 g", "1 kg", "1.5 kg". */
@@ -516,7 +517,16 @@ export function createWorldStage(root, { getState = () => null, onConfirm = () =
     const floor = hgt < SIZE_LIMITS.strip ? "flow" : "short";
     let next = sizeOf(hgt);
     stage.dataset.size = next;
-    while (next !== floor && !fits()) { next = SIZES[SIZES.indexOf(next) + 1]; stage.dataset.size = next; }
+    delete stage.dataset.closed;
+    // Before the full or the compact size steps down, it closes up (data-closed: closer gaps and tiles,
+    // and at full size the lede steps aside), so the tiles keep their lines with Vici's wider type.
+    while (!fits()) {
+      if (!stage.dataset.closed && CLOSES.has(next)) { stage.dataset.closed = "true"; continue; }
+      if (next === floor) break;
+      delete stage.dataset.closed;
+      next = SIZES[SIZES.indexOf(next) + 1];
+      stage.dataset.size = next;
+    }
     size = next;
   }
   let measuring = 0;

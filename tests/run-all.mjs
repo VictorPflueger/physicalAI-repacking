@@ -3,7 +3,8 @@
 //        node tests/run-all.mjs unit smoke  (only the named suites)
 // The suites grow with the milestones: sims and layout start in M2 (the night in Chromium, the five
 // window sizes); the live suite and the scripted replays arrived with the agent (M3); accept arrived with
-// the six scenarios (M4); design joins the list with the hardening (M5).
+// the six scenarios (M4); page-icon, vici-files and hexagon with the move to Vici (0.5.0); design joins
+// the list with the hardening (M5).
 // On GitHub Actions a failing suite's FAIL lines also become error annotations on the check run, so a
 // failure can be read through the API without the log.
 import { spawnSync } from "node:child_process";
@@ -12,6 +13,8 @@ import { APP_ROOT } from "./lib/harness.mjs";
 
 const SUITES = [
   { id: "tokens", what: "colour system on Vici's tokens, light and dark: contrast, colour-blind separation", file: "tests/tokens.mjs", browser: false },
+  { id: "page-icon", what: "page icon: favicon, header and loading screen, as on the website's card", file: "tests/page-icon.mjs", browser: false },
+  { id: "vici-files", what: "vici/ holds exactly the files its README lists, unchanged", file: "tests/vici-files.mjs", browser: false },
   { id: "world", what: "synthetic world, scenarios and their nights, calibration, shadow record, generated files", file: "tools/check_world.mjs", browser: false },
   { id: "unit", what: "streaming client, retries, cost maths, half-up formatting, world checks, autonomy gate, Open Food Facts lookup, placeholders, wake bridge, human channel, run facts", file: "tests/unit.mjs", browser: false },
   { id: "engine", what: "golden cases and display strings, night snapshots, calibration, escalation rules, world model, levers, option costing with the golden option cases of scenarios 1, 4 and 6, decisions, figure audit, rules in code, toolbox, every scenario's script on every path", file: "tests/engine.mjs", browser: false },
@@ -19,7 +22,8 @@ const SUITES = [
   { id: "sims", what: "the six scenario nights identical in Chromium and Node; every scenario's scripted replay with its decisions equal to Node, scenario 1 on two paths", file: "tests/sims.mjs", browser: true },
   { id: "live", what: "the live loop against a fake Claude: all six scenarios, the recorder, the step and cost caps, abort, a rejected key", file: "tests/live.mjs", browser: true },
   { id: "accept", what: "acceptance: the key's lifecycle, Diagnostics against the policy, the Abort and Reset matrix, every scenario offline", file: "tests/accept.mjs", browser: true },
-  { id: "layout", what: "five window sizes: the Full view in eight states of scenario 1 (the options, the drafts and what it is worth included), the Customer view in seven states of scenario 3", file: "tests/layout.mjs", browser: true }
+  { id: "layout", what: "five window sizes: the Full view in eight states of scenario 1 (the options, the drafts and what it is worth included), the Customer view in seven states of scenario 3", file: "tests/layout.mjs", browser: true },
+  { id: "hexagon", what: "nothing round: the app's files, and the rendered app in both themes", file: "tests/hexagon.mjs", browser: true }
 ];
 
 const only = process.argv.slice(2);

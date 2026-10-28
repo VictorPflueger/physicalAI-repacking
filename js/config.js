@@ -4,7 +4,7 @@ export const APP = {
   id: "rp",
   name: "Repack Pilot",
   fullName: "Repack Pilot, a Physical AI repacking showcase",
-  version: "0.4.1"
+  version: "0.5.0"
 };
 
 export const ANTHROPIC = {

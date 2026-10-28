@@ -76,7 +76,7 @@ export function createKpiBoard(panel, { getInputs, getRunInputs = () => null, ge
           h("span", { class: "kb-worth-sub" }, `with ${t.cells} cells on the night shift`)),
         yourDc(v, changed)),
       held ? h("p", { class: "kb-held" }, "This run keeps the inputs it started with; your change applies when it ends.") : null,
-      h("ul", { class: "kb-worth-list" },
+      h("ul", { class: "vc-list kb-worth-list" },
         h("li", {}, h("strong", {}, "Per 1,000 units: "), `${t.hybrid} with the cell, instead of ${t.manual} by hand (${t.saving}).`),
         h("li", {}, h("strong", {}, "Cells: "), `${t.cell_hours} cell hours a year, that is ${t.cells} cells on an eight-hour night shift over ${t.nights} nights, or ${t.cells_clock} round the clock.`),
         h("li", {}, h("strong", {}, "Break-even: "), `each cell pays while its all-in cost stays below ${t.break_even} per operating hour.`),
@@ -189,7 +189,7 @@ export function createKpiBoard(panel, { getInputs, getRunInputs = () => null, ge
   }
 
   /**
-   * The agent's what-if (violet: the AI), kept apart from the plan and tonight: in scenario 4 the cost of
+   * The agent's what-if (lilac: the AI), kept apart from the plan and tonight: in scenario 4 the cost of
    * gripper wear if it lasted all night, golden case G2. No option, draft or summary may quote it.
    */
   function whatIfRow(w) {

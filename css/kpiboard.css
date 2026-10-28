@@ -5,7 +5,8 @@
 
 .kpiboard, .assumptions { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 8px; }
 .kb-head h3, .as-head h3 { margin: 0 0 2px; font-family: var(--vc-font-display); font-weight: var(--vc-weight-semibold); letter-spacing: var(--vc-tracking-heading); font-size: var(--fs-lg); }
-.kb-head p, .as-head p { margin: 0; color: var(--vc-text-muted); max-width: 75ch; }
+/* Reading text runs at most 75 characters per line: Vici's prose measure (50ch, about 65 characters of Inter). */
+.kb-head p, .as-head p { margin: 0; color: var(--vc-text-muted); max-width: var(--vc-container-prose); }
 .kb-changed { margin: 0; color: var(--vc-accent-text); font-weight: 600; }
 
 /* Vici's tables; their wrappers clip without scrolling, so the header row sticks to the drawer as it
@@ -24,7 +25,7 @@
 .kb-key.vc-tag[data-kind="brief"], .kb-key.vc-tag[data-kind="synthetic"] { font-family: var(--vc-font-text); }
 
 /* What it is worth (TECH_NOTES D50): the yearly figure first, with the customer's own inputs beside it.
-   The Your DC inputs are the presenter's settings, so they take the burgundy of a person's input. */
+   The Your DC inputs are the presenter's settings, so they take the merlot of a person's input. */
 .kb-worth { padding: 12px 14px; border-radius: var(--vc-radius-lg); border: 1px solid var(--vc-border-subtle); background: var(--vc-bg); }
 .kb-worth-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .kb-worth-head h3 { margin: 0; font-family: var(--vc-font-display); font-weight: var(--vc-weight-semibold); letter-spacing: var(--vc-tracking-heading); font-size: var(--fs-lg); }
@@ -33,10 +34,12 @@
 .kb-big { font-family: var(--vc-font-display); font-weight: var(--vc-weight-semibold); letter-spacing: var(--vc-tracking-heading); font-size: var(--fs-xl); line-height: 1.1; color: var(--vc-text); }
 .kb-worth-sub { color: var(--vc-text-muted); font-weight: 600; }
 .kb-qual { color: var(--vc-text-muted); font-weight: 600; }
-.kb-worth-list { margin: 8px 0 0; padding-left: 18px; }
-.kb-worth-list li { margin: 2px 0; }
-.kb-inputs { margin: 8px 0 0; color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); }
-.kb-note { margin: 0; color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); max-width: 110ch; }
+/* Vici's list: hexagon bullets, not round ones. Its four facts in two columns, each at Vici's prose
+   measure, so they take half the height and the Plan and Tonight table keeps its place in the drawer. */
+.kb-worth-list { margin: 8px 0 0; padding-left: 18px; max-width: calc(2 * var(--vc-container-prose) + 50px); columns: 2; column-gap: 32px; }
+.kb-worth-list li { margin: 2px 0; break-inside: avoid; }
+.kb-inputs { margin: 8px 0 0; color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); max-width: var(--vc-container-prose); }
+.kb-note { margin: 0; color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); max-width: var(--vc-container-prose); }
 .kb-held { margin: 6px 0 0; color: var(--vc-accent-text); font-weight: 600; }
 
 .kb-dc { display: flex; align-items: flex-end; gap: 6px 14px; flex-wrap: wrap; padding: 8px 10px; border-radius: var(--vc-radius-lg); border: 1px solid var(--vc-accent-soft-hover); background: var(--vc-surface-hover); }
@@ -64,12 +67,12 @@
 .as-table tr[data-changed="true"] .as-input:not([aria-invalid="true"]) { border-color: var(--vc-accent); background-color: var(--vc-surface-hover); }
 .as-night h4 { margin: 12px 0 6px; font-family: var(--vc-font-text); font-weight: var(--vc-weight-semibold); }
 .as-night h4:first-child { margin-top: 4px; }
-.as-scenario-note { margin: 0 0 6px; color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); }
+.as-scenario-note { margin: 0 0 6px; color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); max-width: var(--vc-container-prose); }
 .as-night dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 16px; margin: 0; }
 .as-night dt { color: var(--vc-text-muted); font-weight: 600; }
-.as-night dd { margin: 0; }
+.as-night dd { margin: 0; max-width: var(--vc-container-prose); }
 
-/* The agent's labelled what-if (violet: the AI), apart from the Plan and Tonight columns. */
+/* The agent's labelled what-if (lilac: the AI), apart from the Plan and Tonight columns. */
 .kb-whatif { margin: 12px 0; padding: 10px 14px; border: 1px dashed var(--vc-feature-solid); border-radius: var(--vc-radius-lg); background: var(--vc-feature-bg); }
 .kb-whatif-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; color: var(--vc-feature-text); }
 .kb-whatif-tag { color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); }

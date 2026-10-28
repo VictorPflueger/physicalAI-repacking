@@ -22,7 +22,8 @@
 // with the KPI board open; the jar at 22:17; the unknown item waiting for the person; the entry confirmed;
 // night over; Your DC, which opens the KPI board on a short window): no horizontal overflow, the header as
 // above, the world model fitting its panel with its parts, stations and items whole and clear of each
-// other (with the drawer open: strip or flow, tonight's pallet stepped aside), its Synthetic label and
+// other (at its full size on a 1080p window while the drawer is closed; with the drawer open: strip or
+// flow, tonight's pallet stepped aside), its Synthetic label and
 // Simulated cell tag in view, What it is worth fitting beside it (with the drawer open: fitting or
 // stepped aside) and the console at least 200 px high, Confirm entry and Reject in view, Your DC's
 // inputs whole in view and at least 40 px, every target at least 40 px.
@@ -371,6 +372,9 @@ function verdictCustomer(m, state) {
     [m.view === "customer" && m.hOverflow === false && m.oneRow, `the Customer view, no horizontal overflow, a one-row control bar (${m.view})`],
     [m.badgesClear && m.headerHeight <= Math.round(0.14 * m.viewH) && m.tilesOk, `header badges clear, header ${m.headerHeight} px of ${m.viewH}, four tiles in view and whole`],
     [m.stageFits && m.partsInside && m.partsClear, `the world model fits its panel, its parts inside and clear of each other (size ${m.size})`],
+    // On a 1080p projector the stage keeps its full size while the drawer is closed: every tile with its
+    // pack size and its line, at the call's moments too (TECH_NOTES D83).
+    ...(m.viewH >= 1080 && !open ? [[m.size === "full", `the world model at its full size on a 1080p window (${m.size})`]] : []),
     [m.nodes === 5 && m.nodesClear, `five stations of the item's way, clear of each other (${m.nodes})`],
     [m.cut.length === 0, `no name, line or figure cut off in the world model or What it is worth${bad(m.cut)}`],
     open

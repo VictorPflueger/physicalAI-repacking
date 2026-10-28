@@ -102,7 +102,8 @@ export function createWorthPanel(root, { getInputs, getRunInputs = () => null, g
 
   // ---- size: stepping down while the content does not fit above the console's minimum --------------------
   // full; compact (the year with a Your DC button to the KPI board's inputs, its qualifier without the
-  // sources line); tight (rows and bars closed up); hidden when a drawer open over a short window leaves
+  // sources line); closed (rows and bars closed up); tight (closed, and the saving and the store orders
+  // left to the header's tiles); hidden when a drawer open over a short window leaves
   // the panel under HIDE_BELOW px: the KPI board in the drawer and the header tiles carry its figures
   // then. The year keeps its cells, its break-even and "gross, before cell costs" at every size.
   const HIDE_BELOW = 200;
@@ -112,7 +113,7 @@ export function createWorthPanel(root, { getInputs, getRunInputs = () => null, g
     root.dataset.size = "full";
     if (!root.offsetParent) return; // the Full view hides the panel: measured again when shown
     size = "full";
-    for (const next of ["compact", "tight"]) {
+    for (const next of ["compact", "closed", "tight"]) {
       if (fits()) break;
       size = next;
       root.dataset.size = next;

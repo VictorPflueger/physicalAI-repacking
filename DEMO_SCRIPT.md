@@ -11,9 +11,9 @@
 ## Pre-flight (15 minutes before, on the presenting laptop)
 
 1. Open the site in Chrome or Edge and hard-reload (**Ctrl + Shift + R**). On a browser's first visit the **How Repack Pilot works** window opens by itself; close it for now. Close other tabs and silence notifications.
-2. Click **Diagnostics → Run all tests**. Every row passes except Open Food Facts, which is skipped by design; the footer shows **Repack Pilot 0.4.1**.
+2. Click **Diagnostics → Run all tests**. Every row passes except Open Food Facts, which is skipped by design; the footer shows **Repack Pilot 0.5.0**.
 3. Rehearse once at **×4**: **Start agent → Run simulation**, click **Confirm entry** when the world model asks, type a volume into **Your DC**, then click **Reference site** and **Reset**.
-4. Set the stage: **Customer** in the view switch (in the header, beside the mode badge), Scenario **Unknown item**, Night **×1**. Share a window of 1920 × 1080 (full screen, **F11**) at 100 % zoom. The status pill reads **Idle**.
+4. Set the stage: **Customer** in the view switch (in the header, beside the mode badge), Scenario **Unknown item**, Night **×1**. Share a window of 1920 × 1080 (full screen, **F11**) at 100 % zoom. The page is in the light theme, which projectors in lit rooms show best (the sun in the header switches back from dark). The status pill reads **Idle**.
 5. Have the customer's yearly volume and labour cost ready if you know them; otherwise ask for them at 2:45.
 
 ## The five minutes at a glance
@@ -65,7 +65,7 @@ Talk over the screen; do not read it out. The left side is the robot's world mod
 | Moment | You say |
 |---|---|
 | **22:00, the plan.** *Tonight's pallet*: the model holds all 24 items of tonight's 3,000 units; the robot may take 2,100. The items start to flow: camera → world model → robot → scale. The labour tile turns from €89.50 to **€32.49** | "This is the robot's world model: every item on tonight's pallet. Each item passes the camera, the model says what to expect, the robot rehearses its grasp against the model, picks it, and the scale checks the weight. Eggs, bananas, wine, basil: the model knows the robot may not grip those, so they are for people from the start." |
-| **22:17, the jar.** *The model learned*: the apricot jam weighs 400 g on the scale, not 200 g as in the master data. The jar's tile turns blue, *corrected 22:17* | "Here's the robot learning. The label says 200 g — that's the jam; the robot lifts the glass too. The model now holds 400 g for every jar on the pallet, and the next jar is rehearsed with the new weight before the robot picks it. One reading corrects the whole item, and every later jar weighs what the model now expects." |
+| **22:17, the jar.** *The model learned*: the apricot jam weighs 400 g on the scale, not 200 g as in the master data. The jar's tile turns fjord blue, *corrected 22:17* | "Here's the robot learning. The label says 200 g — that's the jam; the robot lifts the glass too. The model now holds 400 g for every jar on the pallet, and the next jar is rehearsed with the new weight before the robot picks it. One reading corrects the whole item, and every later jar weighs what the model now expects." |
 | **23:10, the unknown item.** *Not in the model*: barcode 4037848020859; the robot never picks an item it does not know; its 6 units go to a person. A provisional entry waits: **Confirm entry** | "And this is what the model does not know: a barcode it has never seen. The robot does not guess. A rule in code sends the units to a person, and the agent asks us to confirm a provisional entry." |
 
 Click **Confirm entry**.

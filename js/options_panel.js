@@ -89,15 +89,18 @@ export function createOptionsPanel(panel, { onDecision, onCount, orderName = (id
 
   /**
    * What happens to the trucks, from the costing's late counts over the simulated nights: "Every truck
-   * on time in all 20 nights", or "Soest late in 20 of 20 nights, Hamm in 17". Green
-   * when no truck is missed, red when one is missed in every night, amber in between.
+   * on time in all 20 nights", or "Soest late in 20 of 20 nights, Hamm in 17". Success
+   * when no truck is missed, danger when one is missed in every night, warning in between, each with
+   * Vici's icon for its state, so that the three differ in form as well as in colour.
    */
+  const OUTCOME_ICON = { "on-time": "success", "at-risk": "warning", late: "error" };
+  const outcomeLine = (tone, text) => h("p", { class: "option-outcome", dataset: { tone } }, icon(OUTCOME_ICON[tone], 15), h("span", {}, text));
   function outcome(m, reps) {
     const list = Object.entries(m || {}).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
-    if (!list.length) return h("p", { class: "option-outcome", dataset: { tone: "on-time" } }, `Every truck on time in all ${int(reps)} nights`);
+    if (!list.length) return outcomeLine("on-time", `Every truck on time in all ${int(reps)} nights`);
     const [[id, n], ...rest] = list;
     const text = `${orderName(id)} late in ${int(n)} of ${int(reps)} nights${rest.map(([x, k]) => `, ${orderName(x)} in ${int(k)}`).join("")}`;
-    return h("p", { class: "option-outcome", dataset: { tone: list.some(([, k]) => k >= reps) ? "late" : "at-risk" } }, text);
+    return outcomeLine(list.some(([, k]) => k >= reps) ? "late" : "at-risk", text);
   }
 
   function optionCard(o, reps) {

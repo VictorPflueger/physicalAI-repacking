@@ -106,7 +106,7 @@ export function stationPopover(st, kind) {
       ["Handed to a person", st.handed.length ? st.handed.map((x) => `${x.rule} ${clockOf(x.t)}`).join(", ") : "none"],
       ["Rate", `${int(i.r_m)} picks per hour`]
     ]),
-    st.handed.length ? h("ul", { class: "pop-list" }, st.handed.slice(-4).map((x) => h("li", {}, `${clockOf(x.t)} ${x.rule}: ${x.reason}`))) : null);
+    st.handed.length ? h("ul", { class: "vc-list pop-list" }, st.handed.slice(-4).map((x) => h("li", {}, `${clockOf(x.t)} ${x.rule}: ${x.reason}`))) : null);
 }
 
 /** An item of the world model: master data against what the sensors observed, and its corrections. */
