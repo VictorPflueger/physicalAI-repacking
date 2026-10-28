@@ -195,3 +195,25 @@ export async function hexagonTour(page, visit) {
   await visit("night preview");
   if (await status() !== "Done") await page.click("#btn-abort");
 }
+
+/**
+ * The page icon (tests/page-icon.mjs): the icon and kind of this prototype's card on Victor's website
+ * (VictorPflueger/VIP, data/prototypes.js), the colour of that kind's cell (Vici's teal for a
+ * tech-showcase), and favicon.svg exactly: the card's cell drawn for small sizes.
+ */
+export const PAGE_ICON = {
+  icon: "layers",
+  kind: "showcase",
+  tone: "teal",
+  favicon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 103.92">
+  <!-- Repack Pilot's page icon: Vici's layers icon in a teal hexagon cell, the same as its card
+       on Victor Pflüger's website (icon and kind: VictorPflueger/VIP, data/prototypes.js). Vici's
+       teal 100 (#dcf3f3) and teal 900 (#003538); the icon is drawn larger and bolder
+       than on the card so that it still reads at 16 px. -->
+  <polygon points="120,51.96 90,103.92 30,103.92 0,51.96 30,0 90,0" fill="#dcf3f3"/>
+  <g transform="translate(18 9.96) scale(3.5)" fill="none" stroke="#003538" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3.5 8.5 L7.5 4.5 H16.5 L20.5 8.5 L16.5 12.5 H7.5 Z M3.5 12.5 L7.5 16.5 H16.5 L20.5 12.5 M3.5 16.5 L7.5 20.5 H16.5 L20.5 16.5"/>
+  </g>
+</svg>
+`
+};

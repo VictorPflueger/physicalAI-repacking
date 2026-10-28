@@ -57,14 +57,9 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
   min-height: 84px;
 }
 
+/* The page icon: the prototype's card on Victor's website, Vici's layers icon in a teal hexagon cell
+   (Vici's cell at its default size, 2rem high). */
 .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.brand-mark { width: 34px; height: 34px; flex: none; }
-/* The mark is drawn from the tokens: a merlot tile, an item under the camera's scan line, dropping into a store tote. */
-.brand-mark .mark-tile { fill: var(--vc-accent); }
-.brand-mark .mark-line { fill: none; stroke: var(--vc-on-accent); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.brand-mark .mark-start { fill: var(--vc-on-accent); }
-.brand-mark .mark-node { fill: var(--vc-accent); stroke: var(--vc-on-accent); stroke-width: 1.8; }
-.brand-mark .mark-ring { fill: none; stroke: var(--vc-accent-soft-hover); stroke-width: 2; }
 .brand-text { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }
 .brand-name {
   font-family: var(--vc-font-display);
@@ -212,8 +207,7 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
 }
 .boot[data-state="done"] { opacity: 0; pointer-events: none; }
 .boot-card { width: min(640px, 100%); }
-.boot-brand { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
-.boot-brand .brand-mark { width: 46px; height: 46px; }
+.boot-brand { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
 .boot-brand .brand-name { font-size: 2.1rem; }
 .boot-status { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; font-size: var(--fs-lg); }
 .boot[data-state="failed"] .boot-status .vc-spinner { display: none; }
@@ -281,8 +275,8 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
 /* ------------------------------------------------------------------------------------------ */
 /* App-specific: not part of the shared shell                                                  */
 /* ------------------------------------------------------------------------------------------ */
-/* Repack Pilot's own: the night's tones on the KPI tiles, the night preview's badge, the brand mark's
-   parts, the autonomy dial, the boot screen's fade, and the header and the control bar on laptops. */
+/* Repack Pilot's own: the night's tones on the KPI tiles, the night preview's badge, the autonomy dial,
+   the boot screen's fade, and the header and the control bar on laptops. */
 
 /* The night's tones on the KPI tiles: late, at risk (above) and on time. A figure not yet meaningful
    (no night yet) is muted ink, not the subtler grey: below large text on a small laptop a tile's
@@ -292,10 +286,6 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
 .kpi[data-tone="on-time"] { background: var(--vc-success-bg); border-color: var(--vc-success-border); }
 .kpi[data-tone="on-time"] .kpi-value { color: var(--vc-success-text); }
 .kpi[data-tone="muted"] .kpi-value { color: var(--vc-text-muted); }
-
-/* The brand mark's own parts: an item under the camera's scan line, dropping into a store tote. */
-.brand-mark .mark-item { fill: var(--vc-on-accent); }
-.brand-mark .mark-scan { fill: none; stroke: var(--vc-accent-soft-hover); stroke-width: 2; stroke-linecap: round; }
 
 /* NIGHT PREVIEW: neither a scripted replay (no tape) nor the live agent (no merlot fill), so it is a
    tag in ink: ink words in an ink outline that follows the capsule, like the neutral "Simulated cell"

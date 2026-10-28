@@ -27,6 +27,8 @@
 //                 buttons of at least 44 px in the Tab order; Enter opens a popover named for the entity,
 //                 Escape closes it and gives the focus back; a popover follows the night; reduced motion
 //                 stops every animation
+//   byline        Vici's byline in the drawer bar: Built by, the portrait, LinkedIn's logo and the
+//                 website as 44 px links in new tabs; no link to the source code anywhere in the app
 //   kpi           the KPI board at the brief's defaults (what it is worth first: the annual figure with
 //                 the cells it needs, the demo cell; G1, break-even, sources on every row, no payback
 //                 claim); p = 0.70 in the Assumptions tab gives G2 and lands in the audit; an
@@ -757,6 +759,52 @@ if (wanted("board")) {
     [checks.mouseOpen && checks.mouseLabel === "Hamm" && checks.mouseClosed, "a click opens a popover, a click elsewhere closes it"],
     [checks.follows && checks.backAfterRun === "cell", `an open popover follows the night and gives the focus back (${checks.follows}, ${checks.backAfterRun})`],
     [(checks.reducedRunning || []).length === 8 && checks.reducedRunning.every((n) => n === 0), `reduced motion: nothing animates on the board (${JSON.stringify(checks.reducedRunning)})`]
+  ]);
+}
+
+// ---- byline: Vici's byline in the drawer bar ---------------------------------------------------------
+if (wanted("byline")) {
+  const t = await newPage();
+  const { page } = t;
+  const checks = {};
+  try {
+    await boot(page);
+    await page.waitForFunction(() => [...document.querySelectorAll(".drawer-tabs .vc-byline img")].every((i) => i.complete), null, { timeout: 5000 });
+    checks.byline = await page.evaluate(() => {
+      const b = document.querySelector(".drawer-tabs .vc-byline");
+      if (!b) return null;
+      const img = (sel) => b.querySelector(sel);
+      return {
+        label: b.querySelector(".vc-byline__label")?.textContent,
+        name: b.querySelector(".vc-byline__person .vc-byline__name")?.textContent,
+        portrait: img(".vc-byline__person .vc-avatar.vc-avatar--xs > img")?.getAttribute("src"),
+        portraitShown: img(".vc-avatar > img")?.naturalWidth || 0,
+        mark: img(".vc-byline__links a .vc-platform-mark")?.getAttribute("src"),
+        markShown: img(".vc-byline__links a .vc-platform-mark")?.naturalWidth || 0,
+        globe: !!b.querySelector('.vc-byline__links a .vc-icon.vc-icon--globe-hex[aria-hidden="true"]'),
+        links: [...b.querySelectorAll("a")].map((a) => {
+          const r = a.getBoundingClientRect();
+          return { href: a.getAttribute("href"), target: a.target, rel: a.rel, label: a.getAttribute("aria-label"), w: Math.round(r.width), h: Math.round(r.height) };
+        })
+      };
+    });
+    // The app links to its author, never to its own source code.
+    checks.sourceLinks = await page.evaluate(() => [...document.querySelectorAll("a[href]")].map((a) => a.getAttribute("href")).filter((href) => /github\.com/i.test(href)));
+    await shot(page, "20-byline.png");
+  } catch (err) {
+    checks.FAILED = String(err.message).split("\n")[0];
+    await shot(page, "byline-fail.png");
+  }
+  const b = checks.byline || {};
+  const links = b.links || [];
+  await finish("byline: Vici's byline in the drawer bar", t, checks, [
+    [b.label === "Built by" && b.name === "Victor Pflüger", "Built by, then Victor's name"],
+    [b.portrait === "vici/assets/brand/portrait-96.jpg" && b.portraitShown > 0, "his hexagon portrait, Vici's file"],
+    [b.mark === "vici/assets/marks/linkedin.png" && b.markShown > 0 && b.globe, "LinkedIn's own logo file and the website's globe"],
+    [links.length === 2 && links[0].href === "https://www.linkedin.com/in/victorpflueger" && links[1].href === "https://victorpflueger.github.io/VIP/index.html"
+      && links.every((l) => l.target === "_blank" && l.rel === "author noopener" && /\(opens in a new tab\)$/.test(l.label || "")), "LinkedIn and the website, each in a new tab and named for screen readers"],
+    [links.length === 2 && links.every((l) => l.w >= 44 && l.h >= 44), `both links are 44 px targets (${links.map((l) => `${l.w}×${l.h}`).join(", ")})`],
+    [Array.isArray(checks.sourceLinks) && !checks.sourceLinks.length, `no link to the source code in the app (${checks.sourceLinks})`]
   ]);
 }
 
