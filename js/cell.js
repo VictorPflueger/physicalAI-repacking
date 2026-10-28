@@ -67,7 +67,7 @@ export function createCellBoard(root, { scenarios = [], getParams = () => ({}), 
   const clockPaused = h("span", { class: "cell-clock-paused" });
   const clockEl = h("span", { class: "cell-clock", "aria-hidden": "true", dataset: { paused: "false" } }, clockTime, clockPaused);
   const tag = h("span", {
-    class: "sim-cell-tag", role: "note",
+    class: "vc-tag sim-cell-tag", role: "note",
     title: "The robot cell, its camera, scale and gripper, and the warehouse system are simulated, in Live and in Simulation mode."
   }, icon("gripper", 16), "Simulated cell");
   const headRight = h("div", { class: "cell-head-right" }, clockEl, tag);

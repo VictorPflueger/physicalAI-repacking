@@ -100,7 +100,7 @@ const measure = () => {
   const lines = (el) => { if (!el) return 0; const range = document.createRange(); range.selectNodeContents(el); return new Set([...range.getClientRects()].filter((x) => x.width > 0).map((x) => Math.round(x.top))).size; };
   const headBoxes = head.map(r);
   const lanes = [...board.querySelectorAll(".lane")].map((l) => ({ id: l.dataset.order, whole: inside(r(l), bodyBox) && inside(r(l), panel), shown: shown(l) }));
-  const synthetic = [...board.querySelectorAll('.chip[data-tone="synthetic"]')].some((c) => shown(c) && inside(r(c), panel));
+  const synthetic = [...board.querySelectorAll('.tag-synthetic')].some((c) => shown(c) && inside(r(c), panel));
   const tag = board.querySelector(".sim-cell-tag");
   const targets = [...document.querySelectorAll("button, a[href]")].filter((e) => shown(e) && !e.closest(".skip-link"))
     .filter((e) => { const b = r(e); return b.bottom > 0 && b.top < innerHeight; })
@@ -227,7 +227,7 @@ for (const [w, hgt] of VIEWPORTS) {
     await snap("idle", "01-idle");
     await page.click("#tab-audit");
     await snap("idle, drawer open", "02-idle-drawer");
-    await page.click(".drawer-end .btn");
+    await page.click(".drawer-toggle");
     await page.clock.runFor(600);
     await page.click('button[aria-label="Night speed ×1"]');
     await page.click("#btn-start");
@@ -247,9 +247,9 @@ for (const [w, hgt] of VIEWPORTS) {
     await snap("02:00, drawer open", "05-drawer", 400);
     figures.push(["02:00, drawer open", await readStoreOrders()]);
     // The turn ends with three costed options: the drawer turns to them, the night still stands.
-    if (!await until(page, () => !!document.querySelector('#panel-options:not([hidden]) .option-card[data-id="B"] .btn-approve'))) throw new Error("no options at 02:00");
+    if (!await until(page, () => !!document.querySelector('#panel-options:not([hidden]) .option-card[data-id="B"] [data-action="approve"]'))) throw new Error("no options at 02:00");
     await snap("02:00, options", "06-options", 400);
-    await page.click('.option-card[data-id="B"] .btn-approve');
+    await page.click('.option-card[data-id="B"] [data-action="approve"]');
     if (!await until(page, () => document.querySelectorAll("#panel-outbox:not([hidden]) .action-card").length === 2 && !!document.querySelector("#btn-approve-all"))) throw new Error("no drafts after option B");
     await snap("02:00, drafts", "07-outbox", 400);
     // The night's end: the drafts approved, the night runs on to 06:00, the KPI board opens on what it
@@ -315,7 +315,7 @@ const measureCustomer = () => {
   const ws = r(document.querySelector(".workspace"));
   const drawerTop = r(document.getElementById("drawer")).top;
   const mainInside = [stage, worth, cons].filter(shown).every((e) => inside(r(e), ws)) && ws.bottom <= drawerTop + 1;
-  const actions = [...document.querySelectorAll(".wsm-actions .btn")].filter(shown).map(r);
+  const actions = [...document.querySelectorAll(".wsm-actions button")].filter(shown).map(r);
   // Your DC's inputs: in What it is worth, or on the KPI board in the drawer; whole inside the box that
   // shows them (the panel, or the drawer's scrolling body) and inside the window.
   const dcInputs = [...document.querySelectorAll(".wp-dc-input, .kb-dc-input")].filter((e) => shown(e) && (drawerOpen || !e.closest("#drawer"))).map((e) => {
@@ -349,7 +349,7 @@ const measureCustomer = () => {
     items: items.length, itemsWhole: items.every((x) => x.shown && inside(x.box, stageBox)), itemsClear: items.every((a, i) => items.every((b, j) => i === j || !overlap(a.box, b.box))),
     palletShown: shown(document.querySelector(".ws-pallet")), learnedShown: shown(document.querySelector(".ws-learned")), drawerOpen,
     mainInside, workspaceH: Math.round(ws.height),
-    synthetic: [...stage.querySelectorAll('.chip[data-tone="synthetic"]')].some((c) => shown(c) && inside(r(c), stageBox)),
+    synthetic: [...stage.querySelectorAll('.tag-synthetic')].some((c) => shown(c) && inside(r(c), stageBox)),
     tag: shown(stage.querySelector(".sim-cell-tag")) && inside(r(stage.querySelector(".sim-cell-tag")), stageBox),
     worthShown, worthFits: worthShown && worth.scrollHeight <= worth.clientHeight + 1,
     worthBesideStage: !overlap(r(cons), stageBox) && (!worthShown || (!overlap(r(worth), stageBox) && !overlap(r(worth), r(cons)))),
@@ -419,7 +419,7 @@ for (const [w, hgt] of VIEWPORTS) {
     await snap("idle", "01-idle");
     await page.click("#tab-kpiboard");
     await snap("idle, the KPI board open", "01b-idle-drawer", 400);
-    await page.click(".drawer-end .btn");
+    await page.click(".drawer-toggle");
     await page.clock.runFor(600);
     await page.click('button[aria-label="Night speed ×1"]');
     await page.click("#btn-start");

@@ -97,6 +97,17 @@ function expected(id) {
   return { sc, night, res, fig: NS.tonightFigures(night, res), info: NS.nightInfo(night, { seed: sc.night.seed }) };
 }
 
+// The contrast measure's control (cases contrast and contrast-customer): text in Vici's strong border
+// grey (--vc-border-strong) on the page's background (--vc-bg) falls short of 4.5:1 in both themes; the
+// ratio the measure must report, from Vici's tokens.
+const VICI_TOKENS = JSON.parse(await readFile(path.join(APP_ROOT, "vici/dist/tokens.json"), "utf8"));
+const CONTROL_RATIO = Object.fromEntries(["light", "dark"].map((theme) => {
+  const lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  const lum = (hex) => { const n = parseInt(hex.slice(1), 16); return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255); };
+  const [hi, lo] = [lum(VICI_TOKENS[theme]["border-strong"]), lum(VICI_TOKENS[theme].bg)].sort((a, b) => b - a);
+  return [theme, Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100];
+}));
+
 const OUT = await outDir("smoke");
 const { base: BASE, blockLocal, close } = await serveStatic(APP_ROOT, 8865);
 const browser = await launchBrowser();
@@ -166,7 +177,7 @@ const shot = async (page, file) => { await settle(page); return page.screenshot(
 const boot = async (page) => { await page.goto(BASE); await page.waitForSelector('html[data-boot="ready"]', { timeout: 20000 }); };
 /** Starts a night preview: scenario, speed, Start agent, the mode card. */
 async function startNight(page, { scenario = null, speed = 4, mode = "simulation" } = {}) {
-  if (scenario) { await page.click("#dd-scenario"); await page.click(`.menu-item[data-id="${scenario}"]`); }
+  if (scenario) { await page.click("#dd-scenario"); await page.click(`.vc-menu__item[data-id="${scenario}"]`); }
   await page.click(`button[aria-label="Night speed ×${speed}"]`);
   await page.click("#btn-start");
   await page.waitForSelector(".mode-card", { timeout: 5000 });
@@ -178,8 +189,8 @@ async function startNight(page, { scenario = null, speed = 4, mode = "simulation
  * then every draft in the Outbox. Resolves when the run is Done.
  */
 async function decideAndFinish(page, { option = "B", timeout = 300000 } = {}) {
-  await page.waitForSelector(`.option-card[data-id="${option}"] .btn-approve`, { timeout });
-  await page.click(`.option-card[data-id="${option}"] .btn-approve`);
+  await page.waitForSelector(`.option-card[data-id="${option}"] [data-action="approve"]`, { timeout });
+  await page.click(`.option-card[data-id="${option}"] [data-action="approve"]`);
   await page.waitForSelector("#btn-approve-all", { timeout: 60000 });
   await page.click("#btn-approve-all");
   await waitStatus(page, "Done", timeout);
@@ -217,7 +228,7 @@ if (wanted("boot")) {
     checks.fontsLoaded = await page.evaluate(async () => { await document.fonts.ready; return [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family.replace(/"/g, "")); });
     checks.cellTag = (await page.textContent(".cell-board .sim-cell-tag")).trim();
     checks.cellTagVisible = await page.isVisible(".cell-board .sim-cell-tag");
-    checks.synthetic = await page.$$eval(".world-card .chip, .wm-chip .chip", (els) => els.filter((e) => e.offsetParent !== null).map((e) => e.textContent.trim()));
+    checks.synthetic = await page.$$eval(".world-card .tag-synthetic, .wm-chip .tag-synthetic", (els) => els.filter((e) => e.offsetParent !== null).map((e) => e.textContent.trim()));
     checks.lanes = await page.$$eval(".lane", (els) => els.map((e) => `${e.querySelector(".lane-name").textContent} ${e.querySelector(".lane-cut").textContent}`));
     checks.stations = await page.$$eval(".station .st-label", (els) => els.map((e) => e.textContent));
     checks.manual = (await page.textContent('.station[data-station="manual"] .st-l1')).trim();
@@ -225,12 +236,12 @@ if (wanted("boot")) {
     checks.tiles = await page.$$eval(".kpi", (els) => els.map((e) => `${e.querySelector(".kpi-value").textContent} | ${e.querySelector(".kpi-sub").textContent}`));
     checks.subtitle = (await page.textContent(".cell-sub")).trim();
     await page.click("#dd-scenario");
-    checks.scenarios = await page.$$eval("#dd-scenario + .dropdown-menu .menu-item", (els) => els.map((e) => `${e.querySelector(".num-badge")?.textContent} ${e.querySelector(".menu-title")?.textContent}`));
-    await page.click('.menu-item[data-id="SC4-WEAR"]');
+    checks.scenarios = await page.$$eval("#dd-scenario + .dropdown-menu .vc-menu__item", (els) => els.map((e) => `${e.querySelector(".num-badge")?.textContent} ${e.querySelector(".menu-title")?.textContent}`));
+    await page.click('.vc-menu__item[data-id="SC4-WEAR"]');
     checks.scenarioLabel = (await page.textContent("#dd-scenario .value")).trim();
     checks.subtitleAfter = (await page.textContent(".cell-sub")).trim();
     await page.click("#dd-scenario");
-    await page.click('.menu-item[data-id="SC5-EARLY"]');
+    await page.click('.vc-menu__item[data-id="SC5-EARLY"]');
     checks.subtitleSc5 = (await page.textContent(".cell-sub")).trim();
     checks.soeSc5 = (await page.textContent('.lane[data-order="SOE"] .lane-cut')).trim();
     checks.rail = await page.$$eval(".rail-step", (els) => els.map((e) => e.dataset.step).join(","));
@@ -295,7 +306,7 @@ if (wanted("intro")) {
       await page.setViewportSize({ width: w, height: hgt });
       await page.waitForTimeout(150);
       checks.sizes.push(await page.evaluate((size) => {
-        const body = document.querySelector(".intro-modal .modal-body");
+        const body = document.querySelector(".intro-modal .vc-dialog__body");
         const box = body.getBoundingClientRect();
         const real = document.querySelector(".intro-real")?.getBoundingClientRect();
         const win = document.querySelector(".intro-modal").getBoundingClientRect();
@@ -303,7 +314,7 @@ if (wanted("intro")) {
       }, `${w}x${hgt}`));
     }
     await page.setViewportSize(vp);
-    await page.click('.intro-modal .modal-foot button:has-text("Close")');
+    await page.click('.intro-modal .vc-dialog__footer button:has-text("Close")');
     await page.waitForSelector(".intro-modal", { state: "detached", timeout: 3000 });
     checks.flag = await page.evaluate((k) => localStorage.getItem(k), KEYS.introSeen);
     await page.reload();
@@ -317,7 +328,7 @@ if (wanted("intro")) {
     await page.waitForSelector(".intro-modal", { state: "detached", timeout: 3000 });
     checks.focusBack = await page.evaluate(() => document.activeElement?.id);
     await page.click("#btn-about");
-    await page.click('.intro-modal .modal-foot button:has-text("Start agent")');
+    await page.click('.intro-modal .vc-dialog__footer button:has-text("Start agent")');
     await page.waitForSelector(".mode-card", { timeout: 5000 });
     checks.modeChoice = await page.$$eval(".mode-card", (els) => els.map((e) => e.dataset.mode).join(","));
     await page.keyboard.press("Escape");
@@ -371,7 +382,7 @@ if (wanted("modes")) {
     checks.abortFacts = (await page.$$eval("#console .entry .entry-body", (els) => els.at(-1).querySelector(".run-facts")?.textContent || "")).trim();
     // Scenario 2 has its own scripted replay (M4).
     await page.click("#dd-scenario");
-    await page.click('.menu-item[data-id="SC2-GLASS"]');
+    await page.click('.vc-menu__item[data-id="SC2-GLASS"]');
     await page.click("#btn-start");
     await page.waitForSelector(".mode-card", { timeout: 5000 });
     checks.sc2Note = await page.$(".stage-note");
@@ -393,7 +404,7 @@ if (wanted("modes")) {
     await page.click("#btn-abort");
     await waitStatus(page, "Aborted", 5000);
     await page.click("#dd-scenario");
-    await page.click('.menu-item[data-id="SC1-EXPRESS"]');
+    await page.click('.vc-menu__item[data-id="SC1-EXPRESS"]');
     // Live: the key dialog, then the live agent on that key.
     await page.click("#btn-start");
     await page.waitForSelector(".mode-card");
@@ -426,7 +437,7 @@ if (wanted("modes")) {
     // Change or forget the key from the mode choice.
     await page.click("#btn-start");
     await page.waitForSelector("#btn-manage-key", { timeout: 5000 });
-    checks.maskedInFooter = (await page.textContent(".modal-foot .left")).replace(/\s+/g, " ").trim();
+    checks.maskedInFooter = (await page.textContent(".vc-dialog__footer .dialog-note")).replace(/\s+/g, " ").trim();
     await page.click("#btn-manage-key");
     await page.waitForSelector(".key-current", { timeout: 5000 });
     await page.click('button:has-text("Forget key")');
@@ -477,9 +488,9 @@ if (wanted("diag")) {
     checks.off = (await page.textContent('tr[data-test="openfoodfacts"] .detail')).trim();
     checks.privacy = (await page.textContent('tr[data-test="privacy"] .detail')).trim();
     checks.worldChecks = await page.$$eval(".world-checks:not(.script-checks) li", (els) => els.length);
-    checks.worldFails = await page.$$eval(".world-checks .mark-fail", (els) => els.length);
-    checks.scriptRows = await page.$$eval(".script-checks li", (els) => els.map((e) => `${e.dataset.pending === "true" ? "pending" : e.querySelector(".mark-pass") ? "pass" : "fail"}`));
-    checks.footer = await page.$eval(".modal-foot .left", (e) => e.textContent.trim());
+    checks.worldFails = await page.$$eval('.world-checks li[data-ok="false"][data-pending="false"]', (els) => els.length);
+    checks.scriptRows = await page.$$eval(".script-checks li", (els) => els.map((e) => `${e.dataset.pending === "true" ? "pending" : e.dataset.ok === "true" ? "pass" : "fail"}`));
+    checks.footer = await page.$eval(".vc-dialog__footer .dialog-note", (e) => e.textContent.trim());
     checks.requests = stand.seen;
     await shot(page, "05-diagnostics.png");
     checks.remembered = await page.evaluate((k) => JSON.parse(sessionStorage.getItem(k) || "{}").anthropic?.status, KEYS.diagnostics);
@@ -514,7 +525,7 @@ if (wanted("drawer")) {
       await page.waitForSelector(`#panel-${id}:not([hidden])`, { timeout: 3000 });
       checks.panels[id] = (await page.textContent(`#panel-${id} ${sel}`)).trim();
     }
-    await page.click(".drawer-end .btn");
+    await page.click(".drawer-toggle");
     // A night stopped by Abort, with a key in this tab that must stay out of the export.
     await startNight(page, { speed: 4 });
     await page.evaluate(async (k) => (await import("./js/keystore.js")).setKey(k), MOCK_KEY);
@@ -546,7 +557,7 @@ if (wanted("drawer")) {
     checks.partialNarration = ev.filter((e) => e.type === "narration" && !e.payload.done).length;
     checks.noKey = !text.includes("MOCKKEY") && !/sk-ant-(?!\[REDACTED\])/.test(text);
     checks.simCell = audit.simulated_cell;
-    await page.click(".drawer-end .btn");
+    await page.click(".drawer-toggle");
     checks.closed = await page.getAttribute("#drawer", "data-open");
   } catch (err) {
     checks.FAILED = String(err.message).split("\n")[0];
@@ -612,7 +623,7 @@ if (wanted("night")) {
       c.tonightHead = (await page.textContent(".kb-table thead th:nth-child(3)")).trim();
       c.tonightTitle = await page.getAttribute(".kb-table thead th:nth-child(3)", "title");
       if (speed === 4) await shot(page, "11-night-end-kpiboard.png");
-      await page.click(".drawer-end .btn");
+      await page.click(".drawer-toggle");
       // Rate: simulated minutes per real second between 22:50 and 01:50 (no wake-up in that stretch),
       // the slope from the first to the last sample in it.
       const mins = (x) => { const m = /^(\d\d):(\d\d)/.exec(x); if (!m) return null; const v = Number(m[1]) * 60 + Number(m[2]); return v >= 22 * 60 ? v - 22 * 60 : v + 120; };
@@ -769,7 +780,7 @@ if (wanted("kpi")) {
     checks.refused = { msg: (await page.textContent('tr[data-param="p"] .as-msg')).trim(), invalid: await page.getAttribute("#as-p", "aria-invalid"), stored: await page.evaluate(() => sessionStorage.getItem("rp.assumptions")) };
     await page.fill("#as-p", "0.70");
     await page.press("#as-p", "Enter");
-    checks.changedChip = await page.isVisible('tr[data-param="p"] .chip');
+    checks.changedChip = await page.isVisible('tr[data-param="p"] .vc-tag');
     checks.stored = await page.evaluate(() => sessionStorage.getItem("rp.assumptions"));
     await shot(page, "14-assumptions.png");
     await page.click("#tab-kpiboard");
@@ -838,7 +849,7 @@ if (wanted("yourdc")) {
     await page.press("#kb-dc-c", "Enter");
     checks.refused = { msg: (await page.textContent(".kb-dc-field:has(#kb-dc-c) .kb-dc-msg")).trim(), invalid: await page.getAttribute("#kb-dc-c", "aria-invalid") };
     await page.click("#tab-assumptions");
-    checks.assumption = { value: await page.inputValue("#as-N"), chip: await page.isVisible('tr[data-param="N"] .chip') };
+    checks.assumption = { value: await page.inputValue("#as-N"), chip: await page.isVisible('tr[data-param="N"] .vc-tag') };
     await page.click("#tab-audit");
     checks.audit = await page.$$eval('.audit-table tr[data-type="assumption_change"] td.s', (els) => els.map((e) => e.textContent.trim()));
     await page.click("#tab-kpiboard");
@@ -867,7 +878,8 @@ if (wanted("dial")) {
   const t = await newPage();
   const { page } = t;
   const checks = {};
-  const dial = () => page.$$eval(".autonomy-dial button", (els) => els.map((b) => ({ level: b.dataset.level, pressed: b.getAttribute("aria-pressed"), locked: b.dataset.locked === "true", disabled: b.getAttribute("aria-disabled") === "true", label: b.getAttribute("aria-label"), title: b.title })));
+  // A button's name: its aria-label, or the Vici tooltip that names it (aria-labelledby).
+  const dial = () => page.$$eval(".autonomy-dial button", (els) => els.map((b) => ({ level: b.dataset.level, pressed: b.getAttribute("aria-pressed"), locked: b.dataset.locked === "true", disabled: b.getAttribute("aria-disabled") === "true", label: b.getAttribute("aria-label") || document.getElementById(b.getAttribute("aria-labelledby") || "")?.textContent || null, title: b.title })));
   try {
     await boot(page);
     checks.idle = await dial();
@@ -889,17 +901,17 @@ if (wanted("dial")) {
     checks.advise = { pressed: (await dial()).find((d) => d.level === "advise")?.pressed, stored: await page.evaluate(() => sessionStorage.getItem("rp.autonomy")) };
     await page.click("#tab-audit");
     checks.auditBefore = await page.$$eval('.audit-table tr[data-type="autonomy_change"] td.s', (els) => els.map((e) => e.textContent.trim()));
-    await page.click(".drawer-end .btn").catch(() => {});
+    await page.click(".drawer-toggle").catch(() => {});
     await startNight(page, { speed: 4 });
     await dismissBanners(page);
     checks.running = await dial();
     // The run keeps its level: a click during the run changes nothing.
     await page.click('.autonomy-dial button[data-level="approve"]', { force: true });
     checks.runningAfterClick = (await dial()).find((d) => d.level === "advise")?.pressed;
-    await page.waitForSelector('.option-card[data-id="B"] .btn-approve', { timeout: 300000 });
-    checks.button = (await page.textContent('.option-card[data-id="B"] .btn-approve')).trim();
+    await page.waitForSelector('.option-card[data-id="B"] [data-action="approve"]', { timeout: 300000 });
+    checks.button = (await page.textContent('.option-card[data-id="B"] [data-action="approve"]')).trim();
     checks.note = (await page.textContent("#panel-options .options-advise")).replace(/\s+/g, " ").trim();
-    await page.click('.option-card[data-id="B"] .btn-approve');
+    await page.click('.option-card[data-id="B"] [data-action="approve"]');
     await page.waitForSelector('.option-card[data-id="B"][data-status="approved"]', { state: "attached", timeout: 10000 });
     checks.status = (await page.textContent('.option-card[data-id="B"] .option-status')).trim();
     await page.waitForSelector("#btn-approve-all", { timeout: 60000 });
@@ -1064,7 +1076,7 @@ if (wanted("worldnight")) {
     await page.click('button[aria-label="Customer view"]');
     await page.waitForSelector("#ws-confirm", { timeout: 120000 });
     checks.unknown = await read();
-    checks.consoleCard = await page.isVisible("#console .confirm-actions .btn-approve");
+    checks.consoleCard = await page.isVisible("#console .confirm-actions [data-action='approve']");
     await shot(page, "18-customer-confirm.png");
     await page.click("#ws-confirm");
     await page.waitForSelector("#console .confirm-card .option-status", { state: "attached", timeout: 10000 });
@@ -1146,7 +1158,7 @@ if (wanted("contrast")) {
         await page.waitForTimeout(150);
         await measure(`drawer ${tab}`);
       }
-      await page.click(".drawer-end .btn");
+      await page.click(".drawer-toggle");
       await page.click("#btn-start");
       await page.waitForSelector(".mode-card", { timeout: 5000 });
       await measure("mode choice");
@@ -1175,27 +1187,27 @@ if (wanted("contrast")) {
       await page.waitForTimeout(400);
       await measure("night, drawer open");
       // 02:00: the options in the drawer, then the drafts in the Outbox with the console's notice.
-      await page.waitForSelector('.option-card[data-id="B"] .btn-approve', { timeout: 120000 });
+      await page.waitForSelector('.option-card[data-id="B"] [data-action="approve"]', { timeout: 120000 });
       await measure("options");
-      await page.click('.option-card[data-id="B"] .btn-approve');
+      await page.click('.option-card[data-id="B"] [data-action="approve"]');
       await page.waitForSelector("#btn-approve-all", { timeout: 60000 });
       await page.waitForSelector('#console .entry[data-type="notice"]', { timeout: 10000 });
       await measure("drafts and notice");
       await page.click("#btn-approve-all");
       await waitStatus(page, "Done", 120000);
-      await page.click(".drawer-end .btn");
+      await page.click(".drawer-toggle");
       await measure("night end, summary and run facts");
       await page.click("#btn-open-report");
       await page.waitForSelector(".report-modal", { timeout: 5000 });
       await measure("management summary");
       await page.keyboard.press("Escape");
       await page.waitForSelector(".report-modal", { state: "detached", timeout: 3000 });
-      // Control: faint text on the app background (porcelain) measures 4.44:1, a known gap in the
-      // shared palette (Rebate Hunter REVIEW W9). The measure has to catch it.
+      // Control: text in Vici's strong border grey on the page's background falls short of 4.5:1
+      // (CONTROL_RATIO). The measure has to catch it at that ratio.
       checks.control = await page.evaluate(() => {
         const probe = document.createElement("p");
         probe.textContent = "Contrast control";
-        Object.assign(probe.style, { position: "fixed", left: "0", top: "0", margin: "0", padding: "4px", fontSize: "14px", fontWeight: "400", color: "var(--text-faint)", background: "var(--porcelain)", zIndex: "9999" });
+        Object.assign(probe.style, { position: "fixed", left: "0", top: "0", margin: "0", padding: "4px", fontSize: "14px", fontWeight: "400", color: "var(--vc-border-strong)", background: "var(--vc-bg)", zIndex: "9999" });
         document.body.append(probe);
         return probe.getBoundingClientRect().width > 0;
       });
@@ -1209,7 +1221,7 @@ if (wanted("contrast")) {
     await finish(`contrast: every visible text meets its duty at ${w}×${hgt}`, t, checks, [
       [Object.keys(checks.states).length === 17 && thin.length === 0, `seventeen states, each with at least five text elements measured (${Object.entries(checks.states).map(([k, r]) => `${k} ${r.measured}`).join(", ")})`],
       [below.length === 0, `text below its duty: ${JSON.stringify(below)}`],
-      [checks.control && checks.controlFound?.length === 1 && checks.controlFound[0].ratio === 4.44, `the control is caught at 4.44:1 (${JSON.stringify(checks.controlFound)})`]
+      [checks.control && checks.controlFound?.length === 1 && checks.controlFound[0].ratio === CONTROL_RATIO.light, `the control is caught at ${CONTROL_RATIO.light}:1 (${JSON.stringify(checks.controlFound)})`]
     ]);
   }
 }
@@ -1240,7 +1252,7 @@ if (wanted("contrast-customer")) {
       checks.controlProbe = await page.evaluate(() => {
         const probe = document.createElement("p");
         probe.textContent = "Contrast control";
-        Object.assign(probe.style, { position: "fixed", left: "0", top: "0", margin: "0", padding: "4px", fontSize: "14px", fontWeight: "400", color: "var(--text-faint)", background: "var(--porcelain)", zIndex: "9999" });
+        Object.assign(probe.style, { position: "fixed", left: "0", top: "0", margin: "0", padding: "4px", fontSize: "14px", fontWeight: "400", color: "var(--vc-border-strong)", background: "var(--vc-bg)", zIndex: "9999" });
         document.body.append(probe);
         return probe.getBoundingClientRect().width > 0;
       });
@@ -1254,7 +1266,7 @@ if (wanted("contrast-customer")) {
     await finish(`contrast-customer: every visible text of the Customer view meets its duty at ${w}×${hgt}`, t, checks, [
       [Object.keys(checks.states).length === 5 && thin.length === 0, `five states, each with at least twenty text elements measured (${Object.entries(checks.states).map(([k, r]) => `${k} ${r.measured}`).join(", ")})`],
       [below.length === 0, `text below its duty: ${JSON.stringify(below)}`],
-      [checks.controlProbe && checks.controlFound?.length === 1 && checks.controlFound[0].ratio === 4.44, `the control is caught at 4.44:1 (${JSON.stringify(checks.controlFound)})`]
+      [checks.controlProbe && checks.controlFound?.length === 1 && checks.controlFound[0].ratio === CONTROL_RATIO.light, `the control is caught at ${CONTROL_RATIO.light}:1 (${JSON.stringify(checks.controlFound)})`]
     ]);
   }
 }

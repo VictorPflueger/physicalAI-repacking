@@ -26,6 +26,7 @@ import { h, clear } from "./dom.js";
 import { icon } from "./icons.js";
 import { clockOf } from "./nightsim.js";
 import { int, pct, upTo, fixed } from "./format.js";
+import { tag } from "./tags.js";
 
 export const FLOW_MS = 700;
 const HOLD_MS = 2 * 60000; // a moment stays two simulated minutes after its time
@@ -70,11 +71,11 @@ export function createWorldStage(root, { getState = () => null, onConfirm = () =
     h("div", { class: "ws-titles" },
       h("div", { class: "ws-title-row" },
         h("h2", { class: "ws-title" }, "The robot's world model"),
-        h("span", { class: "chip", dataset: { tone: "synthetic" } }, "Synthetic")),
+        tag("Synthetic", "synthetic")),
       h("p", { class: "ws-lede" }, "What the robot knows about every item on tonight's pallet: weight, size, fragility and how to grip it.")),
     h("div", { class: "ws-head-right" },
       h("span", { class: "ws-clock", "aria-hidden": "true" }, clockTime, clockPaused),
-      h("span", { class: "sim-cell-tag", role: "note", title: "The robot cell, its camera, scale and gripper, and the warehouse system are simulated, in Live and in Simulation mode." }, icon("gripper", 16), "Simulated cell")));
+      h("span", { class: "vc-tag sim-cell-tag", role: "note", title: "The robot cell, its camera, scale and gripper, and the warehouse system are simulated, in Live and in Simulation mode." }, icon("gripper", 16), "Simulated cell")));
 
   const NODES = [
     { id: "camera", label: "Camera", icon: "camera" },
@@ -358,8 +359,8 @@ export function createWorldStage(root, { getState = () => null, onConfirm = () =
       if (request && !request.decided) {
         text = `${what} A provisional entry waits for your decision${e?.name ? `: ${e.name}` : ""}${e && !e.name ? "; the lookup found no product" : ""}.`;
         actions.push(
-          h("button", { class: "btn btn-sm btn-approve", type: "button", id: "ws-confirm", on: { click: () => decide("confirm") } }, icon("check", 16), "Confirm entry"),
-          h("button", { class: "btn btn-sm btn-reject", type: "button", id: "ws-reject", on: { click: () => decide("reject") } }, "Reject"));
+          h("button", { class: "vc-button button-compact", type: "button", id: "ws-confirm", dataset: { action: "approve" }, on: { click: () => decide("confirm") } }, icon("check", 16), "Confirm entry"),
+          h("button", { class: "vc-button vc-button--outline button-compact", type: "button", id: "ws-reject", dataset: { action: "reject" }, on: { click: () => decide("reject") } }, "Reject"));
       } else if (request?.decided) {
         text = request.decided === "confirm"
           ? `You confirmed the provisional entry for barcode ${u?.barcode || "?"}: the model knows the barcode from now on, still without weight or grip, so tonight's ${int(units)} units stay with a person.`

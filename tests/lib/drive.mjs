@@ -14,8 +14,8 @@ export async function driveDecisions(page, plan = {}, { timeout = 240000 } = {})
     const handle = await page.waitForFunction((ends) => {
       const pill = document.querySelector(".status-pill .text")?.textContent.trim();
       if (ends.includes(pill)) return pill;
-      if (document.querySelector("#panel-options .option-card .option-actions .btn")) return "options";
-      if (document.querySelector("#console .confirm-actions .btn-approve")) return "confirm";
+      if (document.querySelector("#panel-options .option-card .option-actions button")) return "options";
+      if (document.querySelector("#console .confirm-actions [data-action='approve']")) return "confirm";
       if (document.getElementById("kpi-clock-sub")?.textContent.trim() === "paused: your approval" && document.querySelector('#panel-outbox .action-card[data-status="pending"]')) return "drafts";
       return false;
     }, ENDS, { timeout, polling: 150 });
@@ -23,14 +23,14 @@ export async function driveDecisions(page, plan = {}, { timeout = 240000 } = {})
     if (ENDS.includes(what)) return { end: what, decided };
     if (what === "options") {
       for (const r of plan.reject || []) {
-        await page.click(`.option-card[data-id="${r}"] .btn-reject`);
+        await page.click(`.option-card[data-id="${r}"] [data-action="reject"]`);
         await page.waitForSelector(`.option-card[data-id="${r}"][data-status="rejected"]`, { state: "attached", timeout: 10000 });
       }
-      await page.click(plan.option === "baseline" ? '.option-card[data-id="baseline"] .option-actions .btn' : `.option-card[data-id="${plan.option}"] .btn-approve`);
+      await page.click(plan.option === "baseline" ? '.option-card[data-id="baseline"] .option-actions button' : `.option-card[data-id="${plan.option}"] [data-action="approve"]`);
       await page.waitForSelector(`.option-card[data-id="${plan.option}"][data-status="approved"]`, { state: "attached", timeout: 10000 });
       decided.push(`option ${plan.option}`);
     } else if (what === "confirm") {
-      await page.click(`#console .confirm-actions ${plan.confirm === "reject" ? ".btn-reject" : ".btn-approve"}`);
+      await page.click(`#console .confirm-actions ${plan.confirm === "reject" ? '[data-action="reject"]' : '[data-action="approve"]'}`);
       await page.waitForSelector("#console .confirm-card .option-status", { state: "attached", timeout: 10000 });
       decided.push(`confirm ${plan.confirm || "confirm"}`);
     } else if (what === "drafts") {
@@ -38,7 +38,7 @@ export async function driveDecisions(page, plan = {}, { timeout = 240000 } = {})
       for (const i of pending) {
         const choice = Array.isArray(plan.drafts) ? plan.drafts[drafts] ?? "approve" : plan.drafts || "approve";
         const card = `#panel-outbox .action-card:nth-child(${i + 1})`;
-        await page.click(`${card} ${choice === "reject" ? ".btn-reject" : ".btn-approve"}`);
+        await page.click(`${card} ${choice === "reject" ? '[data-action="reject"]' : '[data-action="approve"]'}`);
         await page.waitForSelector(`${card}:not([data-status="pending"])`, { state: "attached", timeout: 10000 });
         drafts += 1;
       }

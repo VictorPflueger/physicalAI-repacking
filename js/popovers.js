@@ -7,6 +7,7 @@ import { h } from "./dom.js";
 import { clockOf, clockUp } from "./nightsim.js";
 import { int, pct, fixed, upTo } from "./format.js";
 import { laneState, manualQueue, rollingSuccess, unitsToRepack } from "./cell_data.js";
+import { tag } from "./tags.js";
 
 const kg = (g) => `${upTo(g / 1000, 2)} kg`;
 const grams = (g) => (g === null || g === undefined ? "—" : `${int(g)} g`);
@@ -20,7 +21,8 @@ function head(title, sub, tags = []) {
   return [h("div", { class: "pop-title" }, title), sub ? h("div", { class: "pop-sub" }, sub) : null,
     tags.length ? h("div", { class: "pop-tags" }, tags) : null];
 }
-const chip = (text, tone) => h("span", { class: "chip", dataset: { tone } }, text);
+// A tag in the tone of the night (js/tags.js): a state with its word, Synthetic in its dashed capsule.
+const chip = (text, tone) => tag(text, tone);
 
 /** A store order: units, totes, cut-off, projection, dispatch. */
 export function storePopover(st, o) {

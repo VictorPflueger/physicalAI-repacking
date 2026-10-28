@@ -27,9 +27,9 @@ export function createOptionsPanel(panel, { onDecision, onCount, orderName = (id
 
   function empty() {
     clear(panel);
-    panel.appendChild(h("div", { class: "empty" },
-      h("strong", {}, "No options yet"),
-      h("span", {}, "When the night needs a decision, the agent prices three options against doing nothing, each in extra labour and late store orders, and they wait here for your decision. Nothing changes before.")));
+    panel.appendChild(h("div", { class: "vc-empty empty" },
+      h("strong", { class: "vc-empty__title" }, "No options yet"),
+      h("p", { class: "vc-empty__text" }, "When the night needs a decision, the agent prices three options against doing nothing, each in extra labour and late store orders, and they wait here for your decision. Nothing changes before.")));
   }
 
   function render() {
@@ -59,7 +59,7 @@ export function createOptionsPanel(panel, { onDecision, onCount, orderName = (id
               ? h("span", { class: "compare-bar baseline", style: { width: pctOf(r.base) } })
               : [h("span", { class: "compare-bar mitigation", style: { width: pctOf(r.spend) } }),
                 h("span", { class: "compare-bar residual", style: { left: pctOf(r.spend), width: pctOf(r.late) } })]),
-          h("span", { class: "compare-value num" }, eur2(r.total))))),
+          h("span", { class: "compare-value vc-tabular" }, eur2(r.total))))),
       h("div", { class: "compare-legend" },
         h("span", { class: "k-mit" }, "Extra labour"),
         h("span", { class: "k-res" }, "Late store orders"),
@@ -72,7 +72,7 @@ export function createOptionsPanel(panel, { onDecision, onCount, orderName = (id
     if (refocus) {
       // The cards were rebuilt: put the focus on the next decision, or on the decided card.
       refocus = false;
-      const next = panel.querySelector(".option-actions .btn");
+      const next = panel.querySelector(".option-actions button");
       const target = next || panel.querySelector(".option-status")?.closest(".option-card");
       if (target) {
         if (!next) target.setAttribute("tabindex", "-1");
@@ -102,17 +102,19 @@ export function createOptionsPanel(panel, { onDecision, onCount, orderName = (id
 
   function optionCard(o, reps) {
     const st = status.get(o.id) || (locked ? "not_selected" : ended ? "expired" : "");
-    return h("article", { class: "option-card", dataset: { recommended: String(!!o.recommended), status: st, kind: "option", id: o.id }, "aria-label": `Option ${o.letter}: ${o.title}` },
+    return h("article", { class: "vc-card option-card", dataset: { recommended: String(!!o.recommended), status: st, kind: "option", id: o.id }, "aria-label": `Option ${o.letter}: ${o.title}` },
       h("div", { class: "option-top" },
         h("span", { class: "option-letter", "aria-hidden": "true" }, o.letter),
-        // The chip flows after the title's last word, so a long title takes two lines, not three.
-        h("h4", { class: "option-title" }, `${o.title} `, o.recommended ? h("span", { class: "chip", dataset: { tone: "recommended" } }, "Recommended") : null)),
+        h("h4", { class: "option-title" }, o.title),
+        // The recommended option's tag sits on the top edge of its frame (css/drawer.css), so the title
+        // keeps the card's width.
+        o.recommended ? h("span", { class: "vc-tag vc-tag--solid" }, "Recommended") : null),
       outcome(o.late_by_order, reps),
       o.description ? renderInline(o.description, h("p", { class: "option-desc" })) : null,
       h("dl", { class: "option-figures" },
         h("dt", {}, "Extra labour"), h("dd", o.extra_labour_eur < -0.005 ? { title: "Fewer manual picks than doing nothing: a saving" } : {}, labourText(o.extra_labour_eur)),
         h("dt", {}, "Late orders, expected"), h("dd", { title: `${lateCount(o.expected_late_orders)}: ${lateBy(o.late_by_order, reps)}` }, eur2(o.late_orders_eur))),
-      h("div", { class: "option-total" }, h("span", { class: "label" }, "Expected total"), h("span", { class: "value num" }, eur2(o.expected_total_eur))),
+      h("div", { class: "option-total" }, h("span", { class: "label" }, "Expected total"), h("span", { class: "value vc-tabular" }, eur2(o.expected_total_eur))),
       o.recommended && current?.recommendation_reason ? renderInline(current.recommendation_reason, h("p", { class: "option-why" }, h("strong", {}, "Why recommended: "))) : null,
       o.residual_risk ? h("p", { class: "option-risk" }, h("strong", {}, "Residual risk: "), o.residual_risk) : null,
       actionsFor(o, st));
@@ -120,7 +122,7 @@ export function createOptionsPanel(panel, { onDecision, onCount, orderName = (id
 
   function baselineCard(b, reps) {
     const st = status.get("baseline") || (locked ? "not_selected" : ended ? "expired" : "");
-    return h("article", { class: "option-card", dataset: { kind: "baseline", status: st, id: "baseline" }, "aria-label": "Do nothing" },
+    return h("article", { class: "vc-card option-card", dataset: { kind: "baseline", status: st, id: "baseline" }, "aria-label": "Do nothing" },
       h("div", { class: "option-top" },
         h("span", { class: "option-letter", "aria-hidden": "true" }, "–"),
         h("h4", { class: "option-title" }, "Do nothing")),
@@ -129,26 +131,27 @@ export function createOptionsPanel(panel, { onDecision, onCount, orderName = (id
       h("dl", { class: "option-figures" },
         h("dt", {}, "Extra labour"), h("dd", {}, eur2(0)),
         h("dt", {}, "Late orders, expected"), h("dd", { title: `${lateCount(b?.expected_late_orders)}: ${lateBy(b?.late_by_order, reps)}` }, eur2(b?.late_orders_eur))),
-      h("div", { class: "option-total" }, h("span", { class: "label" }, "Expected total"), h("span", { class: "value num" }, eur2(b?.expected_total_eur))),
+      h("div", { class: "option-total" }, h("span", { class: "label" }, "Expected total"), h("span", { class: "value vc-tabular" }, eur2(b?.expected_total_eur))),
       actionsFor({ id: "baseline", letter: "–", title: "Do nothing" }, st, true));
   }
 
   function actionsFor(o, st, isBaseline = false) {
-    if (st === "approved") return h("div", { class: "option-status mark-pass" }, icon("check", 20), isBaseline ? "Plan kept" : current?.autonomy === "advise" ? "Applied by you" : "Approved");
-    if (st === "rejected") return h("div", { class: "option-status mark-fail" }, icon("x", 20), "Rejected");
-    if (st === "not_selected") return h("div", { class: "option-status mark-skip" }, "Not selected");
-    if (st === "expired") return h("div", { class: "option-status mark-skip" }, "No decision: the run ended");
+    // The decided state is a Vici tag in its tone, with its icon and its word.
+    if (st === "approved") return h("div", { class: "option-status" }, h("span", { class: "vc-tag vc-tag--success" }, icon("check", 20), isBaseline ? "Plan kept" : current?.autonomy === "advise" ? "Applied by you" : "Approved"));
+    if (st === "rejected") return h("div", { class: "option-status" }, h("span", { class: "vc-tag vc-tag--danger" }, icon("x", 20), "Rejected"));
+    if (st === "not_selected") return h("div", { class: "option-status" }, h("span", { class: "vc-tag" }, "Not selected"));
+    if (st === "expired") return h("div", { class: "option-status" }, h("span", { class: "vc-tag" }, "No decision: the run ended"));
     if (isBaseline) {
       return h("div", { class: "option-actions" },
-        h("button", { class: "btn", type: "button", on: { click: () => decide(o, "approved") } }, "Do nothing"));
+        h("button", { class: "vc-button vc-button--outline", type: "button", dataset: { action: "approve" }, on: { click: () => decide(o, "approved") } }, "Do nothing"));
     }
     const advise = current?.autonomy === "advise";
     return h("div", { class: "option-actions" },
-      // The recommended option's Approve is the one solid brand button; the others stay available as
-      // outlined brand buttons. Reject is a neutral decision, not an alarm. In Advise mode the click
-      // applies the option itself (the person acts in the interface).
-      h("button", { class: `btn btn-approve${o.recommended ? "" : " btn-brand-outline"}`, type: "button", ...(advise ? { title: "Advise: your click applies this option" } : {}), on: { click: () => decide(o, "approved") } }, icon("check", 18), advise ? "Apply" : "Approve"),
-      h("button", { class: "btn btn-reject", type: "button", on: { click: () => decide(o, "rejected") } }, "Reject"));
+      // The recommended option's Approve is the one solid merlot button; the others stay available as
+      // Vici's secondary (soft merlot) buttons. Reject is a neutral decision, not an alarm. In Advise
+      // mode the click applies the option itself (the person acts in the interface).
+      h("button", { class: `vc-button${o.recommended ? "" : " vc-button--secondary"}`, type: "button", dataset: { action: "approve" }, ...(advise ? { title: "Advise: your click applies this option" } : {}), on: { click: () => decide(o, "approved") } }, icon("check", 18), advise ? "Apply" : "Approve"),
+      h("button", { class: "vc-button vc-button--outline", type: "button", dataset: { action: "reject" }, on: { click: () => decide(o, "rejected") } }, "Reject"));
   }
 
   function decide(o, decision) {

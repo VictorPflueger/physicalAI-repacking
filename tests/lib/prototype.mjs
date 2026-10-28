@@ -45,6 +45,8 @@ export const COLOUR_PAIRS = [
   ["A reading or a check: a node's or a tile's frame on its tint", "info-solid", "info-bg", "mark"],
   ["An item the model does not know: its frame on its tint", "warning-text", "warning-bg", "mark"],
   ["A person: a node's, a tile's or the moment's frame on its tint", "accent", "accent-soft", "mark"],
+  ["A person: the moment's words and the tile's name on the soft merlot tint", "text", "accent-soft", "text"],
+  ["A person: a node's second line and a tile's details on the soft merlot tint", "text-muted", "accent-soft", "text"],
   ["The robot below its rule: the moment's stripe on its tint", "danger-solid", "danger-bg", "mark"],
   ["The night's end: the moment's stripe on the card", "success-solid", "surface", "mark"],
   ["Goods by the robot: a tile's stripe and bar, on the tile", "neutral-solid", "surface", "mark"],
@@ -68,6 +70,10 @@ export const COLOUR_PAIRS = [
   ["Cost bars: the extra labour (fjord), on its track", "info-solid", "bg-subtle", "mark"],
   ["Cost bars: the late store orders, on its track", "warning-text", "bg-subtle", "mark"],
   ["Cost bars: doing nothing, on its track", "danger-solid", "bg-subtle", "mark"],
+  // The intro: the world model's four steps, each number on its hexagon (Checks and Asks take the
+  // shell's info and merlot tints).
+  ["The intro's step Knows: its number on its neutral hexagon", "text", "neutral-bg", "text"],
+  ["The intro's step Learns: its number on its neutral solid hexagon", "neutral-on-solid", "neutral-solid", "text"],
   // The night console: the marks of the night's entries and its closing report (surface).
   ["Night console: a sensor's correction (fjord mark)", "info-text", "surface", "mark"],
   ["Night console: an item handed to a person (merlot mark)", "accent-text", "surface", "mark"],

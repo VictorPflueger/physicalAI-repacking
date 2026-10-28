@@ -5,7 +5,7 @@
 // Escape or a click elsewhere, and gives focus back to what opened it, found again by its key when
 // the board has redrawn it meanwhile.
 
-import { h } from "./dom.js";
+import { h, withTooltip } from "./dom.js";
 import { icon } from "./icons.js";
 
 const PAD = 12;   // distance to the board's edges
@@ -16,9 +16,9 @@ const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
 /** host: the board; resolve(key): the element that stands for a key now (after a redraw), or null. */
 export function createPopover(host, { resolve = null } = {}) {
-  const close = h("button", { class: "btn btn-ghost btn-icon pop-close", type: "button", "aria-label": "Close details" }, icon("x", 18));
+  const close = h("button", { class: "vc-icon-button pop-close", type: "button" }, icon("x", 18));
   const body = h("div", { class: "pop-body" });
-  const el = h("div", { class: "cell-pop", hidden: true, role: "dialog", tabindex: "-1" }, close, body);
+  const el = h("div", { class: "cell-pop", hidden: true, role: "dialog", tabindex: "-1" }, withTooltip(close, "Close details", { below: true }), body);
   host.appendChild(el);
   let trigger = null;
   let key = null;

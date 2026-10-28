@@ -12,9 +12,9 @@ import { openModal } from "./modal.js";
 import { STORAGE } from "./config.js";
 import { worth } from "./worth.js";
 
-// The world model at work, in the colours the Customer view uses for the same things: ink for what the
-// model holds, blue for the camera's and the scale's checks, slate for the model taking a correction,
-// burgundy for a person.
+// The world model at work, on Vici's stepper, in the colours the Customer view uses for the same things:
+// ink for what the model holds, fjord (info) for the camera's and the scale's checks, Vici's neutral for
+// the model taking a correction, merlot for a person.
 const STEPS = [
   { tone: "know", title: "Knows", text: "Every item on the pallet: weight, size, fragility and how to grip it." },
   { tone: "check", title: "Checks", text: "Camera and scale compare each item with the model; the robot rehearses every grasp against it first." },
@@ -54,15 +54,15 @@ function markIntroSeen() {
 export function openIntro({ startLabel = "Start agent", onStart = null, getInputs } = {}) {
   return new Promise((resolve) => {
     let modal;
-    const steps = h("ol", { class: "intro-steps" }, STEPS.map((s, i) =>
-      h("li", { class: "intro-step", dataset: { tone: s.tone } },
-        h("span", { class: "intro-num", "aria-hidden": "true" }, String(i + 1)),
-        h("strong", { class: "intro-step-title" }, s.title),
-        h("span", { class: "intro-step-text" }, s.text))));
+    const steps = h("ol", { class: "vc-stepper intro-steps" }, STEPS.map((s, i) =>
+      h("li", { class: "vc-step intro-step", dataset: { tone: s.tone } },
+        h("span", { class: "vc-step__marker intro-num", "aria-hidden": "true" }, String(i + 1)),
+        h("strong", { class: "vc-step__label intro-step-title" }, s.title),
+        h("span", { class: "vc-step__hint intro-step-text" }, s.text))));
     const value = h("ul", { class: "intro-value" }, valueItems(getInputs()).map((x) =>
       h("li", {},
         h("span", { class: "intro-value-label" }, x.label),
-        h("strong", { class: "intro-value-figure num" }, x.figure),
+        h("strong", { class: "intro-value-figure vc-tabular" }, x.figure),
         h("span", { class: "intro-value-text" }, x.text))));
     const real = h("div", { class: "intro-real", role: "group", "aria-label": "What is real" }, REAL.map((r) =>
       h("div", { class: "intro-real-item", dataset: { tone: r.tone } },
@@ -70,16 +70,17 @@ export function openIntro({ startLabel = "Start agent", onStart = null, getInput
 
     const footer = onStart
       ? [
-        h("span", { class: "left" }),
-        h("button", { class: "btn btn-ghost", type: "button", on: { click: () => modal.close(null) } }, "Close"),
-        h("button", { class: "btn btn-primary", type: "button", autofocus: true, on: { click: () => modal.close("start") } }, icon("play", 18), startLabel)
+        h("span", { class: "dialog-note" }),
+        h("button", { class: "vc-button vc-button--ghost", type: "button", on: { click: () => modal.close(null) } }, "Close"),
+        h("button", { class: "vc-button", type: "button", autofocus: true, on: { click: () => modal.close("start") } }, icon("play", 18), startLabel)
       ]
-      : [h("button", { class: "btn btn-primary", type: "button", autofocus: true, on: { click: () => modal.close(null) } }, "Close")];
+      : [h("button", { class: "vc-button", type: "button", autofocus: true, on: { click: () => modal.close(null) } }, "Close")];
 
     modal = openModal({
       title: "How Repack Pilot works",
       intro: "A robot cell repacks mixed pallets into store orders at night. What makes it work is its world model: what the robot knows about every item it lifts. An AI agent plans the night with it, and people do the rest.",
       className: "intro-modal",
+      size: "intro",
       body: [
         h("h3", {}, "The world model at work"),
         steps,

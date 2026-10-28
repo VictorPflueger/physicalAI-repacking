@@ -116,7 +116,7 @@ async function playScenario1(page, plan, { drafts: draftCount }) {
       queued = false;
       const t = pill.textContent.trim();
       const pendingDraft = !!document.querySelector('#panel-outbox .action-card[data-status="pending"]');
-      const openOption = !!document.querySelector("#panel-options .option-actions .btn");
+      const openOption = !!document.querySelector("#panel-options .option-actions button");
       if ((t === "Awaiting your approval" && !pendingDraft) || (t === "Awaiting your decision" && !openOption)) window.__mislabels.push(`${clock.firstChild?.textContent?.trim()} ${t}`);
     };
     new MutationObserver(() => { if (!queued) { queued = true; requestAnimationFrame(check); } }).observe(pill, { childList: true, subtree: true, characterData: true });
@@ -134,7 +134,7 @@ async function playScenario1(page, plan, { drafts: draftCount }) {
   got.disclosure = await page.isVisible(".ai-disclosure");
   // 02:00: the options.
   step = "options";
-  await page.waitForSelector('#panel-options:not([hidden]) .option-card[data-id="B"] .btn-approve', { timeout: 120000 });
+  await page.waitForSelector('#panel-options:not([hidden]) .option-card[data-id="B"] [data-action="approve"]', { timeout: 120000 });
   got.clockAtOptions = (await page.textContent(".cell-clock")).trim();
   got.tileAtOptions = (await page.textContent("#kpi-clock-sub")).trim();
   got.cards = await page.$$eval("#panel-options .option-card", (els) => els.map((e) => ({
@@ -144,10 +144,10 @@ async function playScenario1(page, plan, { drafts: draftCount }) {
   })));
   step = "reject";
   for (const id of plan.reject || []) {
-    await page.click(`.option-card[data-id="${id}"] .btn-reject`);
+    await page.click(`.option-card[data-id="${id}"] [data-action="reject"]`);
     await page.waitForSelector(`.option-card[data-id="${id}"][data-status="rejected"]`, { state: "attached", timeout: 10000 });
   }
-  const approve = plan.option === "baseline" ? '.option-card[data-id="baseline"] .option-actions .btn' : `.option-card[data-id="${plan.option}"] .btn-approve`;
+  const approve = plan.option === "baseline" ? '.option-card[data-id="baseline"] .option-actions button' : `.option-card[data-id="${plan.option}"] [data-action="approve"]`;
   await page.click(approve);
   // The drafts in the Outbox, decided as planned (by type, in the order they were drafted).
   step = "approval wait";
@@ -159,7 +159,7 @@ async function playScenario1(page, plan, { drafts: draftCount }) {
   const choices = Array.isArray(plan.drafts) ? plan.drafts : got.drafts.map(() => plan.drafts || "approve");
   for (let i = 0; i < got.drafts.length; i++) {
     const card = `#panel-outbox .action-card:nth-child(${i + 1})`;
-    await page.click(`${card} ${choices[i] === "reject" ? ".btn-reject" : ".btn-approve"}`);
+    await page.click(`${card} ${choices[i] === "reject" ? '[data-action="reject"]' : '[data-action="approve"]'}`);
     await page.waitForSelector(`${card}:not([data-status="pending"])`, { state: "attached", timeout: 10000 });
   }
   step = "done wait";
@@ -176,14 +176,14 @@ async function playScenario1(page, plan, { drafts: draftCount }) {
   got.simple = await page.$$eval("#console .entry", (els) => els.filter((e) => getComputedStyle(e).display !== "none").map((e) => e.innerText).join("\n"));
   got.board = await page.$eval(".cell-board", (el) => el.innerText);
   // The management summary, as the dialog shows it.
-  await page.click(".drawer-end .btn").catch(() => {});
+  await page.click(".drawer-toggle").catch(() => {});
   await page.click("#btn-open-report");
   await page.waitForSelector(".report-modal", { timeout: 5000 });
   got.report = await page.$eval(".report-modal", (m) => ({
-    heading: m.querySelector(".modal-body h2, .modal-body h3")?.textContent.trim(),
-    paragraphs: [...m.querySelectorAll(".modal-body p")].map((p) => p.textContent.replace(/\s+/g, " ").trim()),
-    table: [...m.querySelectorAll(".modal-body table tr")].map((r) => [...r.children].map((c) => c.textContent.trim())),
-    footer: m.querySelector(".modal-foot")?.textContent.replace(/\s+/g, " ").trim()
+    heading: m.querySelector(".vc-dialog__body h2, .vc-dialog__body h3")?.textContent.trim(),
+    paragraphs: [...m.querySelectorAll(".vc-dialog__body p")].map((p) => p.textContent.replace(/\s+/g, " ").trim()),
+    table: [...m.querySelectorAll(".vc-dialog__body table tr")].map((r) => [...r.children].map((c) => c.textContent.trim())),
+    footer: m.querySelector(".vc-dialog__footer")?.textContent.replace(/\s+/g, " ").trim()
   }));
   await page.keyboard.press("Escape");
   // The audit export.
@@ -298,7 +298,7 @@ async function scenarioCase(name, id, plan, label) {
     await page.goto(BASE);
     await page.waitForSelector('html[data-boot="ready"]', { timeout: 20000 });
     await page.click("#dd-scenario");
-    await page.click(`.menu-item[data-id="${id}"]`);
+    await page.click(`.vc-menu__item[data-id="${id}"]`);
     await page.click('button[aria-label="Night speed ×4"]');
     await page.click("#btn-start");
     await page.waitForSelector(".mode-card", { timeout: 5000 });
@@ -310,8 +310,8 @@ async function scenarioCase(name, id, plan, label) {
       const handle = await page.waitForFunction(() => {
         const pill = document.querySelector(".status-pill .text")?.textContent.trim();
         if (["Done", "Stopped", "Error", "Aborted"].includes(pill)) return pill;
-        if (document.querySelector("#panel-options .option-card .option-actions .btn")) return "options";
-        if (document.querySelector("#console .confirm-actions .btn-approve")) return "confirm";
+        if (document.querySelector("#panel-options .option-card .option-actions button")) return "options";
+        if (document.querySelector("#console .confirm-actions [data-action='approve']")) return "confirm";
         if (document.getElementById("kpi-clock-sub")?.textContent.trim() === "paused: your approval" && document.querySelector('#panel-outbox .action-card[data-status="pending"]')) return "drafts";
         return false;
       }, null, { timeout: 180000, polling: 150 });
@@ -319,14 +319,14 @@ async function scenarioCase(name, id, plan, label) {
       if (["Done", "Stopped", "Error", "Aborted"].includes(what)) { got.end = what; break; }
       if (what === "options") {
         for (const r of plan.reject || []) {
-          await page.click(`.option-card[data-id="${r}"] .btn-reject`);
+          await page.click(`.option-card[data-id="${r}"] [data-action="reject"]`);
           await page.waitForSelector(`.option-card[data-id="${r}"][data-status="rejected"]`, { state: "attached", timeout: 10000 });
         }
-        await page.click(plan.option === "baseline" ? '.option-card[data-id="baseline"] .option-actions .btn' : `.option-card[data-id="${plan.option}"] .btn-approve`);
+        await page.click(plan.option === "baseline" ? '.option-card[data-id="baseline"] .option-actions button' : `.option-card[data-id="${plan.option}"] [data-action="approve"]`);
         await page.waitForSelector(`.option-card[data-id="${plan.option}"][data-status="approved"]`, { state: "attached", timeout: 10000 });
         got.decided.push(`option ${plan.option}`);
       } else if (what === "confirm") {
-        await page.click(`#console .confirm-actions ${plan.confirm === "reject" ? ".btn-reject" : ".btn-approve"}`);
+        await page.click(`#console .confirm-actions ${plan.confirm === "reject" ? '[data-action="reject"]' : '[data-action="approve"]'}`);
         await page.waitForSelector("#console .confirm-card .option-status", { state: "attached", timeout: 10000 });
         got.decided.push(`confirm ${plan.confirm || "confirm"}`);
       } else if (what === "drafts") {
@@ -334,7 +334,7 @@ async function scenarioCase(name, id, plan, label) {
         for (const i of pending) {
           const choice = Array.isArray(plan.drafts) ? plan.drafts[drafts] ?? "approve" : plan.drafts || "approve";
           const card = `#panel-outbox .action-card:nth-child(${i + 1})`;
-          await page.click(`${card} ${choice === "reject" ? ".btn-reject" : ".btn-approve"}`);
+          await page.click(`${card} ${choice === "reject" ? '[data-action="reject"]' : '[data-action="approve"]'}`);
           await page.waitForSelector(`${card}:not([data-status="pending"])`, { state: "attached", timeout: 10000 });
           drafts += 1;
         }
@@ -348,7 +348,7 @@ async function scenarioCase(name, id, plan, label) {
     got.board = await page.$eval(".cell-board", (el) => el.innerText);
     // "## …" renders as h3 in the console (js/md.js: h1 is the app's title).
     got.heading = (await page.textContent('#console .entry[data-kind="summary"] .md :is(h2, h3, h4)', { timeout: 5000 }))?.trim();
-    await page.click(".drawer-end .btn").catch(() => {});
+    await page.click(".drawer-toggle").catch(() => {});
     await page.click("#tab-audit");
     const [download] = await Promise.all([page.waitForEvent("download"), page.click("#btn-export-audit")]);
     const audit = JSON.parse(await readFile(await download.path(), "utf8"));

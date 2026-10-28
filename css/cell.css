@@ -44,18 +44,24 @@
   border-left: 4px solid var(--vc-text-muted); border-right: 4px solid var(--vc-text-muted);
 }
 
-/* The neutral tag, top right, in both modes. */
-.sim-cell-tag {
-  flex: none;
-  display: inline-flex; align-items: center; gap: 8px;
-  height: 36px; padding: 0 14px 0 11px;
-  border-radius: 999px;
-  border: 1px solid var(--vc-border);
-  background: var(--vc-surface);
-  color: var(--vc-text);
+/* The neutral tag, top right, in both modes: Vici's tag on the panel's surface, its capsule outlined
+   in the border's grey, with the gripper. Never the simulation's tape: that belongs to scripted replays,
+   while the cell is simulated in both modes. */
+.sim-cell-tag.vc-tag {
+  --_h: 36px; --_bg: var(--vc-surface); --_fg: var(--vc-text);
+  flex: none; gap: 8px;
   font-size: var(--vc-font-size-sm); font-weight: 600;
-  white-space: nowrap;
-  box-shadow: var(--vc-shadow-md);
+  filter: drop-shadow(0 2px 4px color-mix(in oklab, var(--vc-shadow-color) 14%, transparent));
+}
+.sim-cell-tag.vc-tag::after {
+  --_p: calc(var(--_h) * 0.28868);
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: var(--vc-border);
+  clip-path: polygon(evenodd,
+    var(--_p) 0%, calc(100% - var(--_p)) 0%, 100% 50%, calc(100% - var(--_p)) 100%, var(--_p) 100%, 0% 50%, var(--_p) 0%,
+    calc(var(--_p) + 0.57735px) 1px, 1.1547px 50%, calc(var(--_p) + 0.57735px) calc(100% - 1px),
+    calc(100% - var(--_p) - 0.57735px) calc(100% - 1px), calc(100% - 1.1547px) 50%,
+    calc(100% - var(--_p) - 0.57735px) 1px, calc(var(--_p) + 0.57735px) 1px);
 }
 .sim-cell-tag .icon { color: var(--vc-text-muted); }
 

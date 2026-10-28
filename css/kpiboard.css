@@ -1,29 +1,27 @@
 /* Repack Pilot — the KPI board and the Assumptions tab in the drawer. Plan (engine) and Tonight
- * (simulation) sit in labelled columns; every figure carries its basis: a source key from
- * DATA_SOURCES.md (mono), the label Assumption, or Synthetic (dashed). A changed input is a person's
- * setting, so its chip is burgundy. */
+ * (simulation) sit in labelled columns of Vici's table; every figure carries its basis as a neutral
+ * tag: a source key from DATA_SOURCES.md (mono), the label Assumption, or Synthetic (a dashed
+ * capsule). A changed input is a person's setting, so its tag and its input's frame are merlot. */
 
 .kpiboard, .assumptions { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 8px; }
 .kb-head h3, .as-head h3 { margin: 0 0 2px; font-family: var(--vc-font-display); font-weight: var(--vc-weight-semibold); letter-spacing: var(--vc-tracking-heading); font-size: var(--fs-lg); }
-.kb-head p, .as-head p { margin: 0; color: var(--vc-text-muted); max-width: 90ch; }
+.kb-head p, .as-head p { margin: 0; color: var(--vc-text-muted); max-width: 75ch; }
 .kb-changed { margin: 0; color: var(--vc-accent-text); font-weight: 600; }
 
-.kb-table, .as-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums lining-nums; }
-.kb-table th, .kb-table td, .as-table th, .as-table td { text-align: left; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--vc-border-subtle); vertical-align: top; }
-.kb-table thead th, .as-table thead th { color: var(--vc-text-muted); font-size: var(--fs-xs); font-weight: 600; text-transform: none; }
-.kb-table tbody th { font-weight: 600; }
+/* Vici's tables; their wrappers clip without scrolling, so the header row sticks to the drawer as it
+   scrolls (as the audit's does). The column heads are phrases the presenter reads out ("Tonight
+   (simulated night, so far)"), so they keep sentence case and may wrap. */
+.kb-wrap.vc-table-wrap, .as-wrap.vc-table-wrap { overflow: clip; }
+.kb-table th, .kb-table td, .as-table th, .as-table td { vertical-align: top; }
+.kb-table thead th, .as-table thead th { white-space: normal; text-transform: none; letter-spacing: 0; }
 .kb-plan { font-weight: 600; }
 .kb-tonight { font-weight: 600; color: var(--vc-info-text); }
 .kb-none { color: var(--vc-text-muted); font-family: var(--vc-font-text); font-weight: 400; }
 .kb-basis { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-.kb-key {
-  display: inline-flex; align-items: center; height: 22px; padding: 0 7px;
-  border-radius: 6px; border: 1px solid var(--vc-border); background: var(--vc-surface);
-  font-family: var(--vc-font-mono); font-size: 0.78rem; color: var(--vc-text); white-space: nowrap;
-}
-.kb-key[data-kind="assumption"] { font-family: var(--vc-font-text); font-style: italic; color: var(--vc-text-muted); }
-.kb-key[data-kind="synthetic"] { font-family: var(--vc-font-text); border-style: dashed; color: var(--vc-text-muted); }
-.kb-key[data-kind="brief"] { font-family: var(--vc-font-text); color: var(--vc-text-muted); }
+/* A figure's basis (js/tags.js basisTag): Vici's neutral tag at the table's size. */
+.kb-key.vc-tag { --_h: 22px; font-family: var(--vc-font-mono); font-size: 0.74rem; font-weight: var(--vc-weight-medium); }
+.kb-key.vc-tag[data-kind="assumption"] { font-family: var(--vc-font-text); font-style: italic; }
+.kb-key.vc-tag[data-kind="brief"], .kb-key.vc-tag[data-kind="synthetic"] { font-family: var(--vc-font-text); }
 
 /* What it is worth (TECH_NOTES D50): the yearly figure first, with the customer's own inputs beside it.
    The Your DC inputs are the presenter's settings, so they take the burgundy of a person's input. */
@@ -46,26 +44,24 @@
 .kb-dc-field { display: flex; flex-direction: column; gap: 2px; }
 .kb-dc-label { color: var(--vc-text-muted); font-size: var(--fs-xs); font-weight: 600; }
 .kb-dc-row { display: inline-flex; align-items: center; gap: 6px; }
-.kb-dc-input { width: 8.5em; min-height: 40px; font-family: var(--vc-font-text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.kb-dc-input.vc-input { width: 8.5em; font-weight: 600; }
 #kb-dc-c { width: 5.5em; }
-.kb-dc-input[aria-invalid="true"] { border-color: var(--vc-danger-solid); }
 .kb-dc-unit { color: var(--vc-text-muted); white-space: nowrap; }
 .kb-dc-msg { color: var(--vc-danger-text); font-size: var(--fs-xs); min-height: 0; }
 .kb-dc-msg:empty { display: none; }
-.kb-dc .btn { align-self: flex-end; min-height: 40px; }
+.kb-dc .vc-button { align-self: flex-end; }
 
 .as-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.as-head .btn { flex: none; }
-.as-table th[scope="row"] { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-weight: 600; border-bottom: 0; }
-.as-table tr { border-bottom: 1px solid var(--vc-border-subtle); }
-.as-table td, .as-table th { border-bottom: 0; }
+.as-head .vc-button { flex: none; }
+/* An input's name, its symbol and, once a person changed it, the merlot tag, in one wrapping line. */
+.as-table th[scope="row"] > * { margin-inline-end: 8px; }
+.as-table th[scope="row"] > .vc-tag { vertical-align: 1px; }
 .as-id { font-family: var(--vc-font-mono); font-size: 0.8rem; color: var(--vc-text-muted); font-weight: 400; }
-.as-input { width: 9.5em; min-height: 40px; font-variant-numeric: tabular-nums; }
-.as-input[aria-invalid="true"] { border-color: var(--vc-danger-solid); }
+.as-input.vc-input { width: 9.5em; }
 .as-msg { display: block; color: var(--vc-danger-text); font-size: var(--fs-xs); min-height: 1em; }
 .as-unit { color: var(--vc-text-muted); white-space: nowrap; }
 .as-note { display: block; margin-top: 3px; color: var(--vc-text-muted); font-size: var(--fs-xs); max-width: 60ch; }
-.as-table tr[data-changed="true"] .as-input { border-color: var(--vc-accent-soft-hover); background: var(--vc-surface-hover); }
+.as-table tr[data-changed="true"] .as-input:not([aria-invalid="true"]) { border-color: var(--vc-accent); background-color: var(--vc-surface-hover); }
 .as-night h4 { margin: 12px 0 6px; font-family: var(--vc-font-text); font-weight: var(--vc-weight-semibold); }
 .as-night h4:first-child { margin-top: 4px; }
 .as-scenario-note { margin: 0 0 6px; color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); }
