@@ -2,11 +2,13 @@
  * line (inbound pallet → camera → robot cell → scale, and the manual station), a lane per store order
  * against its truck cut-off, the legend, and the popovers (the world-model card: css/world.css).
  *
- * Colour grammar (DESIGN.md §3): slate is goods at rest (a tote filling), blue is a reading or a check
- * (camera, scale, the world model's observed value), green / amber / red are the night's states (on
- * its truck, at risk, late; a grasp that lands or fails), burgundy is a person (units handed to a
- * person). The "Simulated cell" tag is ink, never hazard yellow: the hazard-style SIMULATION badge
- * belongs to scripted replays only, while the cell is simulated in both modes.
+ * Colour grammar (DESIGN.md §3), in Vici's tokens: the neutral solid is goods at rest (a tote
+ * filling), fjord a reading or a check (camera, scale, the world model's observed value), success,
+ * warning and danger the night's states (on its truck, at risk, late; a grasp that lands or fails),
+ * each with its words; merlot a person (units handed to a person), in words and the person's icon,
+ * never as a colour among the states. The "Simulated cell" tag is neutral, never the simulation's
+ * tape: the SIMULATION tape belongs to scripted replays only, while the cell is simulated in both
+ * modes. Shapes follow Vici: the stations' icons sit in hexagon cells, the bars have square ends.
  *
  * Sizes (js/cell.js sets data-size from the board's free height): full ≥ 600 px, compact ≥ 400 px
  * (one line per station), short ≥ 260 px (no cell line), strip below 260 px (one row of store chips,
@@ -45,8 +47,8 @@
 }
 
 /* The neutral tag, top right, in both modes: Vici's tag on the panel's surface, its capsule outlined
-   in the border's grey, with the gripper. Never the simulation's tape: that belongs to scripted replays,
-   while the cell is simulated in both modes. */
+   in the strong border's grey (3:1 on the canvas), with the gripper. Never the simulation's tape: that
+   belongs to scripted replays, while the cell is simulated in both modes. */
 .sim-cell-tag.vc-tag {
   --_h: 36px; --_bg: var(--vc-surface); --_fg: var(--vc-text);
   flex: none; gap: 8px;
@@ -56,23 +58,27 @@
 .sim-cell-tag.vc-tag::after {
   --_p: calc(var(--_h) * 0.28868);
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: var(--vc-border);
+  background: var(--vc-border-strong);
   clip-path: polygon(evenodd,
     var(--_p) 0%, calc(100% - var(--_p)) 0%, 100% 50%, calc(100% - var(--_p)) 100%, var(--_p) 100%, 0% 50%, var(--_p) 0%,
     calc(var(--_p) + 0.57735px) 1px, 1.1547px 50%, calc(var(--_p) + 0.57735px) calc(100% - 1px),
     calc(100% - var(--_p) - 0.57735px) calc(100% - 1px), calc(100% - 1.1547px) 50%,
     calc(100% - var(--_p) - 0.57735px) 1px, calc(var(--_p) + 0.57735px) 1px);
 }
-.sim-cell-tag .icon { color: var(--vc-text-muted); }
+.sim-cell-tag .vc-icon { color: var(--vc-text-muted); }
 
 /* ---- the cell line ---------------------------------------------------------------------------- */
-.cell-line { display: flex; align-items: stretch; gap: 6px; flex: none; }
-.flow-arrow { flex: none; align-self: center; color: var(--vc-text-subtle); font-size: 1.25rem; line-height: 1; }
-.flow-arrow.to-manual { margin-left: 8px; }
+/* The arrows keep today's size and take no width of their own: each is centred over the gap between two
+   stations, level with the stations' icons (it points from one station's icon to the next), so the
+   stations keep the width Inter's wider lines need. --icon-mid: the icon row's centre below the top
+   (border 1 + padding 10 + half the 30 px cell). */
+.cell-line { display: flex; align-items: stretch; gap: 6px; flex: none; --icon-mid: 26px; }
+.flow-arrow { flex: none; align-self: flex-start; margin-top: calc(var(--icon-mid) - 0.5em); position: relative; z-index: 1; width: 0; display: flex; justify-content: center; color: var(--vc-text-subtle); font-size: 1.25rem; line-height: 1; }
+.flow-arrow.to-manual { margin-left: 2px; }
 .station {
   flex: 1 1 0; min-width: 0; min-height: 44px;
   display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
-  padding: 10px 12px 11px;
+  padding: 10px 10px 11px;
   border-radius: var(--vc-radius-lg);
   border: 1px solid var(--vc-border);
   background: var(--vc-surface);
@@ -82,15 +88,22 @@
   transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 .station:hover { border-color: var(--vc-border-strong); }
-.station[data-station="manual"] { flex-grow: 1.15; }
+/* Each station's share of the row follows its longest lines, so they stay whole in Inter: the camera
+   names an item ("Chopped tomatoes 400 g"), the robot cell its rate and grip, the manual station two
+   counts ("311 waiting · 113 picked"); the scale shows a weight. */
+.station[data-station="camera"] { flex-grow: 1.29; }
+.station[data-station="cell"] { flex-grow: 1.2; }
+.station[data-station="scale"] { flex-grow: 0.96; }
+.station[data-station="manual"] { flex-grow: 1.29; }
 .st-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.st-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--vc-bg); color: var(--vc-text-muted); flex: none; }
+/* Each station's icon in a hexagon cell (Vici's vc-cell), 30 px high: neutral; fjord for the two that read. */
+.st-icon.vc-cell { --_s: 30px; background: var(--vc-bg-subtle); color: var(--vc-text-muted); }
 .st-label { font-weight: 700; font-size: var(--vc-font-size-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .st-l1 { font-family: var(--vc-font-text); font-weight: 600; font-size: 1.02rem; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .st-l2 { color: var(--vc-text-muted); font-size: var(--fs-xs); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
-/* What a station's last moment means: blue for a reading, green / red for a grasp, burgundy for a person. */
-.station[data-station="camera"] .st-icon, .station[data-station="scale"] .st-icon { background: var(--vc-info-bg); color: var(--vc-info-solid); }
+/* What a station's last moment means: fjord for a reading, success / danger for a grasp, merlot words for a person. */
+.station[data-station="camera"] .st-icon.vc-cell, .station[data-station="scale"] .st-icon.vc-cell { background: var(--vc-info-bg); color: var(--vc-info-text); }
 .station[data-flag="unknown"] { border-color: var(--vc-warning-text); background: var(--vc-warning-bg); }
 .station[data-flag="unknown"] .st-l1 { color: var(--vc-warning-text); }
 .station[data-flag="differs"] { border-color: var(--vc-info-solid); background: var(--vc-info-bg); }
@@ -126,11 +139,20 @@
    down a size instead of squeezing the bars away. */
 .lane > * { flex: none; }
 .lane-top, .lane-bottom { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+/* At full size nothing in a lane is cut (Inter runs wider than the former face): the line (units, tote and
+   its weight) takes a row of its own with the state below it on the right, under the cut-off, and a long
+   name ("Dortmund express") takes a second line beside its cut-off. Below the full size the line steps
+   aside, as before. */
+.cell-board[data-size="full"] .lane-bottom { flex-wrap: wrap; row-gap: 2px; }
+.cell-board[data-size="full"] .lane-meta { flex: 1 0 100%; white-space: normal; overflow: visible; text-overflow: clip; }
+.cell-board[data-size="full"] .lane-status { margin-left: auto; }
+.cell-board[data-size="full"] .lane-name { flex: 1 1 auto; min-width: 0; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
 .lane-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lane-cut { flex: none; font-family: var(--vc-font-text); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--vc-text-muted); }
 .lane-cut::before { content: "cut-off "; font-family: var(--vc-font-text); font-weight: 400; font-size: var(--fs-xs); }
-.lane-bar { position: relative; height: 8px; border-radius: 4px; background: var(--vc-bg-subtle); overflow: hidden; }
-.lane-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--vc-neutral-solid); border-radius: 4px; transition: width 0.25s linear; }
+/* The bar has square ends, as Vici's bars do. */
+.lane-bar { position: relative; height: 8px; background: var(--vc-bg-subtle); overflow: hidden; }
+.lane-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--vc-neutral-solid); transition: width 0.25s linear; }
 .lane-meta { color: var(--vc-text-muted); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lane-status { flex: none; font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; }
 .lane[data-state="dispatched"] { border-left-color: var(--vc-success-solid); }
@@ -153,19 +175,26 @@
   color: var(--vc-text-muted); font-size: var(--fs-xs);
 }
 .lg-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.lg-swatch { width: 14px; height: 10px; border-radius: 3px; background: var(--vc-neutral-solid); }
+.lg-swatch { width: 14px; height: 10px; border-radius: var(--vc-radius-xs); background: var(--vc-neutral-solid); }
 .lg-swatch[data-state="dispatched"] { background: var(--vc-success-solid); }
 .lg-swatch[data-state="at-risk"] { background: var(--vc-warning-text); }
 .lg-swatch[data-state="late"] { background: var(--vc-danger-solid); }
 .lg-swatch[data-state="open"] { background: var(--vc-neutral-solid); }
-.lg-swatch[data-tone="person"] { background: var(--vc-accent); }
+/* A person: the person's icon in merlot, not a merlot swatch among the states' colours. */
+.lg-item[data-tone="person"] .vc-icon { color: var(--vc-accent-text); }
 .lg-swatch[data-tone="check"] { background: var(--vc-info-solid); }
 .cell-board:not([data-size="full"]) .cell-legend, .cell-board[data-legend="off"] .cell-legend { display: none; }
 
 /* ---- sizes -------------------------------------------------------------------------------------------- */
 .cell-board[data-size="compact"] .cell-body { gap: 8px; padding-top: 8px; }
-.cell-board[data-size="compact"] .station { padding: 6px 10px 7px; gap: 2px; }
-.cell-board[data-size="compact"] .st-icon { width: 24px; height: 24px; }
+.cell-board[data-size="compact"] .station { padding: 6px 8px 7px; gap: 2px; }
+/* Compact boards drop the stations' second lines: the scale's weight needs little room, the others take it. */
+.cell-board[data-size="compact"] .station[data-station="camera"] { flex-grow: 1.12; }
+.cell-board[data-size="compact"] .station[data-station="cell"] { flex-grow: 1.13; }
+.cell-board[data-size="compact"] .station[data-station="scale"] { flex-grow: 0.6; }
+.cell-board[data-size="compact"] .station[data-station="manual"] { flex-grow: 1.3; }
+.cell-board[data-size="compact"] .cell-line { --icon-mid: 19px; } /* border 1 + padding 6 + half the 24 px cell */
+.cell-board[data-size="compact"] .st-icon.vc-cell { --_s: 24px; }
 .cell-board[data-size="compact"] .st-l2 { display: none; }
 .cell-board[data-size="compact"] .lane { padding: 5px 10px 6px; gap: 3px; }
 .cell-board[data-size="compact"] .lane-bar { height: 6px; }
@@ -179,7 +208,11 @@
 .cell-board[data-size="short"] .cell-caption, .cell-board[data-size="strip"] .cell-caption { flex: none; }
 .cell-board[data-size="short"] .wm-chip, .cell-board[data-size="strip"] .wm-chip { min-width: 210px; }
 .cell-board[data-size="short"] .cell-lanes { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 6px; }
-.cell-board[data-size="short"] .lane { padding: 5px 9px 6px; gap: 3px; }
+.cell-board[data-size="short"] .lane { padding: 5px 8px 6px; gap: 3px; }
+/* A store's name keeps its line beside the cut-off ("Gelsenkirchen 01:40"): the two close up a little,
+   and a wide board takes five lanes a row rather than six. */
+.cell-board[data-size="short"] .lane-top { gap: 6px; }
+@media (min-width: 1700px) { .cell-board[data-size="short"] .cell-lanes { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); } }
 .cell-board[data-size="short"] .lane-bar { height: 6px; }
 .cell-board[data-size="short"] .lane-meta { display: none; }
 .cell-board[data-size="short"] .lane-bottom { justify-content: flex-start; }
@@ -198,18 +231,17 @@
 .cell-board[data-size="strip"] .lane-cut::before { content: ""; }
 .cell-board[data-size="strip"] .lane-cut { font-size: var(--fs-xs); }
 /* The fill becomes the chip's bottom edge, so a chip needs two text rows only. */
-.cell-board[data-size="strip"] .lane-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; border-radius: 0; }
-.cell-board[data-size="strip"] .lane-fill { border-radius: 0; }
+.cell-board[data-size="strip"] .lane-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; }
 .cell-board[data-size="strip"] .lane-meta { display: none; }
 .cell-board[data-size="strip"] .lane-bottom { justify-content: flex-start; }
 
 /* ---- popovers (Rebate Hunter's board popovers) -------------------------------------------------------------------- */
 .cell-pop {
   position: absolute; z-index: 40;
-  width: min(380px, calc(100% - 24px));
+  width: min(424px, calc(100% - 24px)); /* Inter runs wider than the former font: the same lines as before */
   max-height: calc(100% - 24px);
   display: flex; flex-direction: column;
-  background: var(--vc-surface); color: var(--vc-text);
+  background: var(--vc-surface-raised); color: var(--vc-text);
   border: 1px solid var(--vc-border-subtle); border-radius: var(--vc-radius-xl);
   box-shadow: var(--vc-shadow-lg);
   padding: 14px 6px 14px 16px; font-size: var(--vc-font-size-sm); line-height: 1.4;
@@ -221,7 +253,7 @@
 .pop-body { overflow-y: auto; min-height: 0; padding-right: 10px; }
 .cell-pop[data-tip]::before {
   content: ""; position: absolute; width: 14px; height: 14px;
-  background: var(--vc-surface); border: 1px solid var(--vc-border-subtle);
+  background: var(--vc-surface-raised); border: 1px solid var(--vc-border-subtle);
   transform: rotate(45deg);
 }
 .cell-pop[data-tip="left"]::before { left: -8px; top: calc(var(--tip) - 7px); border-top: 0; border-right: 0; }
@@ -240,3 +272,12 @@
 .pop-table td.r, .pop-table th.r { text-align: right; }
 .pop-note { margin: 10px 0 0; color: var(--vc-text-muted); font-size: var(--fs-xs); }
 .pop-list { margin: 8px 0 0; padding-left: 18px; color: var(--vc-text-muted); font-size: var(--fs-xs); }
+.pop-list li { margin: 0; } /* the lines close together, as before Vici's li + li spacing */
+
+/* ---- forced colours (Windows contrast themes) ------------------------------------------------------------ */
+/* The lanes' bars and the legend's swatches keep their shapes in system colours: the fill in CanvasText on a
+   Canvas track with an outline; the lanes' words carry the states. */
+@media (forced-colors: active) {
+  .lane-fill, .lg-swatch { forced-color-adjust: none; background-color: CanvasText; }
+  .lane-bar { forced-color-adjust: none; background-color: Canvas; outline: 1px solid CanvasText; }
+}

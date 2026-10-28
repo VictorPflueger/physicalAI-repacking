@@ -1,5 +1,5 @@
 /* Repack Pilot — the world-model panel on the cell board (js/world_panel.js; PLAN.md §g): the item in
- * focus with expected against observed, and the corrections log. Blue is a reading or a check: the
+ * focus with expected against observed, and the corrections log. Fjord is a reading or a check: the
  * observed value, a correction written back. On a compact board the card is one row; on a short board
  * or in strip mode it folds into a chip in the board's head row. Its Synthetic label stays in view in
  * every size. */
@@ -33,7 +33,7 @@
 .wm-obs { color: var(--vc-info-text); font-weight: 600; }
 .wm-fix { display: inline-flex; align-items: center; gap: 4px; color: var(--vc-info-text); font-weight: 600; }
 .wm-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: var(--vc-font-size-sm); color: var(--vc-text-muted); }
-.wm-log li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wm-log li { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* the log's gap spaces it, not Vici's li + li */
 .wm-time { font-family: var(--vc-font-mono); font-size: 0.86em; color: var(--vc-text); margin-right: 4px; }
 .wm-chip {
   display: none; align-items: center; gap: 10px; min-height: 44px;

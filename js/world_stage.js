@@ -91,7 +91,7 @@ export function createWorldStage(root, { getState = () => null, onConfirm = () =
     const l1 = h("span", { class: "wsn-l1" });
     const l2 = h("span", { class: "wsn-l2" });
     const el = h("li", { class: "ws-node", dataset: { node: n.id, tone: "" } },
-      h("span", { class: "wsn-head" }, h("span", { class: "wsn-icon" }, icon(n.icon, 20)), h("span", { class: "wsn-label" }, n.label)), l1, l2);
+      h("span", { class: "wsn-head" }, h("span", { class: "vc-cell wsn-icon" }, icon(n.icon, 20)), h("span", { class: "wsn-label" }, n.label)), l1, l2);
     nodeEls.set(n.id, { el, l1, l2 });
     flow.append(el);
   });

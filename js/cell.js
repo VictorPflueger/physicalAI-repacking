@@ -78,7 +78,7 @@ export function createCellBoard(root, { scenarios = [], getParams = () => ({}), 
     const t1 = h("span", { class: "st-l1" });
     const t2 = h("span", { class: "st-l2" });
     const btn = h("button", { class: "station", type: "button", dataset: { station: s.id } },
-      h("span", { class: "st-head" }, h("span", { class: "st-icon" }, icon(s.icon, 22)), h("span", { class: "st-label" }, s.label)), t1, t2);
+      h("span", { class: "st-head" }, h("span", { class: "vc-cell st-icon" }, icon(s.icon, 22)), h("span", { class: "st-label" }, s.label)), t1, t2);
     btn.addEventListener("click", () => openStation(s.id, btn));
     stationEls.set(s.id, { btn, t1, t2 });
     if (i > 0) line.append(h("span", { class: `flow-arrow${s.id === "manual" ? " to-manual" : ""}`, "aria-hidden": "true" }, s.id === "manual" ? "⇢" : "→"));
@@ -105,7 +105,7 @@ export function createCellBoard(root, { scenarios = [], getParams = () => ({}), 
   const legend = h("div", { class: "cell-legend", role: "note", "aria-label": "Legend" },
     [["dispatched", "on its truck"], ["at-risk", "at risk"], ["late", "late"], ["open", "being packed"]].map(([k, label]) =>
       h("span", { class: "lg-item" }, h("span", { class: "lg-swatch", dataset: { state: k }, "aria-hidden": "true" }), label)),
-    h("span", { class: "lg-item" }, h("span", { class: "lg-swatch", dataset: { tone: "person" }, "aria-hidden": "true" }), "handed to a person"),
+    h("span", { class: "lg-item", dataset: { tone: "person" } }, icon("user", 14), "handed to a person"),
     h("span", { class: "lg-item" }, h("span", { class: "lg-swatch", dataset: { tone: "check" }, "aria-hidden": "true" }), "a sensor's reading or check"));
   const body = h("div", { class: "cell-body" }, line, lanes, world, legend);
   // On a short board the world model folds into a chip in the head row, beside the caption.

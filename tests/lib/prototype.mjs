@@ -55,6 +55,7 @@ export const COLOUR_PAIRS = [
   ["What the model learned: a correction's stripe on the canvas", "info-solid", "bg-sunken", "mark"],
   ["What the model learned: an unknown item's stripe on the canvas", "warning-text", "bg-sunken", "mark"],
   ["What the model learned: a person's stripe on the canvas", "accent", "bg-sunken", "mark"],
+  ["The Simulated cell tag: its capsule's outline on the canvas", "border-strong", "bg-sunken", "mark"],
   ["Synthetic: the tag's dashed outline", "text-muted", "surface", "mark"],
   ["Synthetic: the tag's dashed outline on the canvas", "text-muted", "bg-sunken", "mark"],
   // What it is worth, the KPI board and the Assumptions tab (surface).
@@ -93,3 +94,104 @@ export const SEPARATIONS = [
   ["A reading (fjord) vs an item at risk (warning)", "info-solid", "warning-text"],
   ["A person (merlot frame) vs a reading (fjord)", "accent", "info-solid"]
 ];
+
+/**
+ * The hexagon test's tour of the app (tests/hexagon.mjs): the start screen with the intro, both views at
+ * rest, the dialogs, the drawer's tabs, scenario 3 in the Customer view, scenario 1 in the Full view to
+ * its end, and a night preview. The page has just been opened, without SKIP_INTRO, so the intro opens by
+ * itself over the Customer view. visit(name, { settle }) checks the page as it is, settle ms (250) after
+ * the step.
+ */
+export async function hexagonTour(page, visit) {
+  const approve = '.option-card[data-recommended="true"] [data-action="approve"]';
+  const status = () => page.evaluate(() => document.querySelector(".status-pill .text")?.textContent.trim() || "");
+  const waitStatus = (text, timeout = 240000) => page.waitForFunction((t) => document.querySelector(".status-pill .text")?.textContent.trim() === t, text, { timeout });
+  const scenario = async (id) => { await page.click("#dd-scenario"); await page.click(`.vc-menu__item[data-id="${id}"]`); };
+  const startSimulation = async () => {
+    await page.click("#btn-start");
+    await page.waitForSelector(".mode-card", { timeout: 5000 });
+    await page.click('.mode-card[data-mode="simulation"] .mode-cta button');
+  };
+  await page.waitForSelector('html[data-boot="ready"]', { timeout: 20000 });
+  await page.waitForSelector(".intro-modal", { timeout: 10000 });
+  await visit("start screen with the intro");
+  await page.keyboard.press("Escape");
+  await page.waitForSelector(".intro-modal", { state: "detached", timeout: 5000 });
+  await visit("Customer view at rest");
+  // The Full view at rest, a station's details, the KPI board and the assumptions.
+  await page.click('button[aria-label="Full view"]');
+  await page.waitForSelector(".cell-board", { state: "visible", timeout: 5000 });
+  await visit("Full view at rest");
+  await page.click('.station[data-station="cell"]');
+  await page.waitForSelector(".cell-pop:not([hidden])", { timeout: 5000 });
+  await visit("a station's details");
+  await page.keyboard.press("Escape");
+  await page.click("#tab-kpiboard");
+  await visit("KPI board");
+  await page.click("#tab-assumptions");
+  await visit("Assumptions");
+  await page.click(".drawer-toggle");
+  await page.click("#btn-diagnostics");
+  await page.waitForSelector(".diag-table", { timeout: 5000 });
+  await visit("Diagnostics");
+  await page.keyboard.press("Escape");
+  await page.waitForSelector(".diag-table", { state: "detached", timeout: 5000 });
+  // The mode dialog and the key dialog behind the live card.
+  await page.click("#btn-start");
+  await page.waitForSelector(".mode-card", { timeout: 5000 });
+  await visit("mode dialog");
+  await page.click('.mode-card[data-mode="live"] .mode-cta button');
+  await page.waitForSelector("#api-key-input", { timeout: 5000 });
+  await visit("key dialog");
+  await page.keyboard.press("Escape");
+  await page.waitForSelector("#api-key-input", { state: "detached", timeout: 5000 });
+  if (await page.$(".mode-card")) { await page.keyboard.press("Escape"); await page.waitForSelector(".mode-card", { state: "detached", timeout: 5000 }); }
+  // Scenario 3 in the Customer view: at ×1 until the scale's reading is checked against the model, then
+  // at ×4 to the confirmation that waits for you, and on to the end of the night.
+  await page.click('button[aria-label="Customer view"]');
+  await scenario("SC3-UNKNOWN");
+  await page.click('button[aria-label="Night speed ×1"]');
+  await startSimulation();
+  await page.waitForFunction(() => document.querySelector(".ws-moment")?.dataset.kind === "learned", null, { timeout: 120000 });
+  await visit("Customer view, the scale's reading checked", { settle: 50 });
+  await page.click('button[aria-label="Night speed ×4"]');
+  await page.waitForSelector("#ws-confirm", { state: "visible", timeout: 240000 });
+  await visit("Customer view, the confirmation waits for you");
+  await page.click("#ws-confirm");
+  await waitStatus("Done");
+  await page.waitForTimeout(800);
+  await visit("Customer view, the night over");
+  // Scenario 1 in the Full view: the decision, the drafts and the finished run with its audit.
+  await page.click('button[aria-label="Full view"]');
+  await scenario("SC1-EXPRESS");
+  await startSimulation();
+  await page.waitForSelector(approve, { state: "visible", timeout: 240000 });
+  await page.waitForTimeout(800);
+  await visit("decision");
+  await page.click(approve);
+  await page.waitForSelector("#btn-approve-all", { state: "visible", timeout: 120000 });
+  await page.waitForTimeout(800);
+  await visit("drafts");
+  await page.click("#btn-approve-all");
+  await waitStatus("Done");
+  await page.waitForTimeout(800);
+  await visit("finished");
+  await page.click("#tab-audit");
+  await visit("finished, audit");
+  await page.click(".drawer-toggle");
+  await page.waitForTimeout(1500);
+  await visit("finished, drawer hidden");
+  await page.click("#btn-open-report");
+  await page.waitForSelector(".report-modal", { timeout: 5000 });
+  await visit("management summary");
+  await page.keyboard.press("Escape");
+  await page.waitForSelector(".report-modal", { state: "detached", timeout: 5000 });
+  // A scenario without a scripted replay plays as a NIGHT PREVIEW.
+  await scenario("SC2-GLASS");
+  await page.evaluate(() => { delete window.SIM_RUNS["SC2-GLASS"]; });
+  await startSimulation();
+  await waitStatus("Night preview", 10000);
+  await page.waitForTimeout(1500);
+  await visit("night preview");
+  if (await status() !== "Done") await page.click("#btn-abort");
+}

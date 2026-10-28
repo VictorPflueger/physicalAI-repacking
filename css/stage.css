@@ -2,10 +2,12 @@
  * the robot's world model at the centre, What it is worth beside it, the agent console below that.
  * The Full view (body[data-view="full"]) is the M4 screen, unchanged.
  *
- * Colour grammar as on the cell board (DESIGN.md §3): blue is a reading or a check (camera, scale, a
- * correction the model takes), amber an item the model does not know, burgundy a person (an item handed
- * over, the person's decision), green a grasp that lands, red the robot below its rule, slate goods at
- * rest, ink everything else. The value figures carry the brand burgundy as the opener does.
+ * Colour grammar as on the cell board (DESIGN.md §3), in Vici's tokens: fjord is a reading or a check
+ * (camera, scale, a correction the model takes), warning an item the model does not know, merlot a
+ * person (an item handed over, the person's decision: a 2 px merlot frame and its words), success a
+ * grasp that lands, danger the robot below its rule, the neutral solid goods at rest, ink everything
+ * else. What it is worth compares by hand and with the cell in Vici's data colours 8 and 2. Shapes
+ * follow Vici: the stations' icons sit in hexagon cells, the bars have square ends.
  *
  * Sizes (js/world_stage.js sets data-size from the stage's free height, stepping down while it does not
  * fit): full ≥ 760 px, compact ≥ 560 px (no lede, tighter tiles), short below (one line per node, tiles
@@ -48,9 +50,16 @@ body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) 
 .ws-clock { font-family: var(--vc-font-text); font-weight: 700; font-size: var(--fs-lg); font-variant-numeric: tabular-nums lining-nums; color: var(--vc-text); white-space: nowrap; padding: 0 4px; }
 
 /* ---- one item's way: camera → world model → robot → scale ⇢ people ------------------------------------------ */
+/* Vici spaces the items of a list in running text (li + li: 0.3em); the stage's lists are a row, a grid
+   and a log with gaps of their own, so their items take no margin and the stations stay level. */
+.ws-flow > li, .ws-grid > li, .ws-log > li { margin: 0; }
 .ws-flow { flex: none; list-style: none; margin: 0; padding: 0; display: flex; align-items: stretch; gap: 6px; }
-.ws-arrow { flex: none; align-self: center; color: var(--vc-text-subtle); font-size: 1.25rem; line-height: 1; }
-.ws-arrow.to-people { margin-left: 6px; }
+/* The arrows keep today's size and take no width of their own: each is centred over the gap between two
+   stations, level with the stations' icons (it points from one station's icon to the next), so the five
+   stations keep the width Inter's wider lines need. --icon-mid: the icon row's centre below the top. */
+.ws-flow { --icon-mid: 26px; } /* border 1 + padding 10 + half the 30 px cell */
+.ws-flow > .ws-arrow { flex: none; align-self: flex-start; margin-top: calc(var(--icon-mid) - 0.5em); position: relative; z-index: 1; width: 0; display: flex; justify-content: center; color: var(--vc-text-subtle); font-size: 1.25rem; line-height: 1; }
+.ws-arrow.to-people { margin-left: 2px; }
 .ws-node {
   flex: 1 1 0; min-width: 0;
   display: flex; flex-direction: column; gap: 3px;
@@ -63,10 +72,12 @@ body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) 
 }
 .ws-node[data-node="model"] { flex-grow: 1.3; border: 2px solid var(--vc-neutral-solid); }
 .wsn-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.wsn-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--vc-bg); color: var(--vc-text-muted); flex: none; }
-.ws-node[data-node="camera"] .wsn-icon, .ws-node[data-node="scale"] .wsn-icon { background: var(--vc-info-bg); color: var(--vc-info-solid); }
-.ws-node[data-node="model"] .wsn-icon { background: var(--vc-neutral-bg); color: var(--vc-neutral-text); }
-.ws-node[data-node="people"] .wsn-icon { background: var(--vc-accent-soft); color: var(--vc-accent); }
+/* Each station's icon in a hexagon cell (Vici's vc-cell), 30 px high: neutral, fjord for the camera and
+   the scale, the world model's own neutral, merlot's soft tint for the people. */
+.wsn-icon.vc-cell { --_s: 30px; background: var(--vc-bg-subtle); color: var(--vc-text-muted); }
+.ws-node[data-node="camera"] .wsn-icon.vc-cell, .ws-node[data-node="scale"] .wsn-icon.vc-cell { background: var(--vc-info-bg); color: var(--vc-info-text); }
+.ws-node[data-node="model"] .wsn-icon.vc-cell { background: var(--vc-neutral-bg); color: var(--vc-neutral-text); }
+.ws-node[data-node="people"] .wsn-icon.vc-cell { background: var(--vc-accent-soft); color: var(--vc-on-accent-soft); }
 .wsn-label { font-weight: 700; font-size: var(--vc-font-size-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wsn-l1 { font-family: var(--vc-font-text); font-weight: 600; font-size: 1.05rem; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .wsn-l2 { color: var(--vc-text-muted); font-size: var(--fs-xs); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
@@ -119,14 +130,14 @@ body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) 
 .ws-pallet-meta { color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); }
 .ws-legend { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; color: var(--vc-text-muted); font-size: var(--fs-xs); }
 .wsl-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-.wsl-swatch { width: 14px; height: 10px; border-radius: 3px; background: var(--vc-neutral-solid); }
+.wsl-swatch { width: 14px; height: 10px; border-radius: var(--vc-radius-xs); background: var(--vc-neutral-solid); }
 .wsl-item[data-tone="check"] .wsl-swatch { background: var(--vc-info-solid); }
 .wsl-item[data-tone="risk"] .wsl-swatch { background: var(--vc-warning-text); }
 .ws-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; align-content: start; }
 .ws-item {
   position: relative; min-width: 0;
   display: flex; flex-direction: column; gap: 3px;
-  padding: 7px 10px 8px;
+  padding: 7px 8px 8px;
   border-radius: var(--vc-radius-md);
   border: 1px solid var(--vc-border-subtle);
   border-left: 4px solid var(--vc-neutral-solid);
@@ -139,9 +150,10 @@ body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) 
 .wsi-name { font-weight: 600; font-size: var(--vc-font-size-sm); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wsi-meta { color: var(--vc-text-muted); font-size: var(--fs-xs); line-height: 1.25; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wsi-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.wsi-bar { flex: 1 1 auto; min-width: 0; height: 5px; border-radius: 3px; background: var(--vc-bg-subtle); overflow: hidden; }
-.wsi-fill { display: block; height: 100%; width: 0; background: var(--vc-neutral-solid); border-radius: 3px; transition: width 0.25s linear; }
-.ws-item[data-how="hand"] .wsi-fill { background: var(--vc-neutral-solid); }
+/* The tile's bar has square ends; by hand it is the strong border's grey, lighter than the robot's. */
+.wsi-bar { flex: 1 1 auto; min-width: 0; height: 5px; background: var(--vc-bg-subtle); overflow: hidden; }
+.wsi-fill { display: block; height: 100%; width: 0; background: var(--vc-neutral-solid); transition: width 0.25s linear; }
+.ws-item[data-how="hand"] .wsi-fill { background: var(--vc-border-strong); }
 .wsi-badge { font-size: var(--fs-xs); font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wsi-badge-short { display: none; flex: none; font-size: 0.75rem; font-weight: 700; line-height: 1; white-space: nowrap; }
 .ws-item[data-state="corrected"] .wsi-badge-short { color: var(--vc-info-text); }
@@ -167,22 +179,30 @@ body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) 
 .ws-log-time { font-family: var(--vc-font-mono); font-size: 0.86em; color: var(--vc-text); margin-right: 4px; }
 
 /* ---- sizes ------------------------------------------------------------------------------------------------- */
-.world-stage-inner[data-size="compact"] { gap: 10px; padding: 12px 14px 14px; }
+.world-stage-inner[data-size="compact"] { gap: 10px; padding: 12px 12px 14px; }
+/* The five stations share the row equally at this size (Inter's lines need it); the model keeps its frame. */
+.world-stage-inner[data-size="compact"] .ws-flow { gap: 5px; --icon-mid: 24px; }
+.world-stage-inner[data-size="compact"] .ws-node[data-node="model"] { flex-grow: 1; }
 .world-stage-inner[data-size="compact"] .ws-lede { display: none; }
-.world-stage-inner[data-size="compact"] .ws-node { padding: 8px 10px 9px; }
+.world-stage-inner[data-size="compact"] .ws-node { padding: 8px 8px 9px; }
 .world-stage-inner[data-size="compact"] .ws-moment { min-height: 56px; padding: 9px 12px 10px 14px; }
 .world-stage-inner[data-size="compact"] .ws-item { padding: 5px 9px 6px; gap: 2px; }
 .world-stage-inner[data-size="compact"] .wsi-meta { display: none; }
 .world-stage-inner[data-size="compact"] .ws-grid { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); }
+/* At full size a tile's name and its line take a second line when they need it (a barcode, a long reason
+   such as "too heavy for the robot"), so nothing is cut; below it the line steps aside. */
+.world-stage-inner[data-size="full"] :is(.wsi-name, .wsi-meta) { white-space: normal; text-overflow: clip; overflow-wrap: anywhere; }
 /* Below the full size a tile drops its pack size ("Chopped tomatoes", "Barcode"), as the camera's line always
    does (js/world_stage.js); a multipack keeps its whole name, so it never reads like the single bottle. */
 .world-stage-inner:not([data-size="full"]) .wsi-name-rest { display: none; }
 
-.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) { gap: 5px; padding: 8px 12px 8px; overflow-y: auto; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) { gap: 5px; padding: 8px 10px 8px; overflow-y: auto; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-flow { gap: 4px; --icon-mid: 17px; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-node[data-node="model"] { flex-grow: 1.1; }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-lede, .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-legend, .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsi-meta { display: none; }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-title { font-size: var(--fs-lg); }
-.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-node { padding: 5px 8px 6px; gap: 1px; }
-.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsn-icon { width: 22px; height: 22px; border-radius: 6px; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-node { padding: 5px 6px 6px; gap: 1px; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsn-icon.vc-cell { --_s: 22px; }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsn-label { font-size: var(--fs-xs); }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsn-l1 { font-size: var(--vc-font-size-sm); }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsn-l2 { font-size: 0.75rem; }
@@ -191,7 +211,7 @@ body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) 
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsm-text { margin-top: 1px; font-size: var(--fs-xs); line-height: 1.35; }
 /* The tiles close up a pixel, so the rows whose badge sits beside the bar still fit a 720 px window. */
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 3px 5px; }
-.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-item { padding: 3px 6px 3px; gap: 2px; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-item { padding: 3px 5px 3px; gap: 2px; }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsi-name { font-size: var(--fs-xs); }
 /* A short tile puts its badge's one word beside the bar, so the name keeps the tile's width ("Tomato passata",
    "to a person"). */
@@ -220,9 +240,10 @@ body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) 
 .wp-bars { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px 10px; font-size: var(--vc-font-size-sm); }
 .wp-saving { grid-column: 2 / -1; justify-self: end; font-weight: 700; color: var(--vc-text); }
 .wp-bar-label { color: var(--vc-text-muted); white-space: nowrap; }
-.wp-bar { height: 12px; border-radius: 6px; background: var(--vc-bg-subtle); overflow: hidden; }
-.wp-bar-fill { display: block; height: 100%; width: 0; border-radius: 6px; background: var(--vc-border-strong); transition: width 0.3s ease; }
-.wp-bar-fill[data-kind="hybrid"] { background: var(--vc-accent); }
+/* By hand and with the cell in Vici's data colours 8 and 2: a comparison, not a person's decision. Square ends. */
+.wp-bar { height: 12px; background: var(--vc-bg-subtle); overflow: hidden; }
+.wp-bar-fill { display: block; height: 100%; width: 0; background: var(--vc-data-8); transition: width 0.3s ease; }
+.wp-bar-fill[data-kind="hybrid"] { background: var(--vc-data-2); }
 .wp-bar-value { font-family: var(--vc-font-text); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .wp-head { margin: 0 0 4px; font-family: var(--vc-font-display); font-weight: var(--vc-weight-semibold); letter-spacing: var(--vc-tracking-heading); font-size: 1.1rem; color: var(--vc-text); }
 .wp-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 14px; margin: 0; font-size: var(--vc-font-size-sm); }
@@ -305,4 +326,11 @@ body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) 
   body:not([data-view="full"]) .world-stage, body:not([data-view="full"]) .worth-panel, body:not([data-view="full"]) .console-panel { grid-column: 1; grid-row: auto; }
   .world-stage { height: 90vh; border-right: 0; border-bottom: 1px solid var(--vc-border-subtle); }
   .worth-panel { max-height: none; }
+}
+
+/* ---- forced colours (Windows contrast themes) ------------------------------------------------------------ */
+/* The tiles' and What it is worth's bars and the legend's swatches keep their shapes in system colours. */
+@media (forced-colors: active) {
+  .wsi-fill, .wp-bar-fill, .wsl-swatch { forced-color-adjust: none; background-color: CanvasText; }
+  .wsi-bar, .wp-bar { forced-color-adjust: none; background-color: Canvas; outline: 1px solid CanvasText; }
 }
