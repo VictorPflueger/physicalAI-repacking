@@ -9,8 +9,7 @@
        the origins in js/config.js. -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src https://api.anthropic.com; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <meta name="color-scheme" content="light">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="color-scheme" content="light dark">
   <meta name="description" content="Repack Pilot shows one night shift in a retail distribution centre: a simulated robot cell, planned by an AI agent, repacks mixed pallets into store orders, and a deterministic engine prices every 1,000 units in labour hours and euros.">
   <title>Repack Pilot — Physical AI repacking showcase</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -28,6 +27,8 @@
   <link rel="stylesheet" href="css/modals.css">
   <link rel="stylesheet" href="css/stage.css">
 
+  <!-- The theme before the page is drawn (light unless the visitor chose dark), then Vici's script. -->
+  <script src="js/theme.js"></script>
   <script src="vici/dist/vici.js" defer></script>
 
   <!-- Synthetic world, scenarios, shadow record, the Open Food Facts snapshot, the reference inputs and
@@ -54,6 +55,11 @@
 
     <div class="header-badges">
       <span id="mode-badge" class="vc-tag mode-badge" data-mode="none" role="status" aria-live="polite" title="Choose a mode with Start agent">No run active</span>
+      <!-- Vici's theme toggle (vici.js switches the theme and remembers the choice). -->
+      <span class="vc-tooltip-anchor">
+        <button type="button" class="vc-icon-button theme-toggle" data-vc-theme-toggle aria-labelledby="tip-theme"><span class="vc-icon vc-icon--moon vc-when-light" aria-hidden="true"></span><span class="vc-icon vc-icon--sun vc-when-dark" aria-hidden="true"></span></button>
+        <span class="vc-tooltip vc-tooltip--bottom" role="tooltip" id="tip-theme">Dark theme</span>
+      </span>
       <span class="vc-tag vc-tag--feature ai-disclosure" title="Repack Pilot is an AI system. Its plans can be wrong. Every action is a draft that waits for your approval, and nothing is ever sent to a real company. The robot cell is simulated.">
         <span class="vc-icon vc-icon--sparkle" aria-hidden="true"></span>
         <span><span class="long">You are interacting with an </span>AI system</span>

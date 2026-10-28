@@ -163,6 +163,9 @@ export function createCellBoard(root, { scenarios = [], getParams = () => ({}), 
   let measuring = 0;
   const remeasure = () => { if (!measuring) measuring = (typeof requestAnimationFrame === "function" ? requestAnimationFrame : (f) => setTimeout(f, 16))(() => { measuring = 0; measure(); }); };
   if (typeof ResizeObserver === "function") new ResizeObserver(remeasure).observe(board);
+  // The board's colours come from Vici's tokens through its classes, so a new theme repaints it; it
+  // still redraws, so that anything drawn from a measured style follows the theme too.
+  document.addEventListener("vc:themechange", () => { remeasure(); markAll(); });
 
   // ---- state → view --------------------------------------------------------------------------------------
   function markAll() { for (const k of ["clock", "camera", "cell", "scale", "manual", "orders", "world", "inbound", "escalations", "items"]) dirty.add(k); request(); }

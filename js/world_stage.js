@@ -522,6 +522,9 @@ export function createWorldStage(root, { getState = () => null, onConfirm = () =
   let measuring = 0;
   function remeasure() { if (!measuring) measuring = (typeof requestAnimationFrame === "function" ? requestAnimationFrame : (f) => setTimeout(f, 16))(() => { measuring = 0; measure(); }); }
   if (typeof ResizeObserver === "function") new ResizeObserver(remeasure).observe(root);
+  // The stage's colours come from Vici's tokens through its classes, so a new theme repaints it; it
+  // measures itself again, so that anything sized from a measured style follows the theme too.
+  document.addEventListener("vc:themechange", remeasure);
 
   function reset() {
     entries.clear(); request = null; running = false; ended = false;

@@ -135,7 +135,7 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
       h("h3", {}, "Pick a scenario, then start the agent"),
       // The first sentence points at the progress rail, so it goes where the rail does (css/stage.css).
       h("p", {}, h("span", { class: "idle-rail-ref" }, "The five steps above are the agent's plan for the night. "), "The agent perceives each item, plans the store orders against the truck departures, picks with the cell, replans when the night changes and prepares the drafts."),
-      h("p", {}, "Whatever waits for your decision is marked in burgundy. Nothing is sent without your approval. You choose between a free simulation and the live agent on your own API key."),
+      h("p", {}, "Whatever waits for your decision is marked in merlot. Nothing is sent without your approval. You choose between a free simulation and the live agent on your own API key."),
       h("p", {}, "The console shows the agent's words and the night's moments; Details adds every tool call.")));
     count.textContent = "";
     log.scrollTop = 0;
