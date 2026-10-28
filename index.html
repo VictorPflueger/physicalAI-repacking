@@ -15,6 +15,9 @@
   <title>Repack Pilot — Physical AI repacking showcase</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
 
+  <!-- The look comes from Victor's design system Vici, copied unchanged into vici/ (vici/README.md).
+       It sits in cascade layers, so the app's own stylesheets below refine it without !important. -->
+  <link rel="stylesheet" href="vici/dist/vici.min.css">
   <link rel="stylesheet" href="css/fonts.css">
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/style.css">
@@ -26,6 +29,8 @@
   <link rel="stylesheet" href="css/drawer.css">
   <link rel="stylesheet" href="css/modals.css">
   <link rel="stylesheet" href="css/stage.css">
+
+  <script src="vici/dist/vici.js" defer></script>
 
   <!-- Synthetic world, scenarios, shadow record, the Open Food Facts snapshot, the reference inputs and
        the simulation scripts: plain scripts that set window globals (no fetch needed). -->
