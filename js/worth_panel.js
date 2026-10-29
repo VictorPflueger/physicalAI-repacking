@@ -28,12 +28,12 @@ const YOUR_DC = [
  */
 export function createWorthPanel(root, { getInputs, getRunInputs = () => null, getNightState = () => null, getOverrides = () => ({}), setOverrides = () => {}, isRunning = () => false, onOpenBusinessCase = null } = {}) {
   // ---- headline: per 1,000 units ----------------------------------------------------------------------
-  const big = h("span", { class: "wp-big num", id: "wp-hybrid" });
+  const big = h("span", { class: "wp-big vc-tabular", id: "wp-hybrid" });
   const bigSub = h("span", { class: "wp-big-sub" });
   const barManual = h("span", { class: "wp-bar-fill", dataset: { kind: "manual" } });
   const barHybrid = h("span", { class: "wp-bar-fill", dataset: { kind: "hybrid" } });
-  const valManual = h("span", { class: "wp-bar-value num" });
-  const valHybrid = h("span", { class: "wp-bar-value num" });
+  const valManual = h("span", { class: "wp-bar-value vc-tabular" });
+  const valHybrid = h("span", { class: "wp-bar-value vc-tabular" });
   const saving = h("span", { class: "wp-saving" });
   const bars = h("div", { class: "wp-bars", role: "img" },
     h("span", { class: "wp-bar-label" }, "By hand"), h("span", { class: "wp-bar" }, barManual), valManual,
@@ -45,7 +45,7 @@ export function createWorthPanel(root, { getInputs, getRunInputs = () => null, g
   const tonight = h("dl", { class: "wp-list", id: "wp-tonight" });
 
   // ---- your DC -------------------------------------------------------------------------------------------
-  const year = h("span", { class: "wp-year num", id: "wp-year" });
+  const year = h("span", { class: "wp-year vc-tabular", id: "wp-year" });
   const yearCells = h("span", { class: "wp-year-cells" });
   const yearBreak = h("span", { class: "wp-year-break" });
   const yearSub = h("span", { class: "wp-year-sub" }, yearCells, yearBreak);
@@ -58,7 +58,7 @@ export function createWorthPanel(root, { getInputs, getRunInputs = () => null, g
   let drawing = false;
   const fields = YOUR_DC.map((x) => {
     const input = h("input", {
-      class: "input wp-dc-input num", type: "text", id: `wp-dc-${x.id}`,
+      class: "vc-input wp-dc-input vc-tabular", type: "text", id: `wp-dc-${x.id}`,
       inputmode: x.integer ? "numeric" : "decimal", autocomplete: "off", spellcheck: "false", "aria-label": `${x.label} (${x.unit})`
     });
     const msg = h("span", { class: "wp-dc-msg", role: "status" });
@@ -78,10 +78,10 @@ export function createWorthPanel(root, { getInputs, getRunInputs = () => null, g
       h("span", { class: "wp-dc-row" }, input, h("span", { class: "wp-dc-unit" }, x.unit)),
       msg);
   });
-  const resetBtn = h("button", { class: "btn btn-sm", type: "button", id: "wp-dc-reset", title: "Back to the reference site of the brief: 6,000,000 units a year at €35.80 an hour" }, "Reference site");
+  const resetBtn = h("button", { class: "vc-button vc-button--outline button-compact", type: "button", id: "wp-dc-reset", title: "Back to the reference site of the brief: 6,000,000 units a year at €35.80 an hour" }, "Reference site");
   // On a short window the inputs stay on the KPI board: one click opens it.
   const openDc = onOpenBusinessCase
-    ? h("button", { class: "btn btn-sm wp-dc-open", type: "button", id: "wp-dc-open", title: "Type the customer's yearly volume and labour cost on the KPI board" }, "Your DC")
+    ? h("button", { class: "vc-button vc-button--outline button-compact wp-dc-open", type: "button", id: "wp-dc-open", title: "Type the customer's yearly volume and labour cost on the KPI board" }, "Your DC")
     : null;
   openDc?.addEventListener("click", () => onOpenBusinessCase());
   resetBtn.addEventListener("click", () => {
@@ -102,7 +102,8 @@ export function createWorthPanel(root, { getInputs, getRunInputs = () => null, g
 
   // ---- size: stepping down while the content does not fit above the console's minimum --------------------
   // full; compact (the year with a Your DC button to the KPI board's inputs, its qualifier without the
-  // sources line); tight (rows and bars closed up); hidden when a drawer open over a short window leaves
+  // sources line); closed (rows and bars closed up); tight (closed, and the saving and the store orders
+  // left to the header's tiles); hidden when a drawer open over a short window leaves
   // the panel under HIDE_BELOW px: the KPI board in the drawer and the header tiles carry its figures
   // then. The year keeps its cells, its break-even and "gross, before cell costs" at every size.
   const HIDE_BELOW = 200;
@@ -112,7 +113,7 @@ export function createWorthPanel(root, { getInputs, getRunInputs = () => null, g
     root.dataset.size = "full";
     if (!root.offsetParent) return; // the Full view hides the panel: measured again when shown
     size = "full";
-    for (const next of ["compact", "tight"]) {
+    for (const next of ["compact", "closed", "tight"]) {
       if (fits()) break;
       size = next;
       root.dataset.size = next;

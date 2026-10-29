@@ -2,18 +2,22 @@
  * the robot's world model at the centre, What it is worth beside it, the agent console below that.
  * The Full view (body[data-view="full"]) is the M4 screen, unchanged.
  *
- * Colour grammar as on the cell board (DESIGN.md §3): blue is a reading or a check (camera, scale, a
- * correction the model takes), amber an item the model does not know, burgundy a person (an item handed
- * over, the person's decision), green a grasp that lands, red the robot below its rule, slate goods at
- * rest, ink everything else. The value figures carry the brand burgundy as the opener does.
+ * Colour grammar as on the cell board (DESIGN.md §3), in Vici's tokens: fjord is a reading or a check
+ * (camera, scale, a correction the model takes), warning an item the model does not know, merlot a
+ * person (an item handed over, the person's decision: a 2 px merlot frame and its words), success a
+ * grasp that lands, danger the robot below its rule, the neutral solid goods at rest, ink everything
+ * else. What it is worth compares by hand and with the cell in Vici's data colours 8 and 2. Shapes
+ * follow Vici: the stations' icons sit in hexagon cells, the bars have square ends.
  *
  * Sizes (js/world_stage.js sets data-size from the stage's free height, stepping down while it does not
  * fit): full ≥ 760 px, compact ≥ 560 px (no lede, tighter tiles), short below (one line per node, tiles
  * without their details, the stage scrolls as a last resort); under 400 px (the drawer open) strip
- * without tonight's pallet and flow without what the model learned. What it is worth steps from full to
- * compact (the year with a Your DC button, the qualifier without its sources) and tight (rows closed
- * up), and steps aside (hidden) when the drawer leaves it no room: the KPI board and the header tiles
- * carry its figures. The year keeps its cells, break-even and "gross, before cell costs" at every size. */
+ * without tonight's pallet and flow without what the model learned. Before the full or the compact size
+ * steps down it closes up (data-closed). What it is worth steps from full to compact (the year with a
+ * Your DC button, the qualifier without its sources), closed (rows and bars closed up) and tight (the
+ * saving and the store orders left to the header's tiles), and steps aside (hidden) when the drawer
+ * leaves it no room: the KPI board and the header tiles carry its figures. The year keeps its cells,
+ * break-even and "gross, before cell costs" at every size. */
 
 /* ---- the two layouts ----------------------------------------------------------------------------------- */
 /* The right column: What it is worth at its own height, the console below it with at least 220 px (or
@@ -32,7 +36,7 @@ body[data-view="full"] .world-stage, body[data-view="full"] .worth-panel { displ
 body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) .controls .ctl-autonomy { display: none; }
 
 /* ---- the stage --------------------------------------------------------------------------------------------- */
-.world-stage { position: relative; min-height: 0; overflow: hidden; background: var(--canvas); border-right: 1px solid var(--line); }
+.world-stage { position: relative; min-height: 0; overflow: hidden; background: var(--vc-bg-sunken); border-right: 1px solid var(--vc-border-subtle); }
 .world-stage-inner {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; gap: 12px;
@@ -42,43 +46,56 @@ body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) 
 .ws-head { flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .ws-titles { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .ws-title-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.ws-title { margin: 0; font-family: var(--font-figures); font-weight: 700; font-size: var(--fs-xl); line-height: 1.1; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ws-lede { margin: 0; max-width: 78ch; color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.4; }
+.ws-title { margin: 0; font-family: var(--vc-font-display); font-weight: var(--vc-weight-semibold); letter-spacing: var(--vc-tracking-heading); font-size: var(--fs-xl); line-height: 1.1; color: var(--vc-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The lede at Vici's prose measure (reading text runs at most 75 characters per line). */
+.ws-lede { margin: 0; max-width: var(--vc-container-prose); color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); line-height: 1.4; }
 .ws-head-right { flex: none; display: flex; align-items: center; gap: 10px; }
-.ws-clock { font-family: var(--font-figures); font-weight: 700; font-size: var(--fs-lg); font-variant-numeric: tabular-nums lining-nums; color: var(--text); white-space: nowrap; padding: 0 4px; }
+.ws-clock { font-family: var(--vc-font-text); font-weight: 700; font-size: var(--fs-lg); font-variant-numeric: tabular-nums lining-nums; color: var(--vc-text); white-space: nowrap; padding: 0 4px; }
 
 /* ---- one item's way: camera → world model → robot → scale ⇢ people ------------------------------------------ */
+/* Vici spaces the items of a list in running text (li + li: 0.3em); the stage's lists are a row, a grid
+   and a log with gaps of their own, so their items take no margin and the stations stay level. */
+.ws-flow > li, .ws-grid > li, .ws-log > li { margin: 0; }
 .ws-flow { flex: none; list-style: none; margin: 0; padding: 0; display: flex; align-items: stretch; gap: 6px; }
-.ws-arrow { flex: none; align-self: center; color: var(--text-faint); font-size: 1.25rem; line-height: 1; }
-.ws-arrow.to-people { margin-left: 6px; }
+/* The arrows keep today's size and take no width of their own: each is centred over the gap between two
+   stations, level with the stations' icons (it points from one station's icon to the next), so the five
+   stations keep the width Inter's wider lines need. --icon-mid: the icon row's centre below the top. */
+.ws-flow { --icon-mid: 26px; } /* border 1 + padding 10 + half the 30 px cell */
+.ws-flow > .ws-arrow { flex: none; align-self: flex-start; margin-top: calc(var(--icon-mid) - 0.5em); position: relative; z-index: 1; width: 0; display: flex; justify-content: center; color: var(--vc-text-subtle); font-size: 1.25rem; line-height: 1; }
+.ws-arrow.to-people { margin-left: 2px; }
 .ws-node {
   flex: 1 1 0; min-width: 0;
   display: flex; flex-direction: column; gap: 3px;
   padding: 10px 12px 11px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--line-strong);
-  background: var(--paper);
-  box-shadow: var(--shadow-soft);
+  border-radius: var(--vc-radius-lg);
+  border: 1px solid var(--vc-border);
+  background: var(--vc-surface);
+  box-shadow: var(--vc-shadow-md);
   transition: border-color 0.2s ease, background-color 0.2s ease;
 }
-.ws-node[data-node="model"] { flex-grow: 1.3; border: 2px solid var(--slate-9); }
+.ws-node[data-node="model"] { flex-grow: 1.3; border: 2px solid var(--vc-neutral-solid); }
 .wsn-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.wsn-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--porcelain); color: var(--ink-11); flex: none; }
-.ws-node[data-node="camera"] .wsn-icon, .ws-node[data-node="scale"] .wsn-icon { background: var(--info-fill); color: var(--info-line); }
-.ws-node[data-node="model"] .wsn-icon { background: var(--slate-4); color: var(--slate-11); }
-.ws-node[data-node="people"] .wsn-icon { background: var(--brand-soft); color: var(--brand); }
-.wsn-label { font-weight: 700; font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wsn-l1 { font-family: var(--font-figures); font-weight: 600; font-size: 1.05rem; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.wsn-l2 { color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.ws-node[data-tone="check"] { border-color: var(--info-line); background: var(--info-fill); }
-.ws-node[data-tone="check"] .wsn-l1 { color: var(--info-text); }
-.ws-node[data-tone="risk"] { border-color: var(--warning-line); background: var(--warning-fill); }
-.ws-node[data-tone="risk"] .wsn-l1 { color: var(--warning-text); }
-.ws-node[data-tone="person"] { border-color: var(--brand-mid); background: var(--brand-wash); }
-.ws-node[data-tone="person"] .wsn-l1 { color: var(--brand-text); }
-.ws-node[data-tone="on-time"] .wsn-l2 { color: var(--success-text); font-weight: 600; }
-.ws-node[data-tone="late"] { border-color: var(--danger-line); background: var(--danger-fill); }
-.ws-node[data-tone="late"] .wsn-l1 { color: var(--danger-text); }
+/* Each station's icon in a hexagon cell (Vici's vc-cell), 30 px high: neutral, fjord for the camera and
+   the scale, the world model's own neutral, merlot's soft tint for the people. */
+.wsn-icon.vc-cell { --_s: 30px; background: var(--vc-bg-subtle); color: var(--vc-text-muted); }
+.ws-node[data-node="camera"] .wsn-icon.vc-cell, .ws-node[data-node="scale"] .wsn-icon.vc-cell { background: var(--vc-info-bg); color: var(--vc-info-text); }
+.ws-node[data-node="model"] .wsn-icon.vc-cell { background: var(--vc-neutral-bg); color: var(--vc-neutral-text); }
+.ws-node[data-node="people"] .wsn-icon.vc-cell { background: var(--vc-accent-soft); color: var(--vc-on-accent-soft); }
+.wsn-label { font-weight: 700; font-size: var(--vc-font-size-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wsn-l1 { font-family: var(--vc-font-text); font-weight: 600; font-size: 1.05rem; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.wsn-l2 { color: var(--vc-text-muted); font-size: var(--fs-xs); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ws-node[data-tone="check"] { border-color: var(--vc-info-solid); background: var(--vc-info-bg); }
+.ws-node[data-tone="check"] .wsn-l1 { color: var(--vc-info-text); }
+.ws-node[data-tone="risk"] { border-color: var(--vc-warning-text); background: var(--vc-warning-bg); }
+.ws-node[data-tone="risk"] .wsn-l1 { color: var(--vc-warning-text); }
+/* A person (units handed over, the person's decision) wears the recommended option's frame: 2 px of
+   merlot (the border and an inner line, so nothing moves) on the soft merlot tint, with its words in
+   merlot. Merlot is never a colour alone among the state colours. */
+.ws-node[data-tone="person"] { border-color: var(--vc-accent); background: var(--vc-accent-soft); box-shadow: inset 0 0 0 1px var(--vc-accent), var(--vc-shadow-md); }
+.ws-node[data-tone="person"] .wsn-l1 { color: var(--vc-accent-text); }
+.ws-node[data-tone="on-time"] .wsn-l2 { color: var(--vc-success-text); font-weight: 600; }
+.ws-node[data-tone="late"] { border-color: var(--vc-danger-solid); background: var(--vc-danger-bg); }
+.ws-node[data-tone="late"] .wsn-l1 { color: var(--vc-danger-text); }
 
 /* ---- the moment ------------------------------------------------------------------------------------------- */
 .ws-moment {
@@ -86,109 +103,128 @@ body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) 
   display: flex; align-items: center; gap: 14px;
   min-height: 64px;
   padding: 11px 14px 12px 16px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--line-strong);
-  border-left: 5px solid var(--ink-9);
-  background: var(--paper);
-  box-shadow: var(--shadow-soft);
+  border-radius: var(--vc-radius-lg);
+  border: 1px solid var(--vc-border);
+  border-left: 5px solid var(--vc-neutral-solid);
+  background: var(--vc-surface);
+  box-shadow: var(--vc-shadow-md);
 }
 .wsm-icon { display: none; }
 .wsm-body { flex: 1 1 auto; min-width: 0; }
-.wsm-label { display: block; font-family: var(--font-figures); font-weight: 700; font-size: 1.05rem; line-height: 1.2; color: var(--text); }
-.wsm-text { margin: 3px 0 0; color: var(--text); line-height: 1.4; }
+.wsm-label { display: block; font-family: var(--vc-font-text); font-weight: 700; font-size: 1.05rem; line-height: 1.2; color: var(--vc-text); }
+.wsm-text { margin: 3px 0 0; color: var(--vc-text); line-height: 1.4; }
 .wsm-actions { flex: none; display: flex; gap: 8px; }
 .wsm-actions:empty { display: none; }
-.wsm-actions .btn { min-height: 44px; }
-.ws-moment[data-kind="learned"] { border-left-color: var(--info-line); border-color: var(--info-mid); background: var(--info-fill); }
-.ws-moment[data-kind="learned"] .wsm-label { color: var(--info-text); }
-.ws-moment[data-kind="unknown"] { border-left-color: var(--warning-line); border-color: var(--warning-mid); background: var(--warning-fill); }
-.ws-moment[data-kind="unknown"] .wsm-label { color: var(--warning-text); }
-.ws-moment[data-kind="decided"], .ws-moment[data-kind="unsafe"] { border-left-color: var(--brand); border-color: var(--brand-line); background: var(--brand-wash); }
-.ws-moment[data-kind="decided"] .wsm-label, .ws-moment[data-kind="unsafe"] .wsm-label { color: var(--brand-text); }
-.ws-moment[data-kind="wear"] { border-left-color: var(--danger-line); border-color: var(--danger-mid); background: var(--danger-fill); }
-.ws-moment[data-kind="wear"] .wsm-label { color: var(--danger-text); }
-.ws-moment[data-kind="end"] { border-left-color: var(--on-time); }
+.wsm-actions .vc-button { --_h: 44px; }
+.ws-moment[data-kind="learned"] { border-left-color: var(--vc-info-solid); border-color: var(--vc-info-border); background: var(--vc-info-bg); }
+.ws-moment[data-kind="learned"] .wsm-label { color: var(--vc-info-text); }
+.ws-moment[data-kind="unknown"] { border-left-color: var(--vc-warning-text); border-color: var(--vc-warning-border); background: var(--vc-warning-bg); }
+.ws-moment[data-kind="unknown"] .wsm-label { color: var(--vc-warning-text); }
+.ws-moment[data-kind="decided"], .ws-moment[data-kind="unsafe"] { border-color: var(--vc-accent); background: var(--vc-accent-soft); box-shadow: inset 0 0 0 1px var(--vc-accent), var(--vc-shadow-md); }
+.ws-moment[data-kind="decided"] .wsm-label, .ws-moment[data-kind="unsafe"] .wsm-label { color: var(--vc-accent-text); }
+.ws-moment[data-kind="wear"] { border-left-color: var(--vc-danger-solid); border-color: var(--vc-danger-border); background: var(--vc-danger-bg); }
+.ws-moment[data-kind="wear"] .wsm-label { color: var(--vc-danger-text); }
+.ws-moment[data-kind="end"] { border-left-color: var(--vc-success-solid); }
 
 /* ---- tonight's pallet ------------------------------------------------------------------------------------- */
 .ws-pallet { flex: none; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .ws-pallet-head { display: flex; align-items: baseline; gap: 6px 12px; flex-wrap: wrap; }
-.ws-pallet-head h3, .ws-learned h3 { margin: 0; font-family: var(--font-figures); font-size: 1.1rem; font-weight: 700; color: var(--text); }
-.ws-pallet-meta { color: var(--text-muted); font-size: var(--fs-sm); }
-.ws-legend { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; color: var(--text-muted); font-size: var(--fs-xs); }
+.ws-pallet-head h3, .ws-learned h3 { margin: 0; font-family: var(--vc-font-display); font-weight: var(--vc-weight-semibold); letter-spacing: var(--vc-tracking-heading); font-size: 1.1rem; color: var(--vc-text); }
+.ws-pallet-meta { color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); }
+.ws-legend { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; color: var(--vc-text-muted); font-size: var(--fs-xs); }
 .wsl-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-.wsl-swatch { width: 14px; height: 10px; border-radius: 3px; background: var(--goods); }
-.wsl-item[data-tone="check"] .wsl-swatch { background: var(--info-line); }
-.wsl-item[data-tone="risk"] .wsl-swatch { background: var(--warning-line); }
+.wsl-swatch { width: 14px; height: 10px; border-radius: var(--vc-radius-xs); background: var(--vc-neutral-solid); }
+.wsl-item[data-tone="check"] .wsl-swatch { background: var(--vc-info-solid); }
+.wsl-item[data-tone="risk"] .wsl-swatch { background: var(--vc-warning-text); }
 .ws-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; align-content: start; }
 .ws-item {
   position: relative; min-width: 0;
   display: flex; flex-direction: column; gap: 3px;
-  padding: 7px 10px 8px;
-  border-radius: var(--r-sm);
-  border: 1px solid var(--line);
-  border-left: 4px solid var(--goods);
-  background: var(--paper);
+  padding: 7px 8px 8px;
+  border-radius: var(--vc-radius-md);
+  border: 1px solid var(--vc-border-subtle);
+  border-left: 4px solid var(--vc-neutral-solid);
+  background: var(--vc-surface);
 }
 .ws-item > * { flex: none; }
-.ws-item[data-how="hand"] { border-left-color: var(--ink-8); }
+.ws-item[data-how="hand"] { border-left-color: var(--vc-border-strong); }
 .wsi-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.wsi-how { flex: none; color: var(--ink-11); line-height: 0; }
-.wsi-name { font-weight: 600; font-size: var(--fs-sm); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wsi-meta { color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.25; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wsi-how { flex: none; color: var(--vc-text-muted); line-height: 0; }
+.wsi-name { font-weight: 600; font-size: var(--vc-font-size-sm); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wsi-meta { color: var(--vc-text-muted); font-size: var(--fs-xs); line-height: 1.25; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wsi-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.wsi-bar { flex: 1 1 auto; min-width: 0; height: 5px; border-radius: 3px; background: var(--porcelain-2); overflow: hidden; }
-.wsi-fill { display: block; height: 100%; width: 0; background: var(--goods); border-radius: 3px; transition: width 0.25s linear; }
-.ws-item[data-how="hand"] .wsi-fill { background: var(--ink-9); }
+/* The tile's bar has square ends; by hand it is the strong border's grey, lighter than the robot's. */
+.wsi-bar { flex: 1 1 auto; min-width: 0; height: 5px; background: var(--vc-bg-subtle); overflow: hidden; }
+.wsi-fill { display: block; height: 100%; width: 0; background: var(--vc-neutral-solid); transition: width 0.25s linear; }
+.ws-item[data-how="hand"] .wsi-fill { background: var(--vc-border-strong); }
 .wsi-badge { font-size: var(--fs-xs); font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wsi-badge-short { display: none; flex: none; font-size: 0.75rem; font-weight: 700; line-height: 1; white-space: nowrap; }
-.ws-item[data-state="corrected"] .wsi-badge-short { color: var(--info-text); }
-.ws-item[data-state="unknown"] .wsi-badge-short { color: var(--warning-text); }
-.ws-item[data-state="confirmed"] .wsi-badge-short, .ws-item[data-state="rejected"] .wsi-badge-short, .ws-item[data-state="handed"] .wsi-badge-short { color: var(--brand-text); }
-.ws-item[data-state="done"] .wsi-fill { background: var(--on-time); }
-.ws-item[data-state="corrected"] { border-color: var(--info-mid); border-left-color: var(--info-line); background: var(--info-fill); }
-.ws-item[data-state="corrected"] .wsi-badge { color: var(--info-text); }
-.ws-item[data-state="unknown"] { border-color: var(--warning-mid); border-left-color: var(--warning-line); background: var(--warning-fill); }
-.ws-item[data-state="unknown"] .wsi-badge { color: var(--warning-text); }
-.ws-item[data-state="confirmed"], .ws-item[data-state="rejected"], .ws-item[data-state="handed"] { border-color: var(--brand-line); border-left-color: var(--brand); background: var(--brand-wash); }
-.ws-item[data-state="confirmed"] .wsi-badge, .ws-item[data-state="rejected"] .wsi-badge, .ws-item[data-state="handed"] .wsi-badge { color: var(--brand-text); }
+.ws-item[data-state="corrected"] .wsi-badge-short { color: var(--vc-info-text); }
+.ws-item[data-state="unknown"] .wsi-badge-short { color: var(--vc-warning-text); }
+.ws-item[data-state="confirmed"] .wsi-badge-short, .ws-item[data-state="rejected"] .wsi-badge-short, .ws-item[data-state="handed"] .wsi-badge-short { color: var(--vc-accent-text); }
+.ws-item[data-state="done"] .wsi-fill { background: var(--vc-success-solid); }
+.ws-item[data-state="corrected"] { border-color: var(--vc-info-border); border-left-color: var(--vc-info-solid); background: var(--vc-info-bg); }
+.ws-item[data-state="corrected"] .wsi-badge { color: var(--vc-info-text); }
+.ws-item[data-state="unknown"] { border-color: var(--vc-warning-border); border-left-color: var(--vc-warning-text); background: var(--vc-warning-bg); }
+.ws-item[data-state="unknown"] .wsi-badge { color: var(--vc-warning-text); }
+.ws-item[data-state="confirmed"], .ws-item[data-state="rejected"], .ws-item[data-state="handed"] { border-color: var(--vc-accent); background: var(--vc-accent-soft); box-shadow: inset 0 0 0 1px var(--vc-accent); }
+.ws-item[data-state="confirmed"] .wsi-badge, .ws-item[data-state="rejected"] .wsi-badge, .ws-item[data-state="handed"] .wsi-badge { color: var(--vc-accent-text); }
 .ws-item.arrived { animation: laneIn 0.6s ease-out; }
 
 /* ---- what the model learned --------------------------------------------------------------------------------- */
 .ws-learned { flex: none; display: flex; flex-direction: column; gap: 6px; }
-.ws-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sm); }
-.ws-log li { padding: 2px 0 2px 10px; border-left: 3px solid var(--line-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ws-log li[data-tone="check"] { border-left-color: var(--info-line); }
-.ws-log li[data-tone="risk"] { border-left-color: var(--warning-line); }
-.ws-log li[data-tone="person"] { border-left-color: var(--brand); }
-.ws-log li.ws-none { color: var(--text-muted); }
-.ws-log-time { font-family: var(--font-mono); font-size: 0.86em; color: var(--text); margin-right: 4px; }
+.ws-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: var(--vc-font-size-sm); }
+.ws-log li { padding: 2px 0 2px 10px; border-left: 3px solid var(--vc-border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-log li[data-tone="check"] { border-left-color: var(--vc-info-solid); }
+.ws-log li[data-tone="risk"] { border-left-color: var(--vc-warning-text); }
+/* A person's line: ink, with its words ("by you", "to a person"); merlot would sit among the state colours. */
+.ws-log li[data-tone="person"] { border-left-color: var(--vc-text); }
+.ws-log li.ws-none { color: var(--vc-text-muted); }
+.ws-log-time { font-family: var(--vc-font-mono); font-size: 0.86em; color: var(--vc-text); margin-right: 4px; }
 
 /* ---- sizes ------------------------------------------------------------------------------------------------- */
-.world-stage-inner[data-size="compact"] { gap: 10px; padding: 12px 14px 14px; }
+.world-stage-inner[data-size="compact"] { gap: 10px; padding: 12px 12px 14px; }
+/* The five stations share the row equally at this size (Inter's lines need it); the model keeps its frame. */
+.world-stage-inner[data-size="compact"] .ws-flow { gap: 5px; --icon-mid: 24px; }
+.world-stage-inner[data-size="compact"] .ws-node[data-node="model"] { flex-grow: 1; }
 .world-stage-inner[data-size="compact"] .ws-lede { display: none; }
-.world-stage-inner[data-size="compact"] .ws-node { padding: 8px 10px 9px; }
+.world-stage-inner[data-size="compact"] .ws-node { padding: 8px 8px 9px; }
 .world-stage-inner[data-size="compact"] .ws-moment { min-height: 56px; padding: 9px 12px 10px 14px; }
 .world-stage-inner[data-size="compact"] .ws-item { padding: 5px 9px 6px; gap: 2px; }
 .world-stage-inner[data-size="compact"] .wsi-meta { display: none; }
 .world-stage-inner[data-size="compact"] .ws-grid { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); }
+/* At full size a tile's name and its line take a second line when they need it (a barcode, a long reason
+   such as "too heavy for the robot"), so nothing is cut; below it the line steps aside. */
+.world-stage-inner[data-size="full"] :is(.wsi-name, .wsi-meta) { white-space: normal; text-overflow: clip; overflow-wrap: anywhere; }
 /* Below the full size a tile drops its pack size ("Chopped tomatoes", "Barcode"), as the camera's line always
    does (js/world_stage.js); a multipack keeps its whole name, so it never reads like the single bottle. */
 .world-stage-inner:not([data-size="full"]) .wsi-name-rest { display: none; }
+/* Closed up (data-closed): before the full or the compact size steps down, its gaps and its tiles'
+   paddings close up and, at full size, the lede steps aside, so a tile keeps its pack size and its line
+   with Vici's wider type (the moment at 23:10 on a 1080p projector needs it). No text gets smaller. */
+.world-stage-inner[data-closed] { gap: 8px; }
+.world-stage-inner[data-size="full"][data-closed] { padding-top: 10px; }
+.world-stage-inner[data-size="full"][data-closed] .ws-lede { display: none; }
+.world-stage-inner[data-size="full"][data-closed] .ws-item { padding-block: 5px; }
+.world-stage-inner[data-size="compact"][data-closed] .ws-item { padding-block: 3px 4px; }
+.world-stage-inner[data-closed] .ws-pallet { gap: 6px; }
 
-.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) { gap: 5px; padding: 8px 12px 8px; overflow-y: auto; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) { gap: 5px; padding: 8px 10px 8px; overflow-y: auto; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-flow { gap: 4px; --icon-mid: 17px; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-node[data-node="model"] { flex-grow: 1.1; }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-lede, .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-legend, .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsi-meta { display: none; }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-title { font-size: var(--fs-lg); }
-.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-node { padding: 5px 8px 6px; gap: 1px; }
-.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsn-icon { width: 22px; height: 22px; border-radius: 6px; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-node { padding: 5px 6px 6px; gap: 1px; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsn-icon.vc-cell { --_s: 22px; }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsn-label { font-size: var(--fs-xs); }
-.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsn-l1 { font-size: var(--fs-sm); }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsn-l1 { font-size: var(--vc-font-size-sm); }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsn-l2 { font-size: 0.75rem; }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-moment { min-height: 44px; padding: 6px 10px 7px 12px; gap: 10px; }
-.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsm-label { font-size: var(--fs-sm); }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsm-label { font-size: var(--vc-font-size-sm); }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsm-text { margin-top: 1px; font-size: var(--fs-xs); line-height: 1.35; }
 /* The tiles close up a pixel, so the rows whose badge sits beside the bar still fit a 720 px window. */
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 3px 5px; }
-.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-item { padding: 3px 6px 3px; gap: 2px; }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-item { padding: 3px 5px 3px; gap: 2px; }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsi-name { font-size: var(--fs-xs); }
 /* A short tile puts its badge's one word beside the bar, so the name keeps the tile's width ("Tomato passata",
    "to a person"). */
@@ -196,7 +232,7 @@ body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) 
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .wsi-badge-short:not([hidden]) { display: inline; }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-learned { gap: 3px; }
 .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-log { font-size: var(--fs-xs); gap: 2px; }
-.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-pallet-head h3, .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-learned h3 { font-size: var(--fs-md); }
+.world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-pallet-head h3, .world-stage-inner:is([data-size="short"], [data-size="strip"], [data-size="flow"]) .ws-learned h3 { font-size: var(--vc-font-size-md); }
 
 /* A drawer open over the stage leaves it under 400 px, like the cell board's strip: tonight's pallet steps
    aside ("strip"), then what the model learned and each station's second line ("flow"); the item's way
@@ -205,79 +241,80 @@ body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) 
 .world-stage-inner[data-size="flow"] .wsn-l2 { display: none; }
 
 /* ---- what it is worth -------------------------------------------------------------------------------------- */
-.worth-panel { min-height: 0; overflow-y: auto; background: var(--paper); border-bottom: 1px solid var(--line); }
+.worth-panel { min-height: 0; overflow-y: auto; background: var(--vc-surface); border-bottom: 1px solid var(--vc-border-subtle); }
 .worth-inner { display: flex; flex-direction: column; gap: 12px; padding: 14px 18px 16px; }
 .wp-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 12px; flex-wrap: wrap; }
-.wp-title { margin: 0; font-family: var(--font-figures); font-size: var(--fs-xl); font-weight: 700; line-height: 1.1; color: var(--text); }
-.wp-engine { color: var(--text-muted); font-size: var(--fs-xs); }
+.wp-title { margin: 0; font-family: var(--vc-font-display); font-weight: var(--vc-weight-semibold); letter-spacing: var(--vc-tracking-heading); font-size: var(--fs-xl); line-height: 1.1; color: var(--vc-text); }
+.wp-engine { color: var(--vc-text-muted); font-size: var(--fs-xs); }
 .wp-headline { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 16px; align-items: center; }
 .wp-big-wrap { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.wp-big { font-family: var(--font-figures); font-weight: 700; font-size: 2.4rem; line-height: 1.05; color: var(--brand); }
-.wp-big-sub { color: var(--text-muted); font-size: var(--fs-sm); line-height: 1.35; }
-.wp-bars { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px 10px; font-size: var(--fs-sm); }
-.wp-saving { grid-column: 2 / -1; justify-self: end; font-weight: 700; color: var(--text); }
-.wp-bar-label { color: var(--text-muted); white-space: nowrap; }
-.wp-bar { height: 12px; border-radius: 6px; background: var(--porcelain-2); overflow: hidden; }
-.wp-bar-fill { display: block; height: 100%; width: 0; border-radius: 6px; background: var(--ink-8); transition: width 0.3s ease; }
-.wp-bar-fill[data-kind="hybrid"] { background: var(--brand); }
-.wp-bar-value { font-family: var(--font-figures); font-weight: 700; white-space: nowrap; }
-.wp-head { margin: 0 0 4px; font-family: var(--font-figures); font-size: 1.1rem; font-weight: 700; color: var(--text); }
-.wp-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 14px; margin: 0; font-size: var(--fs-sm); }
-.wp-list dt { color: var(--text-muted); }
+.wp-big { font-family: var(--vc-font-display); font-weight: var(--vc-weight-semibold); letter-spacing: var(--vc-tracking-heading); font-size: 2.4rem; line-height: 1.05; font-variant-numeric: tabular-nums; color: var(--vc-text); }
+.wp-big-sub { color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); line-height: 1.35; }
+.wp-bars { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px 10px; font-size: var(--vc-font-size-sm); }
+.wp-saving { grid-column: 2 / -1; justify-self: end; font-weight: 700; color: var(--vc-text); }
+.wp-bar-label { color: var(--vc-text-muted); white-space: nowrap; }
+/* By hand and with the cell in Vici's data colours 8 and 2: a comparison, not a person's decision. Square ends. */
+.wp-bar { height: 12px; background: var(--vc-bg-subtle); overflow: hidden; }
+.wp-bar-fill { display: block; height: 100%; width: 0; background: var(--vc-data-8); transition: width 0.3s ease; }
+.wp-bar-fill[data-kind="hybrid"] { background: var(--vc-data-2); }
+.wp-bar-value { font-family: var(--vc-font-text); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wp-head { margin: 0 0 4px; font-family: var(--vc-font-display); font-weight: var(--vc-weight-semibold); letter-spacing: var(--vc-tracking-heading); font-size: 1.1rem; color: var(--vc-text); }
+.wp-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 14px; margin: 0; font-size: var(--vc-font-size-sm); }
+.wp-list dt { color: var(--vc-text-muted); }
 .wp-list dd { margin: 0; font-variant-numeric: tabular-nums; }
-.wp-tonight, .wp-dc { padding-top: 10px; border-top: 1px solid var(--line); }
+.wp-tonight, .wp-dc { padding-top: 10px; border-top: 1px solid var(--vc-border-subtle); }
 .wp-dc-fields { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px 12px; }
 .wp-dc-field { display: flex; flex-direction: column; gap: 3px; }
-.wp-dc-label { color: var(--text-muted); font-size: var(--fs-xs); }
+.wp-dc-label { color: var(--vc-text-muted); font-size: var(--fs-xs); }
 .wp-dc-row { display: flex; align-items: center; gap: 6px; }
 .wp-dc-input { width: 9.5em; min-height: 40px; }
 #wp-dc-c { width: 5.5em; }
-.wp-dc-unit { color: var(--text-muted); font-size: var(--fs-sm); white-space: nowrap; }
-.wp-dc-msg { color: var(--danger-text); font-size: var(--fs-xs); min-height: 0; }
+.wp-dc-unit { color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); white-space: nowrap; }
+.wp-dc-msg { color: var(--vc-danger-text); font-size: var(--fs-xs); min-height: 0; }
 .wp-dc-msg:empty { display: none; }
 #wp-dc-reset { min-height: 40px; }
 .wp-year-wrap { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-top: 8px; }
 .wp-dc-open { display: none; }
-.wp-year { font-family: var(--font-figures); font-weight: 700; font-size: 1.6rem; line-height: 1.1; color: var(--brand); }
-.wp-year-sub { color: var(--text); font-size: var(--fs-sm); }
-.wp-qual { display: block; margin-top: 4px; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.35; }
+.wp-year { font-family: var(--vc-font-display); font-weight: var(--vc-weight-semibold); letter-spacing: var(--vc-tracking-heading); font-size: 1.6rem; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--vc-text); }
+.wp-year-sub { color: var(--vc-text); font-size: var(--vc-font-size-sm); max-width: var(--vc-container-prose); }
+.wp-qual { display: block; margin-top: 4px; color: var(--vc-text-muted); font-size: var(--fs-xs); line-height: 1.35; max-width: var(--vc-container-prose); }
 
 /* The view switch in the header, beside the mode badge (js/controls.js; the Full view's control bar has
    no room for it at laptop widths): a segmented control like the dial, 40 px high like How it works. */
 .header-view { display: inline-flex; flex: none; }
 /* Its buttons are the 40 px targets; the group's line is drawn outside them, so the row stays 40 px. */
-.header-view .segmented { border: 0; box-shadow: 0 0 0 1px var(--line-strong); }
-.header-view .segmented button { min-height: 40px; min-width: 64px; padding: 0 12px; font-family: var(--font-ui); font-size: var(--fs-sm); }
+.header-view .segmented { padding: 0; border: 0; box-shadow: 0 0 0 1px var(--vc-border); }
+.header-view .segmented button { min-height: 40px; min-width: 64px; padding: 0 12px; font-family: var(--vc-font-text); font-size: var(--vc-font-size-sm); }
 /* Below 1400 px the badges take two rows; a closer row gap keeps the header at most 14 % of a 720 px window. */
 @media (max-width: 1400px) { .header-badges { row-gap: 3px; } }
 
 /* A short right column: the worth panel tightens (js/worth_panel.js sets data-size="compact" when its
    content does not fit above the console's 220 px), and Your DC shows the year with one button to the KPI
    board's inputs. */
-.worth-panel:is([data-size="compact"], [data-size="tight"]) .worth-inner { gap: 7px; padding: 8px 14px 8px; }
-.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-title { font-size: var(--fs-lg); }
-.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-big { font-size: 1.75rem; }
-.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-headline { gap: 12px; }
-.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-bars { gap: 3px 8px; font-size: var(--fs-xs); }
-.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-bar { height: 9px; }
-.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-head { margin-bottom: 2px; font-size: var(--fs-md); }
-.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-list { font-size: var(--fs-xs); gap: 2px 10px; }
-.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-tonight, .worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-dc { padding-top: 6px; }
-.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-dc > .wp-head, .worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-dc-fields { display: none; }
-.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-dc-open { display: inline-flex; min-height: 40px; margin-left: auto; }
-.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-year-wrap { margin-top: 0; align-items: center; flex-wrap: nowrap; }
-.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-year { font-size: 1.3rem; white-space: nowrap; }
-.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-year-sub { font-size: var(--fs-xs); line-height: 1.3; }
-.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-qual { margin-top: 2px; }
-.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-qual-sources { display: none; }
-.worth-panel:is([data-size="compact"], [data-size="tight"]) .wp-saving { font-size: var(--fs-xs); }
+.worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .worth-inner { gap: 7px; padding: 8px 14px 8px; }
+.worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .wp-title { font-size: var(--fs-lg); }
+.worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .wp-big { font-size: 1.75rem; }
+.worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .wp-headline { gap: 12px; }
+.worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .wp-bars { gap: 3px 8px; font-size: var(--fs-xs); }
+.worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .wp-bar { height: 9px; }
+.worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .wp-head { margin-bottom: 2px; font-size: var(--vc-font-size-md); }
+.worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .wp-list { font-size: var(--fs-xs); gap: 2px 10px; }
+.worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .wp-tonight, .worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .wp-dc { padding-top: 6px; }
+.worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .wp-dc > .wp-head, .worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .wp-dc-fields { display: none; }
+.worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .wp-dc-open { display: inline-flex; min-height: 40px; margin-left: auto; }
+.worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .wp-year-wrap { margin-top: 0; align-items: center; flex-wrap: nowrap; }
+.worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .wp-year { font-size: 1.3rem; white-space: nowrap; }
+.worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .wp-year-sub { font-size: var(--fs-xs); line-height: 1.3; }
+.worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .wp-qual { margin-top: 2px; }
+.worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .wp-qual-sources { display: none; }
+.worth-panel:is([data-size="compact"], [data-size="closed"], [data-size="tight"]) .wp-saving { font-size: var(--fs-xs); }
 
-/* Tight (a 720 px window at the night's end, when the night's rows fill the panel): rows and bars close up;
-   the year keeps its cells, its break-even and its qualifier. */
-.worth-panel[data-size="tight"] .worth-inner { gap: 6px; }
-.worth-panel[data-size="tight"] .wp-list { line-height: 1.3; }
-.worth-panel[data-size="tight"] .wp-bars { gap: 1px 8px; }
-.worth-panel[data-size="tight"] .wp-headline { align-items: start; }
+/* Closed and tight (a 720 px window during and at the end of the night, when the night's rows fill the
+   panel): rows and bars close up; the year keeps its cells, its break-even and its qualifier. */
+.worth-panel:is([data-size="closed"], [data-size="tight"]) .worth-inner { gap: 6px; }
+.worth-panel:is([data-size="closed"], [data-size="tight"]) .wp-list { line-height: 1.3; }
+.worth-panel:is([data-size="closed"], [data-size="tight"]) .wp-bars { gap: 1px 8px; }
+.worth-panel:is([data-size="closed"], [data-size="tight"]) .wp-headline { align-items: start; }
 /* The saving stays in the header's labour tile ("planned · €89.50 by hand · −64 %"), the store orders in its
    store-order tile ("12 of 12"). */
 .worth-panel[data-size="tight"] .wp-saving, .worth-panel[data-size="tight"] .wp-orders { display: none; }
@@ -300,6 +337,13 @@ body:not([data-view="full"]) .controls .ctl-model, body:not([data-view="full"]) 
 @media (max-width: 860px) {
   body:not([data-view="full"]) .workspace { grid-template-columns: 1fr; grid-template-rows: auto auto auto; }
   body:not([data-view="full"]) .world-stage, body:not([data-view="full"]) .worth-panel, body:not([data-view="full"]) .console-panel { grid-column: 1; grid-row: auto; }
-  .world-stage { height: 90vh; border-right: 0; border-bottom: 1px solid var(--line); }
+  .world-stage { height: 90vh; border-right: 0; border-bottom: 1px solid var(--vc-border-subtle); }
   .worth-panel { max-height: none; }
+}
+
+/* ---- forced colours (Windows contrast themes) ------------------------------------------------------------ */
+/* The tiles' and What it is worth's bars and the legend's swatches keep their shapes in system colours. */
+@media (forced-colors: active) {
+  .wsi-fill, .wp-bar-fill, .wsl-swatch { forced-color-adjust: none; background-color: CanvasText; }
+  .wsi-bar, .wp-bar { forced-color-adjust: none; background-color: Canvas; outline: 1px solid CanvasText; }
 }

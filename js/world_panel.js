@@ -10,6 +10,7 @@ import { h, clear } from "./dom.js";
 import { icon } from "./icons.js";
 import { clockOf } from "./nightsim.js";
 import { int } from "./format.js";
+import { tag } from "./tags.js";
 
 /** The item's name without its pack: "Apricot jam 200 g, glass jar" → "Apricot jam" (the chip has little room). */
 const bare = (name) => String(name).split(",")[0].replace(/\s+\d[\d.,]*(?:\s*×\s*\d[\d.,]*)?\s*(?:g|kg|ml|l)$/, "");
@@ -20,7 +21,7 @@ export function createWorldPanel({ onOpen = () => {} } = {}) {
   const log = h("ol", { class: "wm-log", "aria-label": "Corrections log" });
   const chip = h("button", { class: "wm-chip", type: "button" });
   const card = h("section", { class: "world-card", "aria-label": "World model: expected against observed, and the corrections log" },
-    h("div", { class: "wm-head" }, h("strong", {}, "World model"), h("span", { class: "chip", dataset: { tone: "synthetic" } }, "Synthetic")),
+    h("div", { class: "wm-head" }, h("strong", {}, "World model"), tag("Synthetic", "synthetic")),
     focus, log);
   // What each button shows: a click opens that, even when the night has moved on since the last frame.
   let shown = { focus: null, chip: null, ready: false };
@@ -64,7 +65,7 @@ export function createWorldPanel({ onOpen = () => {} } = {}) {
       h("span", { class: "wm-chip-text" },
         h("span", { class: "wm-chip-name" }, last ? bare(lastName) : "no corrections yet"),
         last ? h("span", { class: "wm-chip-vals" }, `${int(last.old)} g → ${int(last.new)} g`) : null),
-      h("span", { class: "chip", dataset: { tone: "synthetic" } }, "Synthetic"));
+      tag("Synthetic", "synthetic"));
     chip.setAttribute("aria-label", `World model: ${last ? `${lastName} written back from ${last.old} g to ${last.new} g at ${clockOf(last.at)}` : "no corrections yet"}`);
   }
 

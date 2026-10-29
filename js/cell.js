@@ -67,7 +67,7 @@ export function createCellBoard(root, { scenarios = [], getParams = () => ({}), 
   const clockPaused = h("span", { class: "cell-clock-paused" });
   const clockEl = h("span", { class: "cell-clock", "aria-hidden": "true", dataset: { paused: "false" } }, clockTime, clockPaused);
   const tag = h("span", {
-    class: "sim-cell-tag", role: "note",
+    class: "vc-tag sim-cell-tag", role: "note",
     title: "The robot cell, its camera, scale and gripper, and the warehouse system are simulated, in Live and in Simulation mode."
   }, icon("gripper", 16), "Simulated cell");
   const headRight = h("div", { class: "cell-head-right" }, clockEl, tag);
@@ -78,7 +78,7 @@ export function createCellBoard(root, { scenarios = [], getParams = () => ({}), 
     const t1 = h("span", { class: "st-l1" });
     const t2 = h("span", { class: "st-l2" });
     const btn = h("button", { class: "station", type: "button", dataset: { station: s.id } },
-      h("span", { class: "st-head" }, h("span", { class: "st-icon" }, icon(s.icon, 22)), h("span", { class: "st-label" }, s.label)), t1, t2);
+      h("span", { class: "st-head" }, h("span", { class: "vc-cell st-icon" }, icon(s.icon, 22)), h("span", { class: "st-label" }, s.label)), t1, t2);
     btn.addEventListener("click", () => openStation(s.id, btn));
     stationEls.set(s.id, { btn, t1, t2 });
     if (i > 0) line.append(h("span", { class: `flow-arrow${s.id === "manual" ? " to-manual" : ""}`, "aria-hidden": "true" }, s.id === "manual" ? "⇢" : "→"));
@@ -105,7 +105,7 @@ export function createCellBoard(root, { scenarios = [], getParams = () => ({}), 
   const legend = h("div", { class: "cell-legend", role: "note", "aria-label": "Legend" },
     [["dispatched", "on its truck"], ["at-risk", "at risk"], ["late", "late"], ["open", "being packed"]].map(([k, label]) =>
       h("span", { class: "lg-item" }, h("span", { class: "lg-swatch", dataset: { state: k }, "aria-hidden": "true" }), label)),
-    h("span", { class: "lg-item" }, h("span", { class: "lg-swatch", dataset: { tone: "person" }, "aria-hidden": "true" }), "handed to a person"),
+    h("span", { class: "lg-item", dataset: { tone: "person" } }, icon("user", 14), "handed to a person"),
     h("span", { class: "lg-item" }, h("span", { class: "lg-swatch", dataset: { tone: "check" }, "aria-hidden": "true" }), "a sensor's reading or check"));
   const body = h("div", { class: "cell-body" }, line, lanes, world, legend);
   // On a short board the world model folds into a chip in the head row, beside the caption.
@@ -163,6 +163,9 @@ export function createCellBoard(root, { scenarios = [], getParams = () => ({}), 
   let measuring = 0;
   const remeasure = () => { if (!measuring) measuring = (typeof requestAnimationFrame === "function" ? requestAnimationFrame : (f) => setTimeout(f, 16))(() => { measuring = 0; measure(); }); };
   if (typeof ResizeObserver === "function") new ResizeObserver(remeasure).observe(board);
+  // The board's colours come from Vici's tokens through its classes, so a new theme repaints it; it
+  // still redraws, so that anything drawn from a measured style follows the theme too.
+  document.addEventListener("vc:themechange", () => { remeasure(); markAll(); });
 
   // ---- state → view --------------------------------------------------------------------------------------
   function markAll() { for (const k of ["clock", "camera", "cell", "scale", "manual", "orders", "world", "inbound", "escalations", "items"]) dirty.add(k); request(); }

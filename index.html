@@ -9,14 +9,14 @@
        the origins in js/config.js. -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src https://api.anthropic.com; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <meta name="color-scheme" content="light">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="color-scheme" content="light dark">
   <meta name="description" content="Repack Pilot shows one night shift in a retail distribution centre: a simulated robot cell, planned by an AI agent, repacks mixed pallets into store orders, and a deterministic engine prices every 1,000 units in labour hours and euros.">
   <title>Repack Pilot — Physical AI repacking showcase</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
 
-  <link rel="stylesheet" href="css/fonts.css">
-  <link rel="stylesheet" href="css/tokens.css">
+  <!-- The look comes from Victor's design system Vici, copied unchanged into vici/ (vici/README.md).
+       It sits in cascade layers, so the app's own stylesheets below refine it without !important. -->
+  <link rel="stylesheet" href="vici/dist/vici.min.css">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/cell.css">
@@ -26,6 +26,10 @@
   <link rel="stylesheet" href="css/drawer.css">
   <link rel="stylesheet" href="css/modals.css">
   <link rel="stylesheet" href="css/stage.css">
+
+  <!-- The theme before the page is drawn (light unless the visitor chose dark), then Vici's script. -->
+  <script src="js/theme.js"></script>
+  <script src="vici/dist/vici.js" defer></script>
 
   <!-- Synthetic world, scenarios, shadow record, the Open Food Facts snapshot, the reference inputs and
        the simulation scripts: plain scripts that set window globals (no fetch needed). -->
@@ -37,18 +41,12 @@
   <script src="data/sim_runs.js" defer></script>
   <script type="module" src="js/main.js"></script>
 </head>
-<body>
-  <a class="skip-link" href="#console">Skip to the agent console</a>
+<body class="app-shell">
+  <a class="vc-skip-link skip-link" href="#console">Skip to the agent console</a>
 
   <header class="app-header">
     <div class="brand">
-      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-        <rect class="mark-tile" x="1" y="1" width="30" height="30" rx="8"/>
-        <path class="mark-scan" d="M9 8.5h14"/>
-        <rect class="mark-item" x="12.5" y="5" width="7" height="7" rx="1.5"/>
-        <path class="mark-line" d="M13.4 14.4 16 17l2.6-2.6"/>
-        <path class="mark-line" d="M7.5 19.5h17l-1.9 5.9a1.5 1.5 0 0 1-1.43 1.04H10.83a1.5 1.5 0 0 1-1.43-1.04z"/>
-      </svg>
+      <span class="vc-cell vc-cell--teal" aria-hidden="true"><span class="vc-icon vc-icon--layers"></span></span>
       <div class="brand-text">
         <span class="brand-name">Repack Pilot</span>
         <span class="brand-sub">Repack agent for Ruhrkorb DC Unna (fictional)</span>
@@ -56,10 +54,15 @@
     </div>
 
     <div class="header-badges">
-      <span id="mode-badge" class="mode-badge" data-mode="none" role="status" aria-live="polite" title="Choose a mode with Start agent">No run active</span>
-      <span class="ai-disclosure" title="Repack Pilot is an AI system. Its plans can be wrong. Every action is a draft that waits for your approval, and nothing is ever sent to a real company. The robot cell is simulated.">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3.5l1.8 5.2 5.2 1.8-5.2 1.8L12 17.5l-1.8-5.2L5 10.5l5.2-1.8z"/><path d="M18.5 15.5l.8 2 2 .7-2 .8-.8 2-.7-2-2-.8 2-.7z"/></svg>
+      <span id="mode-badge" class="vc-tag mode-badge" data-mode="none" role="status" aria-live="polite" title="Choose a mode with Start agent">No run active</span>
+      <span class="vc-tag vc-tag--feature ai-disclosure" title="Repack Pilot is an AI system. Its plans can be wrong. Every action is a draft that waits for your approval, and nothing is ever sent to a real company. The robot cell is simulated.">
+        <span class="vc-icon vc-icon--sparkle" aria-hidden="true"></span>
         <span><span class="long">You are interacting with an </span>AI system</span>
+      </span>
+      <!-- Vici's theme toggle (vici.js switches the theme and remembers the choice). -->
+      <span class="vc-tooltip-anchor">
+        <button type="button" class="vc-icon-button theme-toggle" data-vc-theme-toggle aria-labelledby="tip-theme"><span class="vc-icon vc-icon--moon vc-when-light" aria-hidden="true"></span><span class="vc-icon vc-icon--sun vc-when-dark" aria-hidden="true"></span></button>
+        <span class="vc-tooltip vc-tooltip--bottom" role="tooltip" id="tip-theme">Dark theme</span>
       </span>
     </div>
 
@@ -89,17 +92,11 @@
   <div id="boot" class="boot" data-state="loading">
     <div class="boot-card">
       <div class="boot-brand">
-        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-          <rect class="mark-tile" x="1" y="1" width="30" height="30" rx="8"/>
-          <path class="mark-scan" d="M9 8.5h14"/>
-          <rect class="mark-item" x="12.5" y="5" width="7" height="7" rx="1.5"/>
-          <path class="mark-line" d="M13.4 14.4 16 17l2.6-2.6"/>
-          <path class="mark-line" d="M7.5 19.5h17l-1.9 5.9a1.5 1.5 0 0 1-1.43 1.04H10.83a1.5 1.5 0 0 1-1.43-1.04z"/>
-        </svg>
+        <span class="vc-cell vc-cell--teal vc-cell--xl" aria-hidden="true"><span class="vc-icon vc-icon--layers"></span></span>
         <span class="brand-name">Repack Pilot</span>
       </div>
-      <p class="boot-status" role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><span id="boot-status">Starting Repack Pilot…</span></p>
-      <p id="boot-detail" class="boot-detail" hidden></p>
+      <p class="boot-status" role="status" aria-live="polite"><span class="vc-spinner" aria-hidden="true"></span><span id="boot-status">Starting Repack Pilot…</span></p>
+      <p id="boot-detail" class="vc-alert vc-alert--danger boot-detail" hidden></p>
       <div class="boot-help">
         <p>Still on this screen? Repack Pilot has to be served over http or https. Browsers block its program modules when <code>index.html</code> is opened straight from disk, at an address starting with <code>file://</code>.</p>
         <p>To run it on your computer, open a terminal in this folder, run <code>python -m http.server 8000</code>, then open <code>http://localhost:8000</code>. Published on GitHub Pages, it works as is. Use a current Chrome or Edge.</p>

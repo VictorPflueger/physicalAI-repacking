@@ -27,6 +27,12 @@
 //                 buttons of at least 44 px in the Tab order; Enter opens a popover named for the entity,
 //                 Escape closes it and gives the focus back; a popover follows the night; reduced motion
 //                 stops every animation
+//   byline        Vici's byline in the drawer bar: Built by, the portrait, LinkedIn's logo and the
+//                 website as 44 px links in new tabs; no link to the source code anywhere in the app
+//   once          every control does its job exactly once: the theme toggle, Larger text, the Customer
+//                 and Full switch, the autonomy dial, the night speed, a drawer tab, a dialog's backdrop
+//                 and Escape, the tooltips, Show key (vici.js acts on some controls by itself, the app on
+//                 the others)
 //   kpi           the KPI board at the brief's defaults (what it is worth first: the annual figure with
 //                 the cells it needs, the demo cell; G1, break-even, sources on every row, no payback
 //                 claim); p = 0.70 in the Assumptions tab gives G2 and lands in the audit; an
@@ -53,12 +59,12 @@
 //   contrast      every visible text in seventeen states (intro, idle, Diagnostics, five drawer tabs, mode
 //                 choice, key dialog, banners of each level, the running replay, the replay with the
 //                 drawer open, the options, the drafts with the console's notice, the night's end with the
-//                 summary card and run facts, the management summary) meets its WCAG contrast duty; a
-//                 control is caught
+//                 summary card and run facts, the management summary) meets its WCAG contrast duty, in the
+//                 light and the dark theme; a control is caught
 //   contrast-customer  the Customer view at 1920×1080 and 1280×720 in five states of scenario 3 (idle, the
 //                 jar, the unknown item waiting for you, the entry confirmed, night end): every visible
-//                 text meets its WCAG contrast duty; a control is caught
-//   csp           the page's policy blocks a connection to any other host
+//                 text meets its WCAG contrast duty, in the light and the dark theme; a control is caught
+//   csp           the page's policy blocks a connection to any other host, in both themes
 //   file          opened from file://: the page explains how to start a server
 //   missing-data  a data file is missing: the boot screen names it
 // The layout at five sizes is the layout suite's (tests/layout.mjs). No case calls a real API:
@@ -97,6 +103,17 @@ function expected(id) {
   return { sc, night, res, fig: NS.tonightFigures(night, res), info: NS.nightInfo(night, { seed: sc.night.seed }) };
 }
 
+// The contrast measure's control (cases contrast and contrast-customer): text in Vici's strong border
+// grey (--vc-border-strong) on the page's background (--vc-bg) falls short of 4.5:1 in both themes; the
+// ratio the measure must report, from Vici's tokens.
+const VICI_TOKENS = JSON.parse(await readFile(path.join(APP_ROOT, "vici/dist/tokens.json"), "utf8"));
+const CONTROL_RATIO = Object.fromEntries(["light", "dark"].map((theme) => {
+  const lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  const lum = (hex) => { const n = parseInt(hex.slice(1), 16); return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255); };
+  const [hi, lo] = [lum(VICI_TOKENS[theme]["border-strong"]), lum(VICI_TOKENS[theme].bg)].sort((a, b) => b - a);
+  return [theme, Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100];
+}));
+
 const OUT = await outDir("smoke");
 const { base: BASE, blockLocal, close } = await serveStatic(APP_ROOT, 8865);
 const browser = await launchBrowser();
@@ -125,8 +142,10 @@ function anthropicStandIn({ models = [401, 200] } = {}) {
   return handler;
 }
 
-async function newPage({ anthropic = null, intro = false, viewport = { width: 1920, height: 1080 }, customer = false } = {}) {
-  const context = await browser.newContext({ viewport, acceptDownloads: true });
+async function newPage({ anthropic = null, intro = false, viewport = { width: 1920, height: 1080 }, customer = false, theme = null } = {}) {
+  const context = await browser.newContext({ viewport, acceptDownloads: true, ...(theme ? { colorScheme: theme } : {}) });
+  // A theme for the case: the visitor's choice as Vici keeps it (js/theme.js reads it before the page is drawn).
+  if (theme) await context.addInitScript((t) => { try { localStorage.setItem("vc-theme", t); } catch { /* blocked storage */ } }, theme);
   if (!intro) await context.addInitScript(SKIP_INTRO);
   // The M4 cases run on the Full view with scenario 1; the Customer-view cases see a first visit's screen.
   if (!customer) await context.addInitScript(M4_SCREEN);
@@ -166,7 +185,7 @@ const shot = async (page, file) => { await settle(page); return page.screenshot(
 const boot = async (page) => { await page.goto(BASE); await page.waitForSelector('html[data-boot="ready"]', { timeout: 20000 }); };
 /** Starts a night preview: scenario, speed, Start agent, the mode card. */
 async function startNight(page, { scenario = null, speed = 4, mode = "simulation" } = {}) {
-  if (scenario) { await page.click("#dd-scenario"); await page.click(`.menu-item[data-id="${scenario}"]`); }
+  if (scenario) { await page.click("#dd-scenario"); await page.click(`.vc-menu__item[data-id="${scenario}"]`); }
   await page.click(`button[aria-label="Night speed ×${speed}"]`);
   await page.click("#btn-start");
   await page.waitForSelector(".mode-card", { timeout: 5000 });
@@ -178,8 +197,8 @@ async function startNight(page, { scenario = null, speed = 4, mode = "simulation
  * then every draft in the Outbox. Resolves when the run is Done.
  */
 async function decideAndFinish(page, { option = "B", timeout = 300000 } = {}) {
-  await page.waitForSelector(`.option-card[data-id="${option}"] .btn-approve`, { timeout });
-  await page.click(`.option-card[data-id="${option}"] .btn-approve`);
+  await page.waitForSelector(`.option-card[data-id="${option}"] [data-action="approve"]`, { timeout });
+  await page.click(`.option-card[data-id="${option}"] [data-action="approve"]`);
   await page.waitForSelector("#btn-approve-all", { timeout: 60000 });
   await page.click("#btn-approve-all");
   await waitStatus(page, "Done", timeout);
@@ -217,7 +236,7 @@ if (wanted("boot")) {
     checks.fontsLoaded = await page.evaluate(async () => { await document.fonts.ready; return [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family.replace(/"/g, "")); });
     checks.cellTag = (await page.textContent(".cell-board .sim-cell-tag")).trim();
     checks.cellTagVisible = await page.isVisible(".cell-board .sim-cell-tag");
-    checks.synthetic = await page.$$eval(".world-card .chip, .wm-chip .chip", (els) => els.filter((e) => e.offsetParent !== null).map((e) => e.textContent.trim()));
+    checks.synthetic = await page.$$eval(".world-card .tag-synthetic, .wm-chip .tag-synthetic", (els) => els.filter((e) => e.offsetParent !== null).map((e) => e.textContent.trim()));
     checks.lanes = await page.$$eval(".lane", (els) => els.map((e) => `${e.querySelector(".lane-name").textContent} ${e.querySelector(".lane-cut").textContent}`));
     checks.stations = await page.$$eval(".station .st-label", (els) => els.map((e) => e.textContent));
     checks.manual = (await page.textContent('.station[data-station="manual"] .st-l1')).trim();
@@ -225,12 +244,12 @@ if (wanted("boot")) {
     checks.tiles = await page.$$eval(".kpi", (els) => els.map((e) => `${e.querySelector(".kpi-value").textContent} | ${e.querySelector(".kpi-sub").textContent}`));
     checks.subtitle = (await page.textContent(".cell-sub")).trim();
     await page.click("#dd-scenario");
-    checks.scenarios = await page.$$eval("#dd-scenario + .dropdown-menu .menu-item", (els) => els.map((e) => `${e.querySelector(".num-badge")?.textContent} ${e.querySelector(".menu-title")?.textContent}`));
-    await page.click('.menu-item[data-id="SC4-WEAR"]');
+    checks.scenarios = await page.$$eval("#dd-scenario + .dropdown-menu .vc-menu__item", (els) => els.map((e) => `${e.querySelector(".num-badge")?.textContent} ${e.querySelector(".menu-title")?.textContent}`));
+    await page.click('.vc-menu__item[data-id="SC4-WEAR"]');
     checks.scenarioLabel = (await page.textContent("#dd-scenario .value")).trim();
     checks.subtitleAfter = (await page.textContent(".cell-sub")).trim();
     await page.click("#dd-scenario");
-    await page.click('.menu-item[data-id="SC5-EARLY"]');
+    await page.click('.vc-menu__item[data-id="SC5-EARLY"]');
     checks.subtitleSc5 = (await page.textContent(".cell-sub")).trim();
     checks.soeSc5 = (await page.textContent('.lane[data-order="SOE"] .lane-cut')).trim();
     checks.rail = await page.$$eval(".rail-step", (els) => els.map((e) => e.dataset.step).join(","));
@@ -250,7 +269,7 @@ if (wanted("boot")) {
     [checks.bootRemoved, "boot screen removed"],
     [checks.badge === "No run active", "idle badge"],
     [checks.disclosureVisible && /You are interacting with an AI system/.test(checks.disclosure || ""), "AI disclosure visible"],
-    [["Barlow", "Barlow Semi Condensed"].every((f) => (checks.fontsLoaded || []).includes(f)), `self-hosted fonts loaded (${(checks.fontsLoaded || []).join(", ")})`],
+    [["Inter", "Bricolage Grotesque"].every((f) => (checks.fontsLoaded || []).includes(f)), `Vici's self-hosted fonts loaded (${(checks.fontsLoaded || []).join(", ")})`],
     [checks.cellTagVisible && checks.cellTag === "Simulated cell", "the neutral Simulated cell tag"],
     [JSON.stringify(checks.synthetic) === JSON.stringify(["Synthetic"]), `the world model says Synthetic (${JSON.stringify(checks.synthetic)})`],
     [JSON.stringify(checks.lanes) === JSON.stringify(stores) && stores.length === 12, `twelve store lanes with the world's cut-offs (${JSON.stringify(checks.lanes)})`],
@@ -295,7 +314,7 @@ if (wanted("intro")) {
       await page.setViewportSize({ width: w, height: hgt });
       await page.waitForTimeout(150);
       checks.sizes.push(await page.evaluate((size) => {
-        const body = document.querySelector(".intro-modal .modal-body");
+        const body = document.querySelector(".intro-modal .vc-dialog__body");
         const box = body.getBoundingClientRect();
         const real = document.querySelector(".intro-real")?.getBoundingClientRect();
         const win = document.querySelector(".intro-modal").getBoundingClientRect();
@@ -303,7 +322,7 @@ if (wanted("intro")) {
       }, `${w}x${hgt}`));
     }
     await page.setViewportSize(vp);
-    await page.click('.intro-modal .modal-foot button:has-text("Close")');
+    await page.click('.intro-modal .vc-dialog__footer button:has-text("Close")');
     await page.waitForSelector(".intro-modal", { state: "detached", timeout: 3000 });
     checks.flag = await page.evaluate((k) => localStorage.getItem(k), KEYS.introSeen);
     await page.reload();
@@ -317,7 +336,7 @@ if (wanted("intro")) {
     await page.waitForSelector(".intro-modal", { state: "detached", timeout: 3000 });
     checks.focusBack = await page.evaluate(() => document.activeElement?.id);
     await page.click("#btn-about");
-    await page.click('.intro-modal .modal-foot button:has-text("Start agent")');
+    await page.click('.intro-modal .vc-dialog__footer button:has-text("Start agent")');
     await page.waitForSelector(".mode-card", { timeout: 5000 });
     checks.modeChoice = await page.$$eval(".mode-card", (els) => els.map((e) => e.dataset.mode).join(","));
     await page.keyboard.press("Escape");
@@ -371,7 +390,7 @@ if (wanted("modes")) {
     checks.abortFacts = (await page.$$eval("#console .entry .entry-body", (els) => els.at(-1).querySelector(".run-facts")?.textContent || "")).trim();
     // Scenario 2 has its own scripted replay (M4).
     await page.click("#dd-scenario");
-    await page.click('.menu-item[data-id="SC2-GLASS"]');
+    await page.click('.vc-menu__item[data-id="SC2-GLASS"]');
     await page.click("#btn-start");
     await page.waitForSelector(".mode-card", { timeout: 5000 });
     checks.sc2Note = await page.$(".stage-note");
@@ -393,7 +412,7 @@ if (wanted("modes")) {
     await page.click("#btn-abort");
     await waitStatus(page, "Aborted", 5000);
     await page.click("#dd-scenario");
-    await page.click('.menu-item[data-id="SC1-EXPRESS"]');
+    await page.click('.vc-menu__item[data-id="SC1-EXPRESS"]');
     // Live: the key dialog, then the live agent on that key.
     await page.click("#btn-start");
     await page.waitForSelector(".mode-card");
@@ -426,7 +445,7 @@ if (wanted("modes")) {
     // Change or forget the key from the mode choice.
     await page.click("#btn-start");
     await page.waitForSelector("#btn-manage-key", { timeout: 5000 });
-    checks.maskedInFooter = (await page.textContent(".modal-foot .left")).replace(/\s+/g, " ").trim();
+    checks.maskedInFooter = (await page.textContent(".vc-dialog__footer .dialog-note")).replace(/\s+/g, " ").trim();
     await page.click("#btn-manage-key");
     await page.waitForSelector(".key-current", { timeout: 5000 });
     await page.click('button:has-text("Forget key")');
@@ -477,9 +496,9 @@ if (wanted("diag")) {
     checks.off = (await page.textContent('tr[data-test="openfoodfacts"] .detail')).trim();
     checks.privacy = (await page.textContent('tr[data-test="privacy"] .detail')).trim();
     checks.worldChecks = await page.$$eval(".world-checks:not(.script-checks) li", (els) => els.length);
-    checks.worldFails = await page.$$eval(".world-checks .mark-fail", (els) => els.length);
-    checks.scriptRows = await page.$$eval(".script-checks li", (els) => els.map((e) => `${e.dataset.pending === "true" ? "pending" : e.querySelector(".mark-pass") ? "pass" : "fail"}`));
-    checks.footer = await page.$eval(".modal-foot .left", (e) => e.textContent.trim());
+    checks.worldFails = await page.$$eval('.world-checks li[data-ok="false"][data-pending="false"]', (els) => els.length);
+    checks.scriptRows = await page.$$eval(".script-checks li", (els) => els.map((e) => `${e.dataset.pending === "true" ? "pending" : e.dataset.ok === "true" ? "pass" : "fail"}`));
+    checks.footer = await page.$eval(".vc-dialog__footer .dialog-note", (e) => e.textContent.trim());
     checks.requests = stand.seen;
     await shot(page, "05-diagnostics.png");
     checks.remembered = await page.evaluate((k) => JSON.parse(sessionStorage.getItem(k) || "{}").anthropic?.status, KEYS.diagnostics);
@@ -494,7 +513,7 @@ if (wanted("diag")) {
     [/^Live reads are off in this build .* No request is sent\.$/.test(checks.off || ""), `the Open Food Facts row (${checks.off})`],
     [/^Connections limited to api\.anthropic\.com, as configured; no key stored; audit export checked\.$/.test(checks.privacy || ""), `privacy row (${checks.privacy})`],
     [checks.worldChecks === 14 && checks.worldFails === 0, `14 world checks listed, none failing (${checks.worldChecks}, ${checks.worldFails})`],
-    [new RegExp(`^Repack Pilot ${APP.version.replace(/\./g, "\\.")}\\.`).test(checks.footer || "") && APP.version === "0.4.1", `the footer shows the version (${checks.footer})`],
+    [new RegExp(`^Repack Pilot ${APP.version.replace(/\./g, "\\.")}\\.`).test(checks.footer || "") && APP.version === "0.5.0", `the footer shows the version (${checks.footer})`],
     [(checks.requests || []).length === 1 && /^POST \/v1\/messages key=no browser=true$/.test(checks.requests[0]), `one keyless probe with the browser header (${JSON.stringify(checks.requests)})`],
     [checks.remembered === "pass", "the result is remembered for this session"]
   ]);
@@ -514,7 +533,7 @@ if (wanted("drawer")) {
       await page.waitForSelector(`#panel-${id}:not([hidden])`, { timeout: 3000 });
       checks.panels[id] = (await page.textContent(`#panel-${id} ${sel}`)).trim();
     }
-    await page.click(".drawer-end .btn");
+    await page.click(".drawer-toggle");
     // A night stopped by Abort, with a key in this tab that must stay out of the export.
     await startNight(page, { speed: 4 });
     await page.evaluate(async (k) => (await import("./js/keystore.js")).setKey(k), MOCK_KEY);
@@ -546,7 +565,7 @@ if (wanted("drawer")) {
     checks.partialNarration = ev.filter((e) => e.type === "narration" && !e.payload.done).length;
     checks.noKey = !text.includes("MOCKKEY") && !/sk-ant-(?!\[REDACTED\])/.test(text);
     checks.simCell = audit.simulated_cell;
-    await page.click(".drawer-end .btn");
+    await page.click(".drawer-toggle");
     checks.closed = await page.getAttribute("#drawer", "data-open");
   } catch (err) {
     checks.FAILED = String(err.message).split("\n")[0];
@@ -612,7 +631,7 @@ if (wanted("night")) {
       c.tonightHead = (await page.textContent(".kb-table thead th:nth-child(3)")).trim();
       c.tonightTitle = await page.getAttribute(".kb-table thead th:nth-child(3)", "title");
       if (speed === 4) await shot(page, "11-night-end-kpiboard.png");
-      await page.click(".drawer-end .btn");
+      await page.click(".drawer-toggle");
       // Rate: simulated minutes per real second between 22:50 and 01:50 (no wake-up in that stretch),
       // the slope from the first to the last sample in it.
       const mins = (x) => { const m = /^(\d\d):(\d\d)/.exec(x); if (!m) return null; const v = Number(m[1]) * 60 + Number(m[2]); return v >= 22 * 60 ? v - 22 * 60 : v + 120; };
@@ -749,6 +768,160 @@ if (wanted("board")) {
   ]);
 }
 
+// ---- byline: Vici's byline in the drawer bar ---------------------------------------------------------
+if (wanted("byline")) {
+  const t = await newPage();
+  const { page } = t;
+  const checks = {};
+  try {
+    await boot(page);
+    await page.waitForFunction(() => [...document.querySelectorAll(".drawer-tabs .vc-byline img")].every((i) => i.complete), null, { timeout: 5000 });
+    checks.byline = await page.evaluate(() => {
+      const b = document.querySelector(".drawer-tabs .vc-byline");
+      if (!b) return null;
+      const img = (sel) => b.querySelector(sel);
+      return {
+        label: b.querySelector(".vc-byline__label")?.textContent,
+        name: b.querySelector(".vc-byline__person .vc-byline__name")?.textContent,
+        portrait: img(".vc-byline__person .vc-avatar.vc-avatar--xs > img")?.getAttribute("src"),
+        portraitShown: img(".vc-avatar > img")?.naturalWidth || 0,
+        mark: img(".vc-byline__links a .vc-platform-mark")?.getAttribute("src"),
+        markShown: img(".vc-byline__links a .vc-platform-mark")?.naturalWidth || 0,
+        globe: !!b.querySelector('.vc-byline__links a .vc-icon.vc-icon--globe-hex[aria-hidden="true"]'),
+        links: [...b.querySelectorAll("a")].map((a) => {
+          const r = a.getBoundingClientRect();
+          return { href: a.getAttribute("href"), target: a.target, rel: a.rel, label: a.getAttribute("aria-label"), w: Math.round(r.width), h: Math.round(r.height) };
+        })
+      };
+    });
+    // The app links to its author, never to its own source code.
+    checks.sourceLinks = await page.evaluate(() => [...document.querySelectorAll("a[href]")].map((a) => a.getAttribute("href")).filter((href) => /github\.com/i.test(href)));
+    await shot(page, "20-byline.png");
+  } catch (err) {
+    checks.FAILED = String(err.message).split("\n")[0];
+    await shot(page, "byline-fail.png");
+  }
+  const b = checks.byline || {};
+  const links = b.links || [];
+  await finish("byline: Vici's byline in the drawer bar", t, checks, [
+    [b.label === "Built by" && b.name === "Victor Pflüger", "Built by, then Victor's name"],
+    [b.portrait === "vici/assets/brand/portrait-96.jpg" && b.portraitShown > 0, "his hexagon portrait, Vici's file"],
+    [b.mark === "vici/assets/marks/linkedin.png" && b.markShown > 0 && b.globe, "LinkedIn's own logo file and the website's globe"],
+    [links.length === 2 && links[0].href === "https://www.linkedin.com/in/victorpflueger" && links[1].href === "https://victorpflueger.github.io/VIP/index.html"
+      && links.every((l) => l.target === "_blank" && l.rel === "author noopener" && /\(opens in a new tab\)$/.test(l.label || "")), "LinkedIn and the website, each in a new tab and named for screen readers"],
+    [links.length === 2 && links.every((l) => l.w >= 44 && l.h >= 44), `both links are 44 px targets (${links.map((l) => `${l.w}×${l.h}`).join(", ")})`],
+    [Array.isArray(checks.sourceLinks) && !checks.sourceLinks.length, `no link to the source code in the app (${checks.sourceLinks})`]
+  ]);
+}
+
+// ---- once: every control does its job exactly once ----------------------------------------------------
+// vici.js acts on some controls by itself (the theme toggle, tooltips, a dialog's backdrop, toggle
+// classes); the app owns the others. A control both act on would flip twice and look unchanged, which
+// a plain click test misses: each control is clicked once, then again, and must change exactly once.
+if (wanted("once")) {
+  const t = await newPage();
+  const { page } = t;
+  const checks = {};
+  // Each state is read in one go after two frames, so a redraw the click scheduled has happened and a
+  // second flip would show.
+  const settled = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  const read = async (fn) => { await settled(); return page.evaluate(fn); };
+  try {
+    await boot(page);
+    // The theme toggle (vici.js's): light, then dark, then light, remembered under vc-theme.
+    const theme = () => read(() => `${document.documentElement.dataset.theme}:${document.querySelector("[data-vc-theme-toggle]").getAttribute("aria-pressed")}:${localStorage.getItem("vc-theme")}`);
+    checks.theme = [await theme()];
+    await page.click("[data-vc-theme-toggle]");
+    checks.theme.push(await theme());
+    await page.click("[data-vc-theme-toggle]");
+    checks.theme.push(await theme());
+    // Larger text (the app's): on, then off.
+    const text = () => read(() => `${document.querySelector("#console").dataset.text}:${document.querySelector("#console .text-size").getAttribute("aria-pressed")}`);
+    checks.text = [await text()];
+    await page.click("#console .text-size");
+    checks.text.push(await text());
+    await page.click("#console .text-size");
+    checks.text.push(await text());
+    // The Customer and Full switch (the app's group of toggle buttons): one pressed, the view it names.
+    const view = () => read(() => `${document.body.dataset.view}:${[...document.querySelectorAll(".view-switch button")].map((b) => b.getAttribute("aria-pressed")).join(":")}`);
+    checks.view = [await view()];
+    await page.click('button[aria-label="Customer view"]');
+    checks.view.push(await view());
+    await page.click('button[aria-label="Full view"]');
+    checks.view.push(await view());
+    // The autonomy dial (the app's): Advise, then Approve again.
+    const dial = () => read(() => [...document.querySelectorAll(".autonomy-dial button")].filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.dataset.level).join(","));
+    checks.dial = [await dial()];
+    await page.click('.autonomy-dial button[data-level="advise"]');
+    checks.dial.push(await dial());
+    await page.click('.autonomy-dial button[data-level="approve"]');
+    checks.dial.push(await dial());
+    // The night speed (the app's group of toggle buttons): one pressed, the one clicked.
+    await page.click('button[aria-label="Night speed ×2"]');
+    checks.speed = await read(() => [...document.querySelectorAll('.controls .segmented[aria-label="Night speed"] button')].filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.textContent));
+    // A drawer tab opens the drawer; the open tab, clicked again, closes it (and is no longer selected).
+    const drawer = () => read(() => `${document.querySelector("#drawer").dataset.open}:${document.querySelector("#tab-audit").getAttribute("aria-selected")}`);
+    await page.click("#tab-audit");
+    checks.drawer = [await drawer()];
+    await page.click("#tab-audit");
+    checks.drawer.push(await drawer());
+    // A dialog is the app's, not vici.js's (data-vc-dismissable="false"): a press on its backdrop closes
+    // and removes it (had vici.js closed it, the closed dialog would stay in the page); so does Escape,
+    // which gives the focus back to the button that opened it.
+    await page.click("#btn-diagnostics");
+    await page.waitForSelector("dialog.vc-dialog[open]");
+    checks.owner = await page.$eval("dialog.vc-dialog[open]", (d) => d.dataset.vcDismissable);
+    await page.mouse.click(8, 540);
+    await page.waitForTimeout(300);
+    checks.backdrop = await read(() => document.querySelectorAll("dialog.vc-dialog").length);
+    await page.click("#btn-about");
+    await page.waitForSelector(".intro-modal[open]");
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(300);
+    checks.escape = await read(() => `${document.querySelectorAll("dialog.vc-dialog").length}:${document.activeElement?.id}`);
+    // Tooltips: each anchor has one tooltip, and vici.js has bound every one (it makes a bound tooltip a
+    // manual popover, and binds each only once), the app's own included; a hover opens exactly one.
+    checks.tooltips = await page.evaluate(() => {
+      const anchors = [...document.querySelectorAll(".vc-tooltip-anchor")];
+      const tips = anchors.map((a) => a.querySelectorAll(":scope > .vc-tooltip"));
+      return { anchors: anchors.length, single: tips.every((t) => t.length === 1), bound: tips.filter((t) => t[0]?.getAttribute("popover") === "manual").length };
+    });
+    await page.hover("[data-vc-theme-toggle]");
+    await page.waitForTimeout(400);
+    checks.tooltipOpen = await page.evaluate(() => [...document.querySelectorAll(".vc-tooltip")].filter((t) => t.matches(":popover-open")).map((t) => t.textContent));
+    await page.mouse.move(960, 700);
+    // The key field's Show key button (the app's): shown, then masked again.
+    await page.click("#btn-start");
+    await page.waitForSelector(".mode-card");
+    await page.click('.mode-card[data-mode="live"] .mode-cta button');
+    await page.waitForSelector("#api-key-input");
+    const field = () => read(() => document.querySelector("#api-key-input").type);
+    const show = page.locator(".input-row .vc-icon-button");
+    checks.keyField = [await field()];
+    await show.click();
+    checks.keyField.push(await field());
+    await show.click();
+    checks.keyField.push(await field());
+    await page.keyboard.press("Escape");
+  } catch (err) {
+    checks.FAILED = String(err.message).split("\n")[0];
+    await shot(page, "once-fail.png");
+  }
+  const seq = (xs, want) => JSON.stringify(xs) === JSON.stringify(want);
+  await finish("once: every control does its job exactly once", t, checks, [
+    [seq(checks.theme, ["light:false:null", "dark:true:dark", "light:false:light"]), `the theme toggle switches once per click and remembers it (${checks.theme})`],
+    [seq(checks.text, ["standard:false", "large:true", "standard:false"]), `Larger text switches once per click (${checks.text})`],
+    [seq(checks.view, ["full:false:true", "customer:true:false", "full:false:true"]), `the Customer and Full switch changes the view once (${checks.view})`],
+    [seq(checks.dial, ["approve", "advise", "approve"]), `the autonomy dial switches once per click (${checks.dial})`],
+    [seq(checks.speed, ["×2"]), `one night speed pressed, the one clicked (${checks.speed})`],
+    [seq(checks.drawer, ["true:true", "false:false"]), `a tab opens the drawer, the open tab closes it (${checks.drawer})`],
+    [checks.owner === "false" && checks.backdrop === 0 && checks.escape === "0:btn-about", `a dialog closes once, by the app, on its backdrop or Escape, and Escape gives the focus back (${checks.owner}, ${checks.backdrop}, ${checks.escape})`],
+    [checks.tooltips?.anchors > 0 && checks.tooltips.single && checks.tooltips.bound === checks.tooltips.anchors && seq(checks.tooltipOpen, ["Dark theme"]),
+      `every tooltip is bound, and a hover opens one (${JSON.stringify(checks.tooltips)}, ${checks.tooltipOpen})`],
+    [seq(checks.keyField, ["password", "text", "password"]), `Show key shows and hides once per click (${checks.keyField})`]
+  ]);
+}
+
 // ---- kpi: the KPI board and the Assumptions tab ------------------------------------------------------------------
 if (wanted("kpi")) {
   const t = await newPage();
@@ -769,7 +942,7 @@ if (wanted("kpi")) {
     checks.refused = { msg: (await page.textContent('tr[data-param="p"] .as-msg')).trim(), invalid: await page.getAttribute("#as-p", "aria-invalid"), stored: await page.evaluate(() => sessionStorage.getItem("rp.assumptions")) };
     await page.fill("#as-p", "0.70");
     await page.press("#as-p", "Enter");
-    checks.changedChip = await page.isVisible('tr[data-param="p"] .chip');
+    checks.changedChip = await page.isVisible('tr[data-param="p"] th .vc-tag');
     checks.stored = await page.evaluate(() => sessionStorage.getItem("rp.assumptions"));
     await shot(page, "14-assumptions.png");
     await page.click("#tab-kpiboard");
@@ -838,7 +1011,7 @@ if (wanted("yourdc")) {
     await page.press("#kb-dc-c", "Enter");
     checks.refused = { msg: (await page.textContent(".kb-dc-field:has(#kb-dc-c) .kb-dc-msg")).trim(), invalid: await page.getAttribute("#kb-dc-c", "aria-invalid") };
     await page.click("#tab-assumptions");
-    checks.assumption = { value: await page.inputValue("#as-N"), chip: await page.isVisible('tr[data-param="N"] .chip') };
+    checks.assumption = { value: await page.inputValue("#as-N"), chip: await page.isVisible('tr[data-param="N"] th .vc-tag') };
     await page.click("#tab-audit");
     checks.audit = await page.$$eval('.audit-table tr[data-type="assumption_change"] td.s', (els) => els.map((e) => e.textContent.trim()));
     await page.click("#tab-kpiboard");
@@ -867,7 +1040,8 @@ if (wanted("dial")) {
   const t = await newPage();
   const { page } = t;
   const checks = {};
-  const dial = () => page.$$eval(".autonomy-dial button", (els) => els.map((b) => ({ level: b.dataset.level, pressed: b.getAttribute("aria-pressed"), locked: b.dataset.locked === "true", disabled: b.getAttribute("aria-disabled") === "true", label: b.getAttribute("aria-label"), title: b.title })));
+  // A button's name: its aria-label, or the Vici tooltip that names it (aria-labelledby).
+  const dial = () => page.$$eval(".autonomy-dial button", (els) => els.map((b) => ({ level: b.dataset.level, pressed: b.getAttribute("aria-pressed"), locked: b.dataset.locked === "true", disabled: b.getAttribute("aria-disabled") === "true", label: b.getAttribute("aria-label") || document.getElementById(b.getAttribute("aria-labelledby") || "")?.textContent || null, title: b.title })));
   try {
     await boot(page);
     checks.idle = await dial();
@@ -889,17 +1063,17 @@ if (wanted("dial")) {
     checks.advise = { pressed: (await dial()).find((d) => d.level === "advise")?.pressed, stored: await page.evaluate(() => sessionStorage.getItem("rp.autonomy")) };
     await page.click("#tab-audit");
     checks.auditBefore = await page.$$eval('.audit-table tr[data-type="autonomy_change"] td.s', (els) => els.map((e) => e.textContent.trim()));
-    await page.click(".drawer-end .btn").catch(() => {});
+    await page.click(".drawer-toggle").catch(() => {});
     await startNight(page, { speed: 4 });
     await dismissBanners(page);
     checks.running = await dial();
     // The run keeps its level: a click during the run changes nothing.
     await page.click('.autonomy-dial button[data-level="approve"]', { force: true });
     checks.runningAfterClick = (await dial()).find((d) => d.level === "advise")?.pressed;
-    await page.waitForSelector('.option-card[data-id="B"] .btn-approve', { timeout: 300000 });
-    checks.button = (await page.textContent('.option-card[data-id="B"] .btn-approve')).trim();
+    await page.waitForSelector('.option-card[data-id="B"] [data-action="approve"]', { timeout: 300000 });
+    checks.button = (await page.textContent('.option-card[data-id="B"] [data-action="approve"]')).trim();
     checks.note = (await page.textContent("#panel-options .options-advise")).replace(/\s+/g, " ").trim();
-    await page.click('.option-card[data-id="B"] .btn-approve');
+    await page.click('.option-card[data-id="B"] [data-action="approve"]');
     await page.waitForSelector('.option-card[data-id="B"][data-status="approved"]', { state: "attached", timeout: 10000 });
     checks.status = (await page.textContent('.option-card[data-id="B"] .option-status')).trim();
     await page.waitForSelector("#btn-approve-all", { timeout: 60000 });
@@ -1064,7 +1238,7 @@ if (wanted("worldnight")) {
     await page.click('button[aria-label="Customer view"]');
     await page.waitForSelector("#ws-confirm", { timeout: 120000 });
     checks.unknown = await read();
-    checks.consoleCard = await page.isVisible("#console .confirm-actions .btn-approve");
+    checks.consoleCard = await page.isVisible("#console .confirm-actions [data-action='approve']");
     await shot(page, "18-customer-confirm.png");
     await page.click("#ws-confirm");
     await page.waitForSelector("#console .confirm-card .option-status", { state: "attached", timeout: 10000 });
@@ -1122,8 +1296,8 @@ if (wanted("worldnight")) {
 
 // ---- contrast: every visible text meets its WCAG 2.2 contrast duty (tests/lib/contrast.mjs) -------------
 if (wanted("contrast")) {
-  for (const [w, hgt] of [[1920, 1080], [1280, 720]]) {
-    const t = await newPage({ intro: true, viewport: { width: w, height: hgt }, anthropic: anthropicStandIn() });
+  for (const theme of ["light", "dark"]) for (const [w, hgt] of [[1920, 1080], [1280, 720]]) {
+    const t = await newPage({ intro: true, viewport: { width: w, height: hgt }, anthropic: anthropicStandIn(), theme });
     const { page } = t;
     const checks = { states: {} };
     const measure = async (state) => { await settle(page); checks.states[state] = await contrastShortfalls(page); };
@@ -1146,7 +1320,7 @@ if (wanted("contrast")) {
         await page.waitForTimeout(150);
         await measure(`drawer ${tab}`);
       }
-      await page.click(".drawer-end .btn");
+      await page.click(".drawer-toggle");
       await page.click("#btn-start");
       await page.waitForSelector(".mode-card", { timeout: 5000 });
       await measure("mode choice");
@@ -1175,49 +1349,51 @@ if (wanted("contrast")) {
       await page.waitForTimeout(400);
       await measure("night, drawer open");
       // 02:00: the options in the drawer, then the drafts in the Outbox with the console's notice.
-      await page.waitForSelector('.option-card[data-id="B"] .btn-approve', { timeout: 120000 });
+      await page.waitForSelector('.option-card[data-id="B"] [data-action="approve"]', { timeout: 120000 });
       await measure("options");
-      await page.click('.option-card[data-id="B"] .btn-approve');
+      await page.click('.option-card[data-id="B"] [data-action="approve"]');
       await page.waitForSelector("#btn-approve-all", { timeout: 60000 });
       await page.waitForSelector('#console .entry[data-type="notice"]', { timeout: 10000 });
       await measure("drafts and notice");
       await page.click("#btn-approve-all");
       await waitStatus(page, "Done", 120000);
-      await page.click(".drawer-end .btn");
+      await page.click(".drawer-toggle");
       await measure("night end, summary and run facts");
       await page.click("#btn-open-report");
       await page.waitForSelector(".report-modal", { timeout: 5000 });
       await measure("management summary");
       await page.keyboard.press("Escape");
       await page.waitForSelector(".report-modal", { state: "detached", timeout: 3000 });
-      // Control: faint text on the app background (porcelain) measures 4.44:1, a known gap in the
-      // shared palette (Rebate Hunter REVIEW W9). The measure has to catch it.
+      // Control: text in Vici's strong border grey on the page's background falls short of 4.5:1
+      // (CONTROL_RATIO). The measure has to catch it at that ratio.
       checks.control = await page.evaluate(() => {
         const probe = document.createElement("p");
         probe.textContent = "Contrast control";
-        Object.assign(probe.style, { position: "fixed", left: "0", top: "0", margin: "0", padding: "4px", fontSize: "14px", fontWeight: "400", color: "var(--text-faint)", background: "var(--porcelain)", zIndex: "9999" });
+        Object.assign(probe.style, { position: "fixed", left: "0", top: "0", margin: "0", padding: "4px", fontSize: "14px", fontWeight: "400", color: "var(--vc-border-strong)", background: "var(--vc-bg)", zIndex: "9999" });
         document.body.append(probe);
         return probe.getBoundingClientRect().width > 0;
       });
       checks.controlFound = (await contrastShortfalls(page)).below.filter((s) => s.text === "Contrast control");
     } catch (err) {
       checks.FAILED = String(err.message).split("\n")[0];
-      await shot(page, `contrast-fail-${w}.png`);
+      await shot(page, `contrast-fail-${theme}-${w}.png`);
     }
     const below = Object.entries(checks.states).flatMap(([state, r]) => r.below.map((s) => `${state}: "${s.text}" ${s.ratio}:1 (needs ${s.need}) ${s.color} on ${s.bg}`));
     const thin = Object.entries(checks.states).filter(([, r]) => r.measured < 5).map(([state, r]) => `${state} (${r.measured})`);
-    await finish(`contrast: every visible text meets its duty at ${w}×${hgt}`, t, checks, [
+    checks.theme = await t.page.evaluate(() => document.documentElement.dataset.theme || "light").catch(() => null);
+    await finish(`contrast: every visible text meets its duty at ${w}×${hgt}, ${theme} theme`, t, checks, [
+      [checks.theme === theme, `the page is in the ${theme} theme (${checks.theme})`],
       [Object.keys(checks.states).length === 17 && thin.length === 0, `seventeen states, each with at least five text elements measured (${Object.entries(checks.states).map(([k, r]) => `${k} ${r.measured}`).join(", ")})`],
       [below.length === 0, `text below its duty: ${JSON.stringify(below)}`],
-      [checks.control && checks.controlFound?.length === 1 && checks.controlFound[0].ratio === 4.44, `the control is caught at 4.44:1 (${JSON.stringify(checks.controlFound)})`]
+      [checks.control && checks.controlFound?.length === 1 && checks.controlFound[0].ratio === CONTROL_RATIO[theme], `the control is caught at ${CONTROL_RATIO[theme]}:1 (${JSON.stringify(checks.controlFound)})`]
     ]);
   }
 }
 
 // ---- contrast in the Customer view: the world model and What it is worth at every moment of scenario 3 ------
 if (wanted("contrast-customer")) {
-  for (const [w, hgt] of [[1920, 1080], [1280, 720]]) {
-    const t = await newPage({ customer: true, viewport: { width: w, height: hgt } });
+  for (const theme of ["light", "dark"]) for (const [w, hgt] of [[1920, 1080], [1280, 720]]) {
+    const t = await newPage({ customer: true, viewport: { width: w, height: hgt }, theme });
     const { page } = t;
     const checks = { states: {} };
     const measure = async (state) => { await settle(page); checks.states[state] = await contrastShortfalls(page); };
@@ -1240,42 +1416,48 @@ if (wanted("contrast-customer")) {
       checks.controlProbe = await page.evaluate(() => {
         const probe = document.createElement("p");
         probe.textContent = "Contrast control";
-        Object.assign(probe.style, { position: "fixed", left: "0", top: "0", margin: "0", padding: "4px", fontSize: "14px", fontWeight: "400", color: "var(--text-faint)", background: "var(--porcelain)", zIndex: "9999" });
+        Object.assign(probe.style, { position: "fixed", left: "0", top: "0", margin: "0", padding: "4px", fontSize: "14px", fontWeight: "400", color: "var(--vc-border-strong)", background: "var(--vc-bg)", zIndex: "9999" });
         document.body.append(probe);
         return probe.getBoundingClientRect().width > 0;
       });
       checks.controlFound = (await contrastShortfalls(page)).below.filter((s) => s.text === "Contrast control");
     } catch (err) {
       checks.FAILED = String(err.message).split("\n")[0];
-      await shot(page, `contrast-customer-fail-${w}.png`);
+      await shot(page, `contrast-customer-fail-${theme}-${w}.png`);
     }
     const below = Object.entries(checks.states).flatMap(([state, r]) => r.below.map((s) => `${state}: "${s.text}" ${s.ratio}:1 (needs ${s.need}) ${s.color} on ${s.bg}`));
     const thin = Object.entries(checks.states).filter(([, r]) => r.measured < 20).map(([state, r]) => `${state} (${r.measured})`);
-    await finish(`contrast-customer: every visible text of the Customer view meets its duty at ${w}×${hgt}`, t, checks, [
+    checks.theme = await t.page.evaluate(() => document.documentElement.dataset.theme || "light").catch(() => null);
+    await finish(`contrast-customer: every visible text of the Customer view meets its duty at ${w}×${hgt}, ${theme} theme`, t, checks, [
+      [checks.theme === theme, `the page is in the ${theme} theme (${checks.theme})`],
       [Object.keys(checks.states).length === 5 && thin.length === 0, `five states, each with at least twenty text elements measured (${Object.entries(checks.states).map(([k, r]) => `${k} ${r.measured}`).join(", ")})`],
       [below.length === 0, `text below its duty: ${JSON.stringify(below)}`],
-      [checks.controlProbe && checks.controlFound?.length === 1 && checks.controlFound[0].ratio === 4.44, `the control is caught at 4.44:1 (${JSON.stringify(checks.controlFound)})`]
+      [checks.controlProbe && checks.controlFound?.length === 1 && checks.controlFound[0].ratio === CONTROL_RATIO[theme], `the control is caught at ${CONTROL_RATIO[theme]}:1 (${JSON.stringify(checks.controlFound)})`]
     ]);
   }
 }
 
 // ---- csp: the policy blocks any other host ------------------------------------------------------------------
 if (wanted("csp")) {
-  const t = await newPage();
-  const { page } = t;
-  const checks = {};
-  try {
-    await boot(page);
-    checks.result = await page.evaluate(() => fetch("https://example.com/").then(() => "fetched", (e) => String(e)));
-    await page.waitForTimeout(200);
-    checks.csp = await page.evaluate(() => window.__csp.slice());
-  } catch (err) {
-    checks.FAILED = String(err.message).split("\n")[0];
+  for (const theme of ["light", "dark"]) {
+    const t = await newPage({ theme });
+    const { page } = t;
+    const checks = {};
+    try {
+      await boot(page);
+      checks.theme = await page.evaluate(() => document.documentElement.dataset.theme || "light");
+      checks.result = await page.evaluate(() => fetch("https://example.com/").then(() => "fetched", (e) => String(e)));
+      await page.waitForTimeout(200);
+      checks.csp = await page.evaluate(() => window.__csp.slice());
+    } catch (err) {
+      checks.FAILED = String(err.message).split("\n")[0];
+    }
+    await finish(`csp: connections to any other host are blocked, ${theme} theme`, t, checks, [
+      [checks.theme === theme, `the page is in the ${theme} theme (${checks.theme})`],
+      [/Failed to fetch/.test(checks.result || ""), "the fetch fails"],
+      [(checks.csp || []).some((c) => /^connect-src https:\/\/example\.com/.test(c)), `the page's policy reported it (${JSON.stringify(checks.csp)})`]
+    ], { allowCsp: /^connect-src https:\/\/example\.com/, allowConsole: /Content Security Policy|example\.com/ });
   }
-  await finish("csp: connections to any other host are blocked", t, checks, [
-    [/Failed to fetch/.test(checks.result || ""), "the fetch fails"],
-    [(checks.csp || []).some((c) => /^connect-src https:\/\/example\.com/.test(c)), `the page's policy reported it (${JSON.stringify(checks.csp)})`]
-  ], { allowCsp: /^connect-src https:\/\/example\.com/, allowConsole: /Content Security Policy|example\.com/ });
 }
 
 // ---- file: opened from disk ----------------------------------------------------------------------------------

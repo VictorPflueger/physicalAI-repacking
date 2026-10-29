@@ -3,7 +3,7 @@
 // with the cell once the night's plan stands, with the figure by hand and the saving beneath (−64 % at
 // the defaults); all come from the engine with the run's inputs, or the presenter's between runs. Store orders on time counts orders on their truck plus orders
 // projected to make it with more than the risk band (15 minutes) to spare; an order inside the band is
-// named beneath as at risk and not counted (amber), one whose truck left without it as late (red).
+// named beneath as at risk and not counted (warning), one whose truck left without it as late (danger).
 
 import { bus } from "./events.js";
 import { h } from "./dom.js";
@@ -16,10 +16,11 @@ import { awaitedStep, onAwaitedChange } from "./handover.js";
 
 export function createKpis(container, { getInputs, getNightState = () => null, getSpeed = () => 1, nightDate = () => null } = {}) {
   const make = (id, label, sub) => {
-    const value = h("div", { class: "kpi-value", id: `kpi-${id}-value` }, "—");
-    const subEl = h("div", { class: "kpi-sub", id: `kpi-${id}-sub` }, sub);
-    const el = h("div", { class: "kpi", id: `kpi-${id}`, dataset: { tone: "muted" }, role: "group", "aria-label": label },
-      h("div", { class: "kpi-label" }, label), value, subEl);
+    // Vici's stat card; a tile that shows a state takes that state's tone (css/style.css).
+    const value = h("div", { class: "vc-stat__value kpi-value", id: `kpi-${id}-value` }, "—");
+    const subEl = h("div", { class: "vc-stat__note kpi-sub", id: `kpi-${id}-sub` }, sub);
+    const el = h("div", { class: "vc-stat kpi", id: `kpi-${id}`, dataset: { tone: "muted" }, role: "group", "aria-label": label },
+      h("div", { class: "vc-stat__label kpi-label" }, label), value, subEl);
     container.appendChild(el);
     return { el, value, sub: subEl };
   };

@@ -81,7 +81,7 @@ async function newLivePage(fake, { viewport = { width: 1920, height: 1080 } } = 
 async function startLive(page, id = null) {
   await page.goto(BASE);
   await page.waitForSelector('html[data-boot="ready"]', { timeout: 20000 });
-  if (id) { await page.click("#dd-scenario"); await page.click(`.menu-item[data-id="${id}"]`); }
+  if (id) { await page.click("#dd-scenario"); await page.click(`.vc-menu__item[data-id="${id}"]`); }
   await page.click('button[aria-label="Night speed ×4"]');
   await page.click("#btn-start");
   await page.waitForSelector(".mode-card", { timeout: 5000 });
@@ -138,9 +138,9 @@ if (wanted("full")) {
     checks.watermark = await page.isVisible("#console .sim-watermark");
     checks.cellTag = (await page.textContent(".sim-cell-tag")).trim();
     checks.disclosure = await page.isVisible(".ai-disclosure");
-    await page.waitForSelector('#panel-options:not([hidden]) .option-card[data-id="B"] .btn-approve', { timeout: 180000 });
+    await page.waitForSelector('#panel-options:not([hidden]) .option-card[data-id="B"] [data-action="approve"]', { timeout: 180000 });
     checks.cards = await page.$$eval("#panel-options .option-card", (els) => els.map((e) => `${e.dataset.id} ${e.querySelector(".option-total .value")?.textContent.trim()}${e.dataset.recommended === "true" ? " recommended" : ""}`));
-    await page.click('.option-card[data-id="B"] .btn-approve');
+    await page.click('.option-card[data-id="B"] [data-action="approve"]');
     await page.waitForSelector("#btn-approve-all", { timeout: 120000 });
     checks.drafts = await page.$$eval("#panel-outbox .action-card", (els) => els.map((e) => e.dataset.type));
     await page.click("#btn-approve-all");
@@ -160,7 +160,7 @@ if (wanted("full")) {
     await page.keyboard.press("Escape");
     await page.waitForSelector(".report-modal", { state: "detached", timeout: 3000 });
     // The drawer closed and its slide over: the end state as the room sees it.
-    if ((await page.getAttribute("#drawer", "data-open")) === "true") await page.click(".drawer-end .btn");
+    if ((await page.getAttribute("#drawer", "data-open")) === "true") await page.click(".drawer-toggle");
     await settle(page);
     const contrast = await contrastShortfalls(page);
     checks.contrastMeasured = contrast.measured;
@@ -235,7 +235,7 @@ async function liveScenarioCase(name, id, plan, label) {
     checks.badge = (await page.textContent("#mode-badge")).trim();
     checks.lanes = Object.fromEntries(await page.$$eval(".lane", (els) => els.map((e) => [e.dataset.order, e.dataset.state])));
     checks.tile = (await page.textContent("#kpi-ontime-value")).trim();
-    if ((await page.getAttribute("#drawer", "data-open")) === "true") await page.click(".drawer-end .btn");
+    if ((await page.getAttribute("#drawer", "data-open")) === "true") await page.click(".drawer-toggle");
     const { audit } = await exportAudit(page);
     checks.hash = audit.run?.night_hash;
     checks.runStatus = audit.run?.status;
@@ -283,8 +283,8 @@ if (wanted("recorder")) {
   try {
     await startLive(page);
     await fastNight(page);
-    await page.waitForSelector('#panel-options:not([hidden]) .option-card[data-id="B"] .btn-approve', { timeout: 180000 });
-    await page.click('.option-card[data-id="B"] .btn-approve');
+    await page.waitForSelector('#panel-options:not([hidden]) .option-card[data-id="B"] [data-action="approve"]', { timeout: 180000 });
+    await page.click('.option-card[data-id="B"] [data-action="approve"]');
     await page.waitForSelector("#btn-approve-all", { timeout: 120000 });
     await page.click("#btn-approve-all");
     await waitEnded(page);
@@ -353,8 +353,8 @@ if (wanted("recorder")) {
       await pg.waitForSelector(".mode-card", { timeout: 5000 });
       await pg.click('.mode-card[data-mode="simulation"] .mode-cta button');
       await fastNight(pg);
-      await pg.waitForSelector(`#panel-options:not([hidden]) .option-card[data-id="${option}"] .btn-approve`, { timeout: 180000 });
-      await pg.click(`.option-card[data-id="${option}"] .btn-approve`);
+      await pg.waitForSelector(`#panel-options:not([hidden]) .option-card[data-id="${option}"] [data-action="approve"]`, { timeout: 180000 });
+      await pg.click(`.option-card[data-id="${option}"] [data-action="approve"]`);
       if (option === "B") { await pg.waitForSelector("#btn-approve-all", { timeout: 60000 }); await pg.click("#btn-approve-all"); }
       await pg.waitForFunction(() => ["Done", "Stopped", "Error"].includes(document.querySelector(".status-pill .text")?.textContent.trim()), null, { timeout: 240000 });
       out.status = (await pg.textContent(".status-pill .text")).trim();

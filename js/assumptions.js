@@ -12,6 +12,7 @@ import { h, clear } from "./dom.js";
 import { PARAMETERS, defaults, NIGHT_INPUTS } from "./engine.js";
 import { fixed, int } from "./format.js";
 import { WEIGHT_TOLERANCE } from "./nightsim.js";
+import { tag, basisTag } from "./tags.js";
 
 export { NIGHT_INPUTS };
 
@@ -63,7 +64,7 @@ export function createAssumptions(panel, { getOverrides, setOverrides, getNightI
     const over = getOverrides();
     const values = { ...defaults(), ...over };
     clear(root);
-    const resetBtn = h("button", { class: "btn", type: "button", id: "btn-reset-assumptions" }, "Reset to defaults");
+    const resetBtn = h("button", { class: "vc-button vc-button--outline", type: "button", id: "btn-reset-assumptions" }, "Reset to defaults");
     resetBtn.disabled = Object.keys(over).length === 0;
     resetBtn.addEventListener("click", () => {
       const changed = Object.keys(over);
@@ -76,11 +77,11 @@ export function createAssumptions(panel, { getOverrides, setOverrides, getNightI
         h("div", {}, h("h3", {}, "Assumptions"),
           h("p", {}, "Every input of the engine, with its source key or the label Assumption. Change one and the plan follows at once; the night simulation takes r_m, r_c, p and the call-in minimum from the next night on. Every change is in the audit.")),
         resetBtn),
-      h("table", { class: "as-table" },
+      h("div", { class: "vc-table-wrap as-wrap" }, h("table", { class: "vc-table vc-table--compact as-table" },
         h("thead", {}, h("tr", {}, h("th", { scope: "col" }, "Input"), h("th", { scope: "col" }, "Value"), h("th", { scope: "col" }, "Unit"), h("th", { scope: "col" }, "Basis"))),
         h("tbody", {}, PARAMETERS.map((p) => {
           const input = h("input", {
-            class: "input as-input", type: "number", id: `as-${p.id}`, step: String(p.step), min: String(p.min), max: String(p.max),
+            class: "vc-input as-input", type: "number", id: `as-${p.id}`, step: String(p.step), min: String(p.min), max: String(p.max),
             value: String(values[p.id]), "aria-label": `${p.label} (${p.unit})`, inputmode: "decimal"
           });
           const msg = h("span", { class: "as-msg", role: "status" });
@@ -102,11 +103,11 @@ export function createAssumptions(panel, { getOverrides, setOverrides, getNightI
           input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); commit(); } });
           const changed = over[p.id] !== undefined;
           return h("tr", { dataset: { changed: changed ? "true" : "false", param: p.id } },
-            h("th", { scope: "row" }, h("span", { class: "as-label" }, p.label), h("span", { class: "as-id" }, p.id), changed ? h("span", { class: "chip", dataset: { tone: "person" } }, "changed") : null),
+            h("th", { scope: "row" }, h("span", { class: "as-label" }, p.label), h("span", { class: "as-id" }, p.id), changed ? tag("changed", "person") : null),
             h("td", {}, input, msg),
             h("td", { class: "as-unit" }, p.unit),
-            h("td", {}, h("span", { class: "kb-key", dataset: { kind: p.basis === "Assumption" ? "assumption" : p.basis === "Brief" ? "brief" : "source" } }, p.basis), h("span", { class: "as-note" }, p.note)));
-        }))),
+            h("td", {}, basisTag(p.basis), h("span", { class: "as-note" }, p.note)));
+        })))),
       nightParameters());
   }
 
@@ -132,7 +133,7 @@ export function createAssumptions(panel, { getOverrides, setOverrides, getNightI
       ...Object.entries(n.cutoffs || {}).map(([id, time]) => ["Earlier cut-off", `${storeName(id)} at ${time}`, "Assumption"]),
       sc ? ["Seed", `${n.seed}: the same seed replays the same night`, "Synthetic"] : null
     ].filter(Boolean);
-    const list = (items) => h("dl", {}, items.flatMap(([k, val, b]) => [h("dt", {}, k), h("dd", {}, val, " ", h("span", { class: "kb-key", dataset: { kind: b.toLowerCase() } }, b))]));
+    const list = (items) => h("dl", {}, items.flatMap(([k, val, b]) => [h("dt", {}, k), h("dd", {}, val, " ", basisTag(b))]));
     return h("section", { class: "as-night" },
       h("h4", {}, "The night's parameters"),
       list(rows),

@@ -15,10 +15,13 @@ import { plan as enginePlan, night as engineNight, defaults, PARAMETERS, tonight
 import { tonightSoFar, visibleOrders, laneState } from "./cell_data.js";
 import { eur2, hours, int, upTo, fixed } from "./format.js";
 import { aiLabel } from "./ai_label.js";
+import { basisTag } from "./tags.js";
 import { worth } from "./worth.js";
 import { commitInput, parseInput } from "./assumptions.js";
 
-const basis = (...keys) => h("span", { class: "kb-basis" }, keys.map((k) => h("span", { class: "kb-key", dataset: { kind: k === "Assumption" || k === "Synthetic" ? k.toLowerCase() : "source" } }, k)));
+// Each figure's basis as Vici's tags: a source key from DATA_SOURCES.md (mono), the label Assumption,
+// or Synthetic in its dashed capsule.
+const basis = (...keys) => h("span", { class: "kb-basis" }, keys.map(basisTag));
 
 /** The two inputs a customer knows for his own DC. */
 const YOUR_DC = [
@@ -69,11 +72,11 @@ export function createKpiBoard(panel, { getInputs, getRunInputs = () => null, ge
         h("span", { class: "kb-qual" }, `illustrative, ${v.N === defaults().N ? "per reference site" : "for this volume"}, gross, before cell costs`)),
       h("div", { class: "kb-worth-main" },
         h("div", { class: "kb-worth-figure" },
-          h("span", { class: "kb-big num", id: "kb-year" }, `${t.year} a year`),
+          h("span", { class: "kb-big vc-tabular", id: "kb-year" }, `${t.year} a year`),
           h("span", { class: "kb-worth-sub" }, `with ${t.cells} cells on the night shift`)),
         yourDc(v, changed)),
       held ? h("p", { class: "kb-held" }, "This run keeps the inputs it started with; your change applies when it ends.") : null,
-      h("ul", { class: "kb-worth-list" },
+      h("ul", { class: "vc-list kb-worth-list" },
         h("li", {}, h("strong", {}, "Per 1,000 units: "), `${t.hybrid} with the cell, instead of ${t.manual} by hand (${t.saving}).`),
         h("li", {}, h("strong", {}, "Cells: "), `${t.cell_hours} cell hours a year, that is ${t.cells} cells on an eight-hour night shift over ${t.nights} nights, or ${t.cells_clock} round the clock.`),
         h("li", {}, h("strong", {}, "Break-even: "), `each cell pays while its all-in cost stays below ${t.break_even} per operating hour.`),
@@ -86,7 +89,7 @@ export function createKpiBoard(panel, { getInputs, getRunInputs = () => null, ge
   function yourDc(v, changed) {
     const fields = YOUR_DC.map((x) => {
       const input = h("input", {
-        class: "input kb-dc-input num", type: "text", id: `kb-dc-${x.id}`, value: x.show(v[x.id]),
+        class: "vc-input kb-dc-input vc-tabular", type: "text", id: `kb-dc-${x.id}`, value: x.show(v[x.id]),
         inputmode: x.integer ? "numeric" : "decimal", autocomplete: "off", spellcheck: "false", "aria-label": `${x.label} (${x.unit})`
       });
       const msg = h("span", { class: "kb-dc-msg", role: "status" });
@@ -111,7 +114,7 @@ export function createKpiBoard(panel, { getInputs, getRunInputs = () => null, ge
         h("span", { class: "kb-dc-row" }, input, h("span", { class: "kb-dc-unit" }, x.unit)),
         msg);
     });
-    const reset = h("button", { class: "btn btn-sm", type: "button", id: "kb-dc-reset", title: "Back to the reference site of the brief: 6,000,000 units a year at €35.80 an hour" }, "Reference site");
+    const reset = h("button", { class: "vc-button vc-button--outline button-compact", type: "button", id: "kb-dc-reset", title: "Back to the reference site of the brief: 6,000,000 units a year at €35.80 an hour" }, "Reference site");
     reset.disabled = !changed;
     reset.addEventListener("click", () => {
       for (const x of YOUR_DC) commitInput({ id: x.id, value: defaults()[x.id], getOverrides, setOverrides, isRunning, via: "your_dc" });
@@ -167,7 +170,7 @@ export function createKpiBoard(panel, { getInputs, getRunInputs = () => null, ge
         h("p", {}, "Plan: the engine at your inputs (expected values). Tonight: the simulated night, which plays the same every time. The two are kept apart.")),
       changed.length ? h("p", { class: "kb-changed" }, `Changed inputs: ${changed.map((x) => `${x.label} ${fixed(v[x.id], x.id === "c" ? 2 : x.step < 1 ? 2 : 0)} (default ${fixed(x.value, x.id === "c" ? 2 : x.step < 1 ? 2 : 0)})`).join(", ")}`) : null,
       repriced ? h("p", { class: "kb-held" }, `Tonight keeps the inputs its run ran on (labour cost ${eur2(rv.c)} an hour); the plan follows your inputs now.`) : null,
-      h("table", { class: "kb-table" },
+      h("div", { class: "vc-table-wrap kb-wrap" }, h("table", { class: "vc-table vc-table--compact kb-table" },
         h("thead", {}, h("tr", {}, h("th", { scope: "col" }, "Figure"), h("th", { scope: "col" }, "Plan (engine)"), h("th", { scope: "col", ...(tTitle ? { title: tTitle } : {}) }, tLabel), h("th", { scope: "col" }, "Basis"))),
         h("tbody", {},
           row("Labour per 1,000 units, by hand", `${hours(p.per_thousand.manual_h)} · ${eur2(p.per_thousand.manual_eur)}`, dash.cloneNode(true), basis("IML", "EUROSTAT_LC")),
@@ -179,14 +182,14 @@ export function createKpiBoard(panel, { getInputs, getRunInputs = () => null, ge
           row("Store orders on time", dash.cloneNode(true), ordersOnTime() || tonightOr(() => "—"), basis("Synthetic")),
           row("Exceptions", dash.cloneNode(true), tonightOr((t) => `${plural(t.failures, "failed grasp")} · ${plural(t.escalations, "escalation")} · ${plural(t.corrections, "correction")}`), basis("Synthetic")),
           row("Break-even all-in cell cost", `${eur2(p.per_cell_hour.break_even_eur)} per operating hour`, dash.cloneNode(true), basis("IML", "EUROSTAT_LC", "Assumption"))
-        )),
+        ))),
       whatIf ? whatIfRow(whatIf) : null,
       h("p", { class: "kb-note" }, "No payback claim: robot capex or fees, supervision, maintenance, integration and change management are client-specific, so the board shows the break-even cost per operating hour instead. The simulated cell is not a safety system: a real cell needs conformity assessment and CE marking under the EU Machinery Regulation (EU) 2023/1230, which applies from 20 January 2027, and under Directive 2006/42/EC until then.")
     ].filter(Boolean));
   }
 
   /**
-   * The agent's what-if (violet: the AI), kept apart from the plan and tonight: in scenario 4 the cost of
+   * The agent's what-if (lilac: the AI), kept apart from the plan and tonight: in scenario 4 the cost of
    * gripper wear if it lasted all night, golden case G2. No option, draft or summary may quote it.
    */
   function whatIfRow(w) {

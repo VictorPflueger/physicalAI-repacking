@@ -22,7 +22,7 @@ import { openDiagnostics } from "./diagnostics_view.js";
 import { openIntro, introSeen } from "./intro.js";
 import { hasKey, forgetKey } from "./keystore.js";
 import { APP, MODELS } from "./config.js";
-import { h, downloadText } from "./dom.js";
+import { h, downloadText, withTooltip } from "./dom.js";
 import { icon } from "./icons.js";
 import { createNightPlayer } from "./night.js";
 import { createNightSession } from "./night_session.js";
@@ -199,11 +199,13 @@ export function initUI() {
 
   // ---- intro window: "How it works" in the header, and once by itself on a first visit -----------
   const aboutBtn = h("button", {
-    class: "about-btn", type: "button", id: "btn-about",
-    "aria-label": "How it works", title: `What ${APP.name} does, how it works and what is real`
+    class: "vc-button vc-button--secondary about-btn", type: "button", id: "btn-about",
+    title: `What ${APP.name} does, how it works and what is real`
   }, icon("info", 18), h("span", { class: "btn-text" }, "How it works"));
   aboutBtn.addEventListener("click", () => showIntro());
-  document.querySelector(".header-badges")?.appendChild(aboutBtn);
+  // Beside the mode badge, so the badges need two rows at most next to the KPI tiles; on small
+  // laptops it keeps only its icon, and its tooltip names it.
+  badge.after(withTooltip(aboutBtn, "How it works", { below: true }));
 
   function showIntro() {
     const s = getState();
@@ -223,6 +225,9 @@ export function initUI() {
     controls.update(s, { scenarioLabel: byId(s.scenarioId)?.short || "Choose" });
     const b = BADGE[s.mode === "simulation" && s.simSource === "recorded" ? "recorded" : s.mode];
     badge.dataset.mode = b ? s.mode : "none";
+    // A Vici tag: LIVE solid merlot with a pulsing hexagon, SIMULATION on its neutral tape, NIGHT
+    // PREVIEW in ink.
+    badge.className = s.mode === "live" ? "vc-tag vc-tag--solid mode-badge" : "vc-tag mode-badge";
     badge.replaceChildren(...(b ? b.content() : ["No run active"]));
     badge.title = b ? b.title : "Choose a mode with Start agent";
   };
@@ -397,7 +402,7 @@ export function initUI() {
 
   /** Opens the intro once per browser: called by main.js after the boot screen is gone. */
   function introOnFirstVisit() {
-    if (!introSeen() && !document.querySelector(".modal-backdrop")) showIntro();
+    if (!introSeen() && !document.querySelector("dialog[open]")) showIntro();
   }
 
   return { cell, stage, worthPanel, start, resetWorkspace, showIntro, introOnFirstVisit, player, setView };
@@ -437,11 +442,13 @@ function sanitiseAssumptions() {
 export function showBanner({ level = "info", title = "", text = "", timeout = 0 } = {}) {
   const stack = document.getElementById("banners");
   if (!stack) return null;
-  const close = h("button", { class: "btn btn-ghost btn-icon", type: "button", "aria-label": "Dismiss" }, icon("x", 18));
-  const el = h("div", { class: "banner", dataset: { level }, role: level === "error" ? "alert" : "status" },
+  // A Vici alert in the tone of its level, with its icon and a dismiss button that names itself.
+  const close = h("button", { class: "vc-icon-button", type: "button" }, icon("x", 18));
+  const tone = level === "error" ? "vc-alert--danger" : level === "warn" ? "vc-alert--warning" : "";
+  const el = h("div", { class: ["vc-alert", tone, "banner"], dataset: { level }, role: level === "error" ? "alert" : "status" },
     icon(level === "info" ? "info" : "alert", 22),
-    h("div", { class: "banner-text" }, title ? h("strong", {}, title) : null, text),
-    close);
+    h("div", { class: "vc-alert__body banner-text" }, title ? h("p", { class: "vc-alert__title" }, title) : null, h("p", {}, text)),
+    withTooltip(close, "Dismiss", { below: true }));
   close.addEventListener("click", () => el.remove());
   stack.appendChild(el);
   if (timeout) setTimeout(() => el.remove(), timeout);

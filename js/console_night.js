@@ -214,7 +214,7 @@ export function attachNightLog(ctx) {
       h("h4", { class: "night-report-head" }, "What it is worth"),
       list(value),
       ctx.onOpenBusinessCase ? h("div", { class: "entry-actions" },
-        h("button", { class: "btn btn-sm", type: "button", id: "btn-console-your-dc", on: { click: () => ctx.onOpenBusinessCase() } }, "Your DC: the business case")) : null,
+        h("button", { class: "vc-button vc-button--outline button-compact", type: "button", id: "btn-console-your-dc", on: { click: () => ctx.onOpenBusinessCase() } }, "Your DC: the business case")) : null,
       h("p", { class: "night-report-note detail-only" }, `Labour counts the base picker's picks at ${int(v.r_m)} an hour (IML) and any called-in hours; by hand, every unit at that rate; euros at ${eur2(v.c)} an hour (EUROSTAT_LC)${f.called_in_hours > 0 ? `, called-in hours with the ${Math.round(v.callin_premium * 100)} % night premium (Assumption)` : ""}. The yearly figure is illustrative, per reference site. Simulated, synthetic night.`)),
     { state: late.length ? "late" : "on-time" });
   });

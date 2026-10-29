@@ -110,7 +110,7 @@ async function boot(page) {
 }
 async function pickScenario(page, id) {
   await page.click("#dd-scenario");
-  await page.click(`.menu-item[data-id="${id}"]`);
+  await page.click(`.vc-menu__item[data-id="${id}"]`);
 }
 async function startMode(page, mode) {
   await page.click("#btn-start");
@@ -225,7 +225,7 @@ if (wanted("key")) {
     await page.click("#btn-reset");
     await page.click("#btn-start");
     await page.waitForSelector(".mode-card", { timeout: 5000 });
-    checks.footerKey = await page.$eval(".modal-foot .left", (e) => e.textContent.trim()).catch(() => null);
+    checks.footerKey = await page.$eval(".vc-dialog__footer .dialog-note", (e) => e.textContent.trim()).catch(() => null);
     expect(!!checks.footerKey && !checks.footerKey.includes(KEY) && /sk-ant-…/.test(checks.footerKey), `the mode choice shows the key masked (${checks.footerKey})`);
     await page.click("#btn-manage-key");
     await page.waitForSelector("#api-key-input", { timeout: 5000 });
@@ -334,14 +334,14 @@ if (wanted("abort")) {
     expect(checks["S1:restart"] !== "Aborted" && checks["S1:restart"] !== "Idle", `S1: Start after Abort begins a new run (${checks["S1:restart"]})`);
     // S2: Abort while the options wait for a decision; a late click decides nothing.
     await fastNight(page);
-    await page.waitForSelector('.option-card[data-recommended="true"] .btn-approve', { state: "visible", timeout: 120000 });
+    await page.waitForSelector('.option-card[data-recommended="true"] [data-action="approve"]', { state: "visible", timeout: 120000 });
     await page.click("#btn-abort");
     await waitStatus(page, /Aborted/, 5000);
     await stable("S2");
-    await page.click('.option-card[data-recommended="true"] .btn-approve').catch(() => {});
+    await page.click('.option-card[data-recommended="true"] [data-action="approve"]').catch(() => {});
     await page.waitForTimeout(400);
     checks["S2:cards"] = await page.$$eval(".option-card", (els) => els.map((e) => e.dataset.status || "open").join(","));
-    checks["S2:buttonsLeft"] = await page.$$eval(".option-card .btn-approve, .option-card .option-actions .btn", (els) => els.length);
+    checks["S2:buttonsLeft"] = await page.$$eval(".option-card [data-action='approve'], .option-card .option-actions button", (els) => els.length);
     await page.screenshot({ path: path.join(OUT, "A-abort-options.png") });
     expect(checks["S2:cards"] === "expired,expired,expired,expired" && checks["S2:buttonsLeft"] === 0, `S2: an aborted run shows its options undecided, without buttons (${checks["S2:cards"]})`);
     await page.click("#btn-reset");
@@ -349,8 +349,8 @@ if (wanted("abort")) {
     // S3: Reset (without Abort) while drafts wait for approval; then a full run to Done.
     await startMode(page, "simulation");
     await fastNight(page);
-    await page.waitForSelector('.option-card[data-recommended="true"] .btn-approve', { state: "visible", timeout: 120000 });
-    await page.click('.option-card[data-recommended="true"] .btn-approve');
+    await page.waitForSelector('.option-card[data-recommended="true"] [data-action="approve"]', { state: "visible", timeout: 120000 });
+    await page.click('.option-card[data-recommended="true"] [data-action="approve"]');
     await page.waitForFunction(() => /Waiting for your approval of \d+ drafts?/.test(document.querySelector("#console").innerText), null, { timeout: 60000 });
     await page.click("#btn-reset");
     await idleCheck("S3");
@@ -372,7 +372,7 @@ if (wanted("abort")) {
     await startMode(page, "live");
     await enterKey(page);
     await fastNight(page);
-    await page.waitForSelector('.option-card[data-recommended="true"] .btn-approve', { state: "visible", timeout: 120000 });
+    await page.waitForSelector('.option-card[data-recommended="true"] [data-action="approve"]', { state: "visible", timeout: 120000 });
     const before = t.holder.fake.requests.length;
     await page.click("#btn-abort");
     await waitStatus(page, /Aborted/, 5000);
@@ -386,16 +386,16 @@ if (wanted("abort")) {
     used.push(t.holder.fake);
     await startMode(page, "live");
     await fastNight(page);
-    await page.waitForSelector('.option-card[data-recommended="true"] .btn-approve', { state: "visible", timeout: 120000 });
-    await page.click('.option-card[data-recommended="true"] .btn-approve');
+    await page.waitForSelector('.option-card[data-recommended="true"] [data-action="approve"]', { state: "visible", timeout: 120000 });
+    await page.click('.option-card[data-recommended="true"] [data-action="approve"]');
     await page.waitForFunction(() => /Waiting for your approval of \d+ drafts?/.test(document.querySelector("#console").innerText), null, { timeout: 60000 });
     const calls = t.holder.fake.requests.length;
     await page.click("#btn-abort");
     await waitStatus(page, /Aborted/, 5000);
     await stable("L2");
-    await page.click(".action-card .action-buttons .btn-approve").catch(() => {});
+    await page.click(".action-card .action-buttons [data-action='approve']").catch(() => {});
     await page.waitForTimeout(400);
-    checks["L2:draftsAfterAbort"] = await page.$$eval(".action-card", (els) => els.map((e) => `${e.dataset.status}:${e.querySelector(".chip")?.textContent}`).join(","));
+    checks["L2:draftsAfterAbort"] = await page.$$eval(".action-card", (els) => els.map((e) => `${e.dataset.status}:${e.querySelector(".action-status")?.textContent}`).join(","));
     expect(/^(expired:Not decided: the run ended,?)+$/.test(checks["L2:draftsAfterAbort"]), `L2: an aborted run shows its drafts as not decided (${checks["L2:draftsAfterAbort"]})`);
     await page.screenshot({ path: path.join(OUT, "A-abort-outbox.png") });
     checks["L2:modelCallsAfterAbort"] = t.holder.fake.requests.length - calls;

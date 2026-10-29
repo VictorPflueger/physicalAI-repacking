@@ -1,7 +1,11 @@
 // The WCAG 2.2 contrast measure of the smoke and live suites, run in the page: every visible text
 // against the nearest opaque background (semi-transparent layers blended), with the element's opacity
 // applied. Normal text needs 4.5:1, large text (24 px, or 18.66 px bold) 3:1 (WCAG 1.4.3). Inactive
-// controls have no duty. With a dialog open, only the dialog is measured. Text inside an element that
+// controls have no duty. With a dialog open (a native <dialog> shown as a modal), only the dialog is
+// measured. Vici paints the fill of a tag, a badge and a step's marker on a pseudo-element behind the
+// text (::before or ::after, placed absolutely at z-index -1 and clipped to its hexagon or capsule):
+// that fill counts as the text's background; a pseudo-element clipped to a ring (an evenodd clip path)
+// draws only an outline and does not. Text inside an element that
 // is still fading in (a finite animation running on it or an ancestor, such as a console entry that has
 // just arrived while a run streams) is left for a later state, where it is measured at full opacity;
 // the count of such elements is returned as `fading`.
@@ -12,9 +16,21 @@ export const contrastShortfalls = (page) => page.evaluate(() => {
   const lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
   const lum = (c) => 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
   const over = (fg, bg) => ({ r: fg.r * fg.a + bg.r * (1 - fg.a), g: fg.g * fg.a + bg.g * (1 - fg.a), b: fg.b * fg.a + bg.b * (1 - fg.a), a: 1 });
+  // The fill a Vici capsule, badge or marker paints behind its text, if any.
+  const fill = (e) => {
+    for (const pseudo of ["::before", "::after"]) {
+      const ps = getComputedStyle(e, pseudo);
+      if (ps.content === "none" || ps.content === "normal" || ps.position !== "absolute" || ps.zIndex !== "-1" || /evenodd/.test(ps.clipPath)) continue;
+      const c = parse(ps.backgroundColor);
+      if (c && c.a > 0) return c;
+    }
+    return null;
+  };
   const background = (el) => {
     const layers = [];
     for (let e = el; e; e = e.parentElement) {
+      const f = fill(e);
+      if (f) { layers.push(f); if (f.a >= 1) break; }
       const c = parse(getComputedStyle(e).backgroundColor);
       if (c && c.a > 0) { layers.push(c); if (c.a >= 1) break; }
     }
@@ -27,7 +43,7 @@ export const contrastShortfalls = (page) => page.evaluate(() => {
     return false;
   };
   let fading = 0;
-  const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+  const dialogs = document.querySelectorAll("dialog[open]");
   const scope = dialogs.length ? dialogs[dialogs.length - 1] : document.body;
   const out = [];
   let measured = 0;

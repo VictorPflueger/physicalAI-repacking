@@ -23,24 +23,27 @@ const GROUPS = {
 export function createAuditPanel(panel, { onCount, onSaveSimulation } = {}) {
   let filter = "all";
   const filterBtns = new Map();
-  const saveBtn = h("button", { class: "btn btn-sm", type: "button", id: "btn-save-simulation", on: { click: saveSimulation } }, icon("download", 16), "Save run as simulation");
-  const status = h("p", { class: "audit-status", role: "status", hidden: true });
+  const saveBtn = h("button", { class: "vc-button vc-button--outline button-compact", type: "button", id: "btn-save-simulation", on: { click: saveSimulation } }, icon("download", 16), "Save run as simulation");
+  const status = h("p", { class: "vc-alert vc-alert--success audit-status", role: "status", hidden: true });
   const tbody = h("tbody");
   const empty = h("p", { class: "audit-empty" }, "No events yet. Every event of a run, every model call and every decision is listed here and exports as JSON.");
   const head = h("div", { class: "audit-head" },
     h("div", { class: "audit-filters", role: "group", "aria-label": "Filter audit events" },
       Object.entries(GROUPS).map(([id, g]) => {
-        const b = h("button", { class: "btn btn-sm", type: "button", "aria-pressed": String(id === filter) }, g.label);
+        // Toggles the app owns (aria-pressed), in Vici's pressed look.
+        const b = h("button", { class: "vc-button vc-button--outline button-compact", type: "button", "aria-pressed": String(id === filter) }, g.label);
         b.addEventListener("click", () => { filter = id; for (const [fid, fb] of filterBtns) fb.setAttribute("aria-pressed", String(fid === id)); renderAll(); });
         filterBtns.set(id, b);
         return b;
       })),
     h("div", { class: "audit-actions" },
-      h("button", { class: "btn btn-sm btn-primary", type: "button", id: "btn-export-audit", on: { click: exportJson } }, icon("download", 16), "Export JSON"),
+      h("button", { class: "vc-button button-compact", type: "button", id: "btn-export-audit", on: { click: exportJson } }, icon("download", 16), "Export JSON"),
       saveBtn));
-  const table = h("table", { class: "audit-table" },
-    h("thead", {}, h("tr", {}, h("th", {}, "Run time"), h("th", {}, "Night"), h("th", {}, "Clock"), h("th", {}, "Event"), h("th", {}, "Details"))),
-    tbody);
+  // Vici's table; its wrapper clips without scrolling, so the header row sticks while the drawer scrolls.
+  const table = h("div", { class: "vc-table-wrap audit-wrap" },
+    h("table", { class: "vc-table vc-table--compact audit-table" },
+      h("thead", {}, h("tr", {}, h("th", {}, "Run time"), h("th", {}, "Night"), h("th", {}, "Clock"), h("th", {}, "Event"), h("th", {}, "Details"))),
+      tbody));
   panel.append(head, status, empty, table);
 
   function matches(ev) {
@@ -78,6 +81,7 @@ export function createAuditPanel(panel, { onCount, onSaveSimulation } = {}) {
     status.hidden = !text;
     status.textContent = text || "";
     status.dataset.tone = tone || "ok";
+    status.className = `vc-alert ${tone === "error" ? "vc-alert--danger" : "vc-alert--success"} audit-status`;
   }
 
   function renderAll() {

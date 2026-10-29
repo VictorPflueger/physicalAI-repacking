@@ -11,7 +11,7 @@
 // confirmations, the management summary and the run facts.
 
 import { bus } from "./events.js";
-import { h, clear, prefersReducedMotion } from "./dom.js";
+import { h, clear, prefersReducedMotion, withTooltip } from "./dom.js";
 import { icon } from "./icons.js";
 import { renderInline, renderMarkdown } from "./md.js";
 import { clock } from "./format.js";
@@ -46,10 +46,12 @@ export function isDetailEntry(type, data = {}) {
  * onOpenReport(markdown), onOpenBusinessCase() (the KPI board), onConfirm({ request_id, choice, subject }) }.
  */
 export function createConsole(panel, { getInputs = () => null, onOpenOptions, onOpenOutbox, onOpenReport, onOpenBusinessCase, onConfirm, onSaveSimulation } = {}) {
-  const count = h("span", { class: "count num" }, "");
-  const jumpBtn = h("button", { class: "btn btn-sm jump-latest", type: "button", hidden: true, "aria-label": "Jump to latest", title: "Jump to latest" }, icon("chevronDown", 16), h("span", { class: "btn-text" }, "Jump to latest"));
+  const count = h("span", { class: "count vc-tabular" }, "");
+  // On a narrow console the jump button keeps only its arrow: its tooltip names it then.
+  const jumpBtn = h("button", { class: "vc-button vc-button--outline button-compact jump-latest", type: "button", hidden: true, title: "Jump to latest" }, icon("chevronDown", 16), h("span", { class: "btn-text" }, "Jump to latest"));
   // Larger text for projectors, remembered per browser (a convenience; storage may be unavailable).
-  const sizeBtn = h("button", { class: "btn btn-sm btn-ghost text-size", type: "button", "aria-pressed": "false", title: "Larger console text for projectors" }, "Larger text");
+  // A toggle the app owns (aria-pressed): Vici shows any pressed vc-button in its pressed look.
+  const sizeBtn = h("button", { class: "vc-button vc-button--ghost button-compact text-size", type: "button", "aria-pressed": "false", title: "Larger console text for projectors" }, "Larger text");
   const applySize = (large) => {
     panel.dataset.text = large ? "large" : "standard";
     sizeBtn.setAttribute("aria-pressed", String(large));
@@ -62,7 +64,7 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
   });
   // Simple view by default: the agent's words, the night's moments, your decisions and the drafts.
   // Details adds every tool call, phase, wake-up, hourly line and truck (remembered per browser).
-  const viewBtn = h("button", { class: "btn btn-sm btn-ghost view-toggle", type: "button", id: "btn-console-details", "aria-pressed": "false", title: "Show every tool call, phase, agent turn, hourly line and truck" }, "Details");
+  const viewBtn = h("button", { class: "vc-button vc-button--ghost button-compact view-toggle", type: "button", id: "btn-console-details", "aria-pressed": "false", title: "Show every tool call, phase, agent turn, hourly line and truck" }, "Details");
   const applyView = (details) => {
     panel.dataset.view = details ? "details" : "simple";
     viewBtn.setAttribute("aria-pressed", String(details));
@@ -85,7 +87,7 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
   panel.append(
     h("div", { class: "console-head" },
       h("div", { class: "console-title" }, h("h2", {}, "Agent console"), count),
-      h("div", { class: "console-head-actions" }, jumpBtn, viewBtn, sizeBtn)),
+      h("div", { class: "console-head-actions" }, withTooltip(jumpBtn, "Jump to latest", { below: true }), viewBtn, sizeBtn)),
     rail.el,
     watermark,
     log
@@ -133,7 +135,7 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
       h("h3", {}, "Pick a scenario, then start the agent"),
       // The first sentence points at the progress rail, so it goes where the rail does (css/stage.css).
       h("p", {}, h("span", { class: "idle-rail-ref" }, "The five steps above are the agent's plan for the night. "), "The agent perceives each item, plans the store orders against the truck departures, picks with the cell, replans when the night changes and prepares the drafts."),
-      h("p", {}, "Whatever waits for your decision is marked in burgundy. Nothing is sent without your approval. You choose between a free simulation and the live agent on your own API key."),
+      h("p", {}, "Whatever waits for your decision is marked in merlot. Nothing is sent without your approval. You choose between a free simulation and the live agent on your own API key."),
       h("p", {}, "The console shows the agent's words and the night's moments; Details adds every tool call.")));
     count.textContent = "";
     log.scrollTop = 0;
@@ -313,7 +315,7 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
     const n = ev.payload.options?.length || 0;
     add(entry("decision-request", ev, "list", h("div", {},
       h("p", {}, `${n} costed options and doing nothing wait for your decision. The night stands still until you decide.`),
-      h("button", { class: "btn btn-sm btn-primary", type: "button", on: { click: () => onOpenOptions?.() } }, "Review options"))));
+      h("button", { class: "vc-button button-compact", type: "button", on: { click: () => onOpenOptions?.() } }, "Review options"))));
   });
 
   bus.on("option_decision", (ev) => {
@@ -329,7 +331,7 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
     const label = (DRAFT_LABELS[p.type] || DRAFT_LABELS.email).toLowerCase();
     add(entry("draft", ev, p.type === "memo" ? "memo" : p.type === "call_in" ? "user" : "mail", h("div", {},
       h("p", {}, `Drafted ${label} for ${p.recipient}: “${p.subject}”. It waits for your approval in the Outbox.`),
-      h("button", { class: "btn btn-sm", type: "button", on: { click: () => onOpenOutbox?.() } }, "Open outbox"))));
+      h("button", { class: "vc-button vc-button--outline button-compact", type: "button", on: { click: () => onOpenOutbox?.() } }, "Open outbox"))));
   });
 
   bus.on("action_decision", (ev) => {
@@ -348,8 +350,8 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
     const p = ev.payload;
     const actions = h("div", { class: "entry-actions confirm-actions" },
       // The same words as the world model's own buttons for an entry (js/world_stage.js).
-      h("button", { class: "btn btn-sm btn-approve", type: "button", on: { click: () => decideConfirmation(p, "confirm") } }, icon("check", 16), p.entry_barcode ? "Confirm entry" : "Confirm"),
-      h("button", { class: "btn btn-sm btn-reject", type: "button", on: { click: () => decideConfirmation(p, "reject") } }, "Reject"));
+      h("button", { class: "vc-button button-compact", type: "button", dataset: { action: "approve" }, on: { click: () => decideConfirmation(p, "confirm") } }, icon("check", 16), p.entry_barcode ? "Confirm entry" : "Confirm"),
+      h("button", { class: "vc-button vc-button--outline button-compact", type: "button", dataset: { action: "reject" }, on: { click: () => decideConfirmation(p, "reject") } }, "Reject"));
     const card = h("div", { class: "confirm-card" }, h("strong", {}, p.subject), h("p", {}, p.reason), actions);
     confirmations.set(p.request_id, { actions, decided: false });
     add(entry("confirmation", ev, "user", card));
@@ -366,7 +368,8 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
     const c = confirmations.get(p.request_id);
     if (c && !c.decided) {
       c.decided = true;
-      c.actions.replaceWith(h("div", { class: `option-status ${p.choice === "confirm" ? "mark-pass" : "mark-fail"}` }, icon(p.choice === "confirm" ? "check" : "x", 18), p.choice === "confirm" ? "Confirmed" : "Rejected"));
+      // The person's answer as a Vici tag in its tone, with its icon and its word.
+      c.actions.replaceWith(h("div", { class: "option-status" }, h("span", { class: ["vc-tag", p.choice === "confirm" ? "vc-tag--success" : "vc-tag--danger"] }, icon(p.choice === "confirm" ? "check" : "x", 18), p.choice === "confirm" ? "Confirmed" : "Rejected")));
     }
     add(entry("decision", ev, "user", h("p", {}, h("strong", {}, p.choice === "confirm" ? "You confirmed " : "You rejected "), `${p.subject || p.request_id}.`), { decision: p.choice === "confirm" ? "approved" : "rejected" }));
   });
@@ -383,11 +386,11 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
     const body = renderMarkdown(ev.payload.markdown);
     const firstHeading = body.querySelector("h2, h3, h4");
     for (const el of body.children) if (el !== firstHeading) el.classList.add("detail-only");
-    const card = h("div", { class: "report-card" },
+    const card = h("div", { class: "vc-card report-card" },
       aiLabel("report"),
       body,
       h("div", { class: "report-actions" },
-        h("button", { class: "btn btn-sm btn-primary", type: "button", id: "btn-open-report", on: { click: () => onOpenReport?.(ev.payload.markdown) } }, icon("external", 16), "Open management summary")));
+        h("button", { class: "vc-button button-compact", type: "button", id: "btn-open-report", on: { click: () => onOpenReport?.(ev.payload.markdown) } }, icon("external", 16), "Open management summary")));
     add(entry("report", ev, "check", card, { kind: "summary" }));
   });
 
@@ -421,11 +424,11 @@ export function createConsole(panel, { getInputs = () => null, onOpenOptions, on
     }
     // A Live run that reached its summary can replace its scenario's scripted replay (js/recorder.js).
     const save = runMode === "live" && status === "done" && onSaveSimulation
-      ? h("button", { class: "btn btn-sm", type: "button", id: "btn-console-save-simulation", title: "Download this run as a simulation script that can replace the scripted replay of this scenario", on: { click: () => onSaveSimulation() } }, icon("download", 16), "Save run as simulation")
+      ? h("button", { class: "vc-button vc-button--outline button-compact", type: "button", id: "btn-console-save-simulation", title: "Download this run as a simulation script that can replace the scripted replay of this scenario", on: { click: () => onSaveSimulation() } }, icon("download", 16), "Save run as simulation")
       : null;
     const report = lastReport;
     const openSummary = status === "done" && report && onOpenReport
-      ? h("button", { class: "btn btn-sm", type: "button", id: "btn-console-open-summary", on: { click: () => onOpenReport(report) } }, icon("external", 16), "Open management summary")
+      ? h("button", { class: "vc-button vc-button--outline button-compact", type: "button", id: "btn-console-open-summary", on: { click: () => onOpenReport(report) } }, icon("external", 16), "Open management summary")
       : null;
     add(entry("notice", ev, status === "done" ? "check" : "stop", h("div", {},
       h("span", {}, h("strong", {}, text), reason ? ` ${reason}` : ""),
