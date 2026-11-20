@@ -1,17 +1,16 @@
 // Builds the synthetic world of Repack Pilot (developer tool; the app itself needs no build step and
 // loads the generated files).
-//   node tools/build_world.mjs           write data/world.js and data/shadow_record.js
-//   node tools/build_world.mjs --check   regenerate in memory and compare with the committed files
+//   node tools/build_world.mjs           write data/world.js
+//   node tools/build_world.mjs --check   regenerate in memory and compare with the committed file
 //
 // Everything here is Synthetic: the retailer Ruhrkorb, its DC in Unna, the twelve stores, tonight's
-// orders, the item master, the robot cell and the shadow-mode record. The towns are real places in
-// the Ruhr area and its eastern neighbours (North Rhine-Westphalia); no store, person or company in
-// them is described. The tables below are the ones in PLAN.md §b (approved 16 Oct 2026); the store
-// cut-offs and the chilled wave come from the Phase 0 night calibration (PLAN.md §b.8).
+// orders, the item master and the robot cell. The towns are real places in the Ruhr area and its
+// eastern neighbours (North Rhine-Westphalia); no store, person or company in them is described. The
+// tables below are the build plan's of 16 Oct 2026 (PLAN.md in release 0.5.0); the store cut-offs and
+// the chilled wave come from that plan's night calibration.
 //
 // The output is deterministic: the allocation of each SKU's units to the stores is an integer
-// proportional fit with exact row and column totals, and the shadow record is drawn from a fixed
-// seed, so every run writes the same bytes.
+// proportional fit with exact row and column totals, so every run writes the same bytes.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -76,7 +75,7 @@ const ITEMS = [
 
 const WAVES = [
   { id: "ambient", label: "Ambient goods", arrives: "22:00", note: "On the inbound pallets when the shift starts" },
-  { id: "chilled", label: "Chilled goods", arrives: "01:00", note: "From the fresh hub, mid-shift (Assumption, PLAN.md B2)" }
+  { id: "chilled", label: "Chilled goods", arrives: "01:00", note: "From the fresh hub, mid-shift (Assumption)" }
 ];
 
 const CELL = {
@@ -138,17 +137,6 @@ export function allocate(items, stores, factor = 1) {
   return x;
 }
 
-/** Deterministic uniform draws in [0, 1) from a seed (mulberry32). */
-function rng(seed) {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 // ---- the world -----------------------------------------------------------------------------------
 
@@ -196,13 +184,13 @@ export function buildWorld() {
       world_version: WORLD_VERSION,
       synthetic: true,
       retailer: "Ruhrkorb",
-      retailer_note: "Ruhrkorb, its DC, its stores, tonight's orders, the item master, the robot cell and the shadow record are Synthetic. The towns are real places in North Rhine-Westphalia; no real store, company or person is described.",
+      retailer_note: "Ruhrkorb, its DC, its stores, tonight's orders, the item master and the robot cell are Synthetic. The towns are real places in North Rhine-Westphalia; no real store, company or person is described.",
       dc: { id: "DC-UNNA", name: "Ruhrkorb DC Unna", town: "Unna", region: "Ruhr area and its eastern neighbours, North Rhine-Westphalia", note: "Fictional DC in a real logistics cluster by the Kamener Kreuz (A1/A2)" },
       shift: SHIFT,
       peak_factor: PEAK_FACTOR,
       risk_band_min: RISK_BAND_MIN,
       generated_by: "tools/build_world.mjs",
-      sources: "PLAN.md §b (store and item tables, night calibration), approved 16 Oct 2026"
+      sources: "The build plan's store and item tables and night calibration, approved 16 Oct 2026 (PLAN.md in release 0.5.0)"
     },
     stores,
     items,
@@ -212,63 +200,6 @@ export function buildWorld() {
     manual_station: MANUAL_STATION,
     tote: TOTE,
     roles: ROLES
-  };
-}
-
-// ---- the shadow-mode record ------------------------------------------------------------------------
-// Seven earlier nights in shadow mode: the agent recommended, a person decided, nothing the agent did
-// changed the night. 138 decisions, 128 of them the same as the person's (92.8 %), no missed
-// escalation, no agent-caused missed cut-off (PLAN.md §b.6). The example gate needs 200 decisions over
-// 10 nights at 95 % agreement, so it fails on three counts on purpose.
-
-const SHADOW_NIGHTS = [18, 21, 19, 20, 22, 17, 21];            // decisions per night, 138 in all
-const SHADOW_DISAGREEMENTS = 10;
-const DECISION_KINDS = [
-  ["resequence", "Re-sequence the picks"],
-  ["call_in_picker", "Call in a picker"],
-  ["split_order", "Split an order between cell and manual station"],
-  ["move_to_next_wave", "Move a store's lines to the next wave"],
-  ["manual_for_fragile", "Send fragile SKUs to the manual station"],
-  ["maintenance_stop", "Stop the cell for maintenance"],
-  ["accept_correction", "Accept a world-model correction"],
-  ["do_nothing", "Keep the plan"]
-];
-
-export function buildShadowRecord() {
-  const draw = rng(20261016);
-  const total = SHADOW_NIGHTS.reduce((a, b) => a + b, 0);
-  // Which decisions the person decided differently: a fixed-seed sample of exactly ten.
-  const ids = [...Array(total).keys()];
-  for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(draw() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; }
-  const disagree = new Set(ids.slice(0, SHADOW_DISAGREEMENTS));
-  const decisions = [];
-  let n = 0;
-  SHADOW_NIGHTS.forEach((count, night) => {
-    for (let k = 0; k < count; k++, n++) {
-      const kind = DECISION_KINDS[Math.floor(draw() * DECISION_KINDS.length)][0];
-      let other = DECISION_KINDS[Math.floor(draw() * DECISION_KINDS.length)][0];
-      if (other === kind) other = DECISION_KINDS[(DECISION_KINDS.findIndex((d) => d[0] === kind) + 1) % DECISION_KINDS.length][0];
-      const agreed = !disagree.has(n);
-      decisions.push({
-        id: `SH-${night + 1}-${String(k + 1).padStart(2, "0")}`,
-        night: night + 1,
-        agent: kind,
-        person: agreed ? kind : other,
-        agreed,
-        escalation_missed: false,
-        agent_caused_missed_cutoff: false
-      });
-    }
-  });
-  return {
-    meta: {
-      synthetic: true,
-      generated_by: "tools/build_world.mjs",
-      note: "Synthetic shadow-mode record: seven earlier nights in which the agent only recommended and a person decided. It falls short of the example gate on purpose, so Bounded stays locked.",
-      nights: SHADOW_NIGHTS.length,
-      kinds: Object.fromEntries(DECISION_KINDS)
-    },
-    decisions
   };
 }
 
@@ -300,7 +231,6 @@ function serialize(obj, indent = "  ") {
 
 export function files() {
   const world = buildWorld();
-  const shadow = buildShadowRecord();
   const worldJs = `/*
  * REPACK PILOT — synthetic world: the fictional retailer Ruhrkorb and its DC in Unna.
  * GENERATED by tools/build_world.mjs: do not edit by hand; change the generator and run
@@ -322,20 +252,7 @@ export function files() {
  */
 window.WORLD = ${serialize(world)};
 `;
-  const shadowJs = `/*
- * REPACK PILOT — synthetic shadow-mode record for the autonomy gate.
- * GENERATED by tools/build_world.mjs: do not edit by hand.
- *
- * Seven earlier nights in which the agent only recommended and a person decided. The example gate
- * (200 decisions over 10 nights, 95 % agreement, no missed escalation, no agent-caused missed
- * cut-off) is not met on purpose, so Bounded execution stays locked and the dial says why.
- */
-window.SHADOW_RECORD = ${serialize(shadow)};
-`;
-  return [
-    [path.join(ROOT, "data/world.js"), worldJs],
-    [path.join(ROOT, "data/shadow_record.js"), shadowJs]
-  ];
+  return [[path.join(ROOT, "data/world.js"), worldJs]];
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -348,7 +265,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       else console.log(`PASS  ${path.relative(ROOT, file)} matches the generator`);
     }
     if (stale) process.exit(1);
-    console.log("data files match the generator");
+    console.log("data/world.js matches the generator");
   } else {
     for (const [file, content] of out) fs.writeFileSync(file, content);
     console.log(`Wrote ${out.map(([f]) => path.relative(ROOT, f)).join(" and ")} (world ${WORLD_VERSION}).`);

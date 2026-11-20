@@ -1,11 +1,11 @@
 // Seeded draws for the night simulation. Pure functions with 32-bit integer arithmetic only, so Node
-// and every browser produce the same numbers (PLAN.md §c.6, "Randomness").
+// and every browser produce the same numbers.
 //
 // Every draw is a hash of (seed, unit id, draw name) into [0, 1): common random numbers. A unit's
 // draws never depend on what happened before it, so a change of plan never changes which units
 // would fail, options compare fairly, and every replay is identical. The grasp outcome uses the bare
-// unit id as its key, the key of the Phase 0 calibration model the night targets were tuned on
-// (PLAN.md §b.8); every other draw adds its name.
+// unit id as its key, the key of the calibration model the night was tuned on; every other draw adds
+// its name.
 
 /** Uniform number in [0, 1) for a seed and a string key (splitmix-style integer hash). */
 export function u01(seed, key) {
@@ -26,14 +26,6 @@ export function draw(seed, unitId, name = "") {
   return u01(seed, name ? `${unitId}|${name}` : unitId);
 }
 
-/**
- * Seed of replication k of a night: replication 0 is the night's own seed, the others derive from it
- * by hash, so a set of replications is fixed by tonight's seed alone (PLAN.md §c.7).
- */
-export function replicationSeed(seed, k) {
-  if (k === 0) return seed >>> 0;
-  return Math.floor(u01(seed, `replication|${k}`) * 4294967296) >>> 0;
-}
 
 /**
  * A 64-bit FNV-1a hash of a string as 16 hex digits (two 32-bit lanes with different offsets): the

@@ -1,107 +1,258 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-GB">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- The browser enforces where this page may connect: the API key can only ever reach
-       api.anthropic.com (TECH_NOTES §6). Scripts, styles, fonts and images come from this site only:
-       the app loads nothing from a third party. js/diagnostics.js checks that connect-src equals
-       the origins in js/config.js. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src https://api.anthropic.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <!-- Everything comes from this site and the page talks to no server: the night is simulated in the
+       browser, so the policy allows no connection at all. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="color-scheme" content="light dark">
-  <meta name="description" content="Repack Pilot shows one night shift in a retail distribution centre: a simulated robot cell, planned by an AI agent, repacks mixed pallets into store orders, and a deterministic engine prices every 1,000 units in labour hours and euros.">
-  <title>Repack Pilot — Physical AI repacking showcase</title>
+  <meta name="description" content="Repack Pilot shows one night shift in a grocery distribution centre: a robot cell that works from a model of every item repacks 3,000 units for 12 stores, learns, asks a person, and cuts labour per 1,000 units from €89.50 to €32.49.">
+  <title>Repack Pilot · Physical AI showcase</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-
-  <!-- The look comes from Victor's design system Vici, copied unchanged into vici/ (vici/README.md).
-       It sits in cascade layers, so the app's own stylesheets below refine it without !important. -->
   <link rel="stylesheet" href="vici/dist/vici.min.css">
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/components.css">
-  <link rel="stylesheet" href="css/cell.css">
-  <link rel="stylesheet" href="css/world.css">
-  <link rel="stylesheet" href="css/kpiboard.css">
-  <link rel="stylesheet" href="css/console.css">
-  <link rel="stylesheet" href="css/drawer.css">
-  <link rel="stylesheet" href="css/modals.css">
-  <link rel="stylesheet" href="css/stage.css">
-
-  <!-- The theme before the page is drawn (light unless the visitor chose dark), then Vici's script. -->
+  <link rel="stylesheet" href="css/app.css">
   <script src="js/theme.js"></script>
   <script src="vici/dist/vici.js" defer></script>
-
-  <!-- Synthetic world, scenarios, shadow record, the Open Food Facts snapshot, the reference inputs and
-       the simulation scripts: plain scripts that set window globals (no fetch needed). -->
   <script src="data/world.js" defer></script>
-  <script src="data/scenarios.js" defer></script>
-  <script src="data/shadow_record.js" defer></script>
-  <script src="data/off_snapshot.js" defer></script>
-  <script src="data/reference_cases.js" defer></script>
-  <script src="data/sim_runs.js" defer></script>
   <script type="module" src="js/main.js"></script>
 </head>
 <body class="app-shell">
-  <a class="vc-skip-link skip-link" href="#console">Skip to the agent console</a>
+  <a class="vc-skip-link" href="#story">Skip to the story</a>
 
   <header class="app-header">
     <div class="brand">
       <span class="vc-cell vc-cell--teal" aria-hidden="true"><span class="vc-icon vc-icon--layers"></span></span>
       <div class="brand-text">
         <span class="brand-name">Repack Pilot</span>
-        <span class="brand-sub">Repack agent for Ruhrkorb DC Unna (fictional)</span>
+        <span class="brand-sub">Physical AI showcase · Ruhrkorb DC Unna, fictional</span>
       </div>
     </div>
 
-    <div class="header-badges">
-      <span id="mode-badge" class="vc-tag mode-badge" data-mode="none" role="status" aria-live="polite" title="Choose a mode with Start agent">No run active</span>
-      <span class="vc-tag vc-tag--feature ai-disclosure" title="Repack Pilot is an AI system. Its plans can be wrong. Every action is a draft that waits for your approval, and nothing is ever sent to a real company. The robot cell is simulated.">
-        <span class="vc-icon vc-icon--sparkle" aria-hidden="true"></span>
-        <span><span class="long">You are interacting with an </span>AI system</span>
-      </span>
-      <!-- Vici's theme toggle (vici.js switches the theme and remembers the choice). -->
+    <div class="header-actions">
       <span class="vc-tooltip-anchor">
-        <button type="button" class="vc-icon-button theme-toggle" data-vc-theme-toggle aria-labelledby="tip-theme"><span class="vc-icon vc-icon--moon vc-when-light" aria-hidden="true"></span><span class="vc-icon vc-icon--sun vc-when-dark" aria-hidden="true"></span></button>
-        <span class="vc-tooltip vc-tooltip--bottom" role="tooltip" id="tip-theme">Dark theme</span>
+        <span class="vc-tag sim-tag" tabindex="0" aria-describedby="tip-sim"><span class="vc-icon vc-icon--cube" aria-hidden="true"></span>Simulated</span>
+        <span class="vc-tooltip vc-tooltip--bottom" role="tooltip" id="tip-sim">A scripted replay of the agent on a simulated robot cell. An engine computes every hour and euro.</span>
+      </span>
+      <button type="button" class="vc-button vc-button--secondary" data-vc-guide-open="guide"><span class="vc-icon vc-icon--info" aria-hidden="true"></span>How it works</button>
+      <span class="vc-tooltip-anchor">
+        <button type="button" class="vc-icon-button" data-vc-theme-toggle aria-labelledby="tip-theme"><span class="vc-icon vc-icon--moon vc-when-light" aria-hidden="true"></span><span class="vc-icon vc-icon--sun vc-when-dark" aria-hidden="true"></span></button>
+        <span class="vc-tooltip vc-tooltip--bottom" role="tooltip" id="tip-theme">Dark or light theme</span>
       </span>
     </div>
 
-    <div id="kpis" class="kpis" role="group" aria-label="Key figures for the current run"></div>
+    <div class="kpis" role="group" aria-label="Key figures">
+      <div class="kpi kpi--value vc-stat">
+        <p class="vc-stat__label">Labour per 1,000 units</p>
+        <p class="vc-stat__value kpi-value"><span class="kpi-from" data-fig="manual">€89.50</span><span class="vc-icon vc-icon--arrow-right kpi-arrow" aria-hidden="true"></span><span class="vc-visually-hidden"> to </span><span data-fig="hybrid">€32.49</span></p>
+        <p class="vc-stat__note kpi-note">by hand, then with the cell: <span data-fig="saving">−64&nbsp;%</span></p>
+      </div>
+      <div class="kpi vc-stat" id="kpi-units">
+        <p class="vc-stat__label">Units repacked</p>
+        <p class="vc-stat__value kpi-value"><span id="units-done">0</span><span class="kpi-of"> of <span data-fig="units">3,000</span></span></p>
+        <p class="vc-stat__note kpi-note" id="units-note">by the robot and by hand</p>
+      </div>
+      <div class="kpi vc-stat" id="kpi-orders">
+        <p class="vc-stat__label">Store orders ready</p>
+        <p class="vc-stat__value kpi-value"><span id="orders-ready">0</span><span class="kpi-of"> of <span data-fig="stores">12</span></span></p>
+        <p class="vc-stat__note kpi-note" id="orders-note">first truck at <span data-fig="first-truck">01:35</span></p>
+      </div>
+    </div>
   </header>
 
-  <nav id="controls" class="controls" aria-label="Run controls"></nav>
+  <nav class="player" aria-label="Talk track">
+    <button type="button" class="vc-button play" id="play"><span class="vc-icon vc-icon--play play-icon" aria-hidden="true"></span><span class="play-text">Play</span></button>
+    <ol class="vc-stepper steps" id="steps">
+      <li class="vc-step" data-step="plan"><button type="button" class="vc-step__button"><span class="vc-step__marker" aria-hidden="true">1</span><span class="vc-step__label">The plan<span class="vc-step__hint">22:00</span></span></button></li>
+      <li class="vc-step" data-step="learns"><button type="button" class="vc-step__button"><span class="vc-step__marker" aria-hidden="true">2</span><span class="vc-step__label">It learns<span class="vc-step__hint" data-fig="learns-at">22:17</span></span></button></li>
+      <li class="vc-step" data-step="asks"><button type="button" class="vc-step__button"><span class="vc-step__marker" aria-hidden="true">3</span><span class="vc-step__label">It asks<span class="vc-step__hint" data-fig="asks-at">23:10</span></span></button></li>
+      <li class="vc-step" data-step="result"><button type="button" class="vc-step__button"><span class="vc-step__marker" aria-hidden="true">4</span><span class="vc-step__label">The result<span class="vc-step__hint">06:00</span></span></button></li>
+      <li class="vc-step" data-step="your-dc"><button type="button" class="vc-step__button"><span class="vc-step__marker" aria-hidden="true">5</span><span class="vc-step__label">Your DC<span class="vc-step__hint">the business case</span></span></button></li>
+    </ol>
+    <span class="vc-tooltip-anchor">
+      <button type="button" class="vc-icon-button restart" id="restart" aria-labelledby="tip-restart"><span class="vc-icon vc-icon--refresh" aria-hidden="true"></span></button>
+      <span class="vc-tooltip vc-tooltip--bottom" role="tooltip" id="tip-restart">Back to 22:00</span>
+    </span>
+  </nav>
+
+  <p class="vc-visually-hidden" id="announce" aria-live="polite"></p>
 
   <main class="workspace">
-    <!-- Two views of one run (js/view.js). The Customer view, the default: the robot's world model at the
-         centre, What it is worth beside it, the agent console below. The Full view: the cell board with
-         the inbound pallet, the simulated cell, the manual station and the store totes, and the console. -->
-    <section id="stage" class="world-stage" aria-label="The robot's world model: what it knows about every item on tonight's pallet"></section>
-    <section class="cell-panel" aria-label="Cell board: the simulated robot cell, the manual station and the store totes">
-      <div id="cell"></div>
+    <section class="stage" aria-labelledby="stage-title">
+      <div class="stage-head">
+        <h2 id="stage-title">The robot's world model</h2>
+        <p class="stage-clock vc-tabular"><span class="vc-icon vc-icon--clock" aria-hidden="true"></span><span class="vc-visually-hidden">Night clock </span><span id="clock">22:00</span></p>
+      </div>
+      <ol class="flow" id="flow" aria-label="One item's way through the cell"></ol>
+      <div class="pallet-head">
+        <h3>Tonight's pallet</h3>
+        <ul class="legend" aria-label="Legend">
+          <li class="legend-who"><span class="vc-icon vc-icon--gripper" aria-hidden="true"></span>the robot</li>
+          <li class="legend-who"><span class="vc-icon vc-icon--user" aria-hidden="true"></span>people</li>
+          <li><span class="legend-mark legend-mark--learn" aria-hidden="true"></span>learned</li>
+          <li><span class="legend-mark legend-mark--unknown" aria-hidden="true"></span>not in the model</li>
+        </ul>
+      </div>
+      <ul class="pallet" id="pallet" aria-label="Items on tonight's pallet"></ul>
     </section>
-    <section id="worth" class="worth-panel" aria-label="What it is worth"></section>
-    <section id="console" class="console-panel" aria-label="Agent console" tabindex="-1"></section>
+
+    <section class="story" id="story" aria-labelledby="story-title" tabindex="-1">
+      <h2 class="story-title" id="story-title">Tonight: 3,000 units for 12 stores</h2>
+      <p class="story-text" id="story-text"></p>
+      <figure class="agent" id="agent">
+        <figcaption><span class="vc-tag vc-tag--feature vc-tag--sm"><span class="vc-icon vc-icon--sparkle" aria-hidden="true"></span>Agent</span></figcaption>
+        <blockquote id="agent-text"></blockquote>
+      </figure>
+
+      <div class="decision" id="decision" hidden>
+        <div class="decision-actions">
+          <button type="button" class="vc-button" id="confirm"><span class="vc-icon vc-icon--check" aria-hidden="true"></span>Confirm entry</button>
+          <button type="button" class="vc-button vc-button--outline" id="reject">Reject</button>
+        </div>
+        <p class="decision-outcome" id="decision-outcome" tabindex="-1" hidden></p>
+      </div>
+
+      <div class="compare" id="compare" hidden>
+        <p class="compare-title">Labour tonight</p>
+        <div class="compare-row" data-kind="hand"><span class="compare-label">By hand</span><span class="compare-bar"><span class="compare-fill"></span></span><span class="compare-value vc-tabular" id="compare-hand"></span></div>
+        <div class="compare-row" data-kind="cell"><span class="compare-label">With the cell</span><span class="compare-bar"><span class="compare-fill"></span></span><span class="compare-value vc-tabular" id="compare-cell"></span></div>
+        <p class="compare-saving vc-tabular" id="compare-saving"></p>
+      </div>
+
+      <form class="your-dc" id="your-dc" hidden novalidate>
+        <div class="dc-inputs">
+          <div class="vc-field">
+            <label class="vc-label" for="dc-units">Units repacked a year</label>
+            <input class="vc-input vc-tabular" id="dc-units" name="N" inputmode="numeric" autocomplete="off" value="6,000,000">
+          </div>
+          <div class="vc-field">
+            <label class="vc-label" for="dc-cost">Labour, € an hour</label>
+            <input class="vc-input vc-tabular" id="dc-cost" name="c" inputmode="decimal" autocomplete="off" value="35.80">
+          </div>
+          <div class="vc-field">
+            <label class="vc-label" for="dc-rate">Picks an hour by hand</label>
+            <input class="vc-input vc-tabular" id="dc-rate" name="r_m" inputmode="numeric" autocomplete="off" value="400">
+          </div>
+        </div>
+        <p class="vc-help dc-error" id="dc-error" role="alert" hidden></p>
+        <div class="dc-result">
+          <p class="dc-year vc-tabular"><strong id="dc-year">€342,069</strong> a year</p>
+          <button type="button" class="vc-button vc-button--ghost" id="dc-reset">Reset</button>
+        </div>
+        <p class="dc-detail vc-tabular" id="dc-detail">labour saved with 4.2 cells on the night shift, gross, before cell costs</p>
+        <dl class="dc-facts vc-tabular">
+          <div><dt>Labour per 1,000 units</dt><dd id="dc-per1000">€89.50 by hand, €32.49 with the cell</dd></div>
+          <div><dt>A cell pays while it costs less than</dt><dd id="dc-break-even">€40.72 an operating hour</dd></div>
+        </dl>
+        <p class="dc-next">Next step: a pilot cell in shadow mode. The agent proposes, your shift lead decides, and you measure how often they agree before it gets more autonomy.</p>
+      </form>
+    </section>
   </main>
 
-  <section id="drawer" class="drawer" aria-label="Options, outbox, KPI board, assumptions and audit log"></section>
+  <footer class="app-footer">
+    <p class="footer-note"><span class="vc-icon vc-icon--check" aria-hidden="true"></span>Simulated night, figures from the engine. Ruhrkorb, its stores and items are fictional.</p>
+    <p class="vc-byline">
+      <span class="vc-byline__label">Built by</span>
+      <a class="vc-byline__person" href="https://www.linkedin.com/in/victorpflueger" rel="author noopener" target="_blank">
+        <span class="vc-avatar vc-avatar--xs"><img src="vici/assets/brand/portrait-96.jpg" alt="" width="96" height="96"></span>
+        <span class="vc-byline__name">Victor Pflüger</span>
+        <img class="vc-platform-mark" src="vici/assets/marks/linkedin.png" alt="" width="840" height="779">
+        <span class="vc-visually-hidden"> on LinkedIn (opens in a new tab)</span>
+      </a>
+      <span class="vc-tooltip-anchor">
+        <a class="vc-byline__icon" href="https://victorpflueger.github.io/VIP/index.html" rel="author noopener" target="_blank" aria-label="Victor Pflüger's website (opens in a new tab)"><span class="vc-icon vc-icon--globe-hex" aria-hidden="true"></span></a>
+        <span class="vc-tooltip" aria-hidden="true">Website</span>
+      </span>
+    </p>
+  </footer>
 
-  <div id="banners" class="banner-stack"></div>
+  <!-- How it works: Vici's guide. vici.js builds the chapter rail and opens it once per browser tab;
+       ?guide=0 keeps it closed, ?guide=present opens the talk track. Every figure in it is the engine's
+       or the night's, and js/main.js writes them again from the same sources (tests/figures.mjs). -->
+  <dialog class="vc-dialog vc-guide" id="guide" aria-labelledby="guide-title" data-vc-guide data-vc-guide-auto data-vc-guide-count="{n} of {total}">
+    <header class="vc-dialog__header">
+      <h2 class="vc-dialog__title" id="guide-title">How the showcase works</h2>
+      <button type="button" class="vc-icon-button" data-vc-close aria-label="Close"><span class="vc-icon vc-icon--close" aria-hidden="true"></span></button>
+    </header>
+    <div class="vc-guide__chapters">
+      <section class="vc-guide__chapter" data-vc-chapter="what" data-vc-nav="What it does">
+        <h3>A robot cell repacks <span data-fig="units">3,000</span> units for <span data-fig="stores">12</span> stores overnight</h3>
+        <p class="vc-guide__lead">One night shift in a grocery DC: an AI agent plans it, a robot cell repacks mixed pallets into store orders, and people take the rest. For heads of DC operations asking what a cell is worth.</p>
+        <div class="vc-table-wrap"><table class="vc-table vc-table--compact">
+          <caption>Tonight at Ruhrkorb DC Unna, fictional</caption>
+          <tbody>
+            <tr><th scope="row">Units to repack</th><td class="vc-num" data-fig="units">3,000</td></tr>
+            <tr><th scope="row">Store orders</th><td class="vc-num"><span data-fig="stores">12</span>, first truck at <span data-fig="first-truck">01:35</span></td></tr>
+            <tr><th scope="row">For the robot</th><td class="vc-num"><span data-fig="robot-units">2,100</span> units</td></tr>
+            <tr><th scope="row">For people</th><td class="vc-num"><span data-fig="people-units">900</span> units it may not grip</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+      <section class="vc-guide__chapter" data-vc-chapter="how" data-vc-nav="How it works">
+        <h3>The robot works from a model of every item</h3>
+        <p class="vc-guide__lead">The world model holds each item's weight, size, fragility and grip. The agent plans the night with it, and camera and scale check every pick against it.</p>
+        <div class="vc-table-wrap"><table class="vc-table vc-table--compact">
+          <caption>The world model at work</caption>
+          <tbody>
+            <tr><th scope="row">Knows</th><td>Every item on the pallet, before the night starts.</td></tr>
+            <tr><th scope="row">Checks</th><td>Camera and scale compare each item with the model; the robot rehearses every grasp first.</td></tr>
+            <tr><th scope="row">Learns</th><td>A reading that clearly differs is written back for every unit of that item.</td></tr>
+            <tr><th scope="row">Asks</th><td>What the model doesn't know goes to a person, who decides.</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+      <section class="vc-guide__chapter" data-vc-chapter="real" data-vc-nav="What is real">
+        <h3>The cell is simulated, the arithmetic is real</h3>
+        <p class="vc-guide__lead">Ruhrkorb, its stores and its robot cell are invented. The agent's words are a scripted replay of its run, and an engine computes every hour and euro as the night plays in your browser.</p>
+        <div class="vc-table-wrap"><table class="vc-table vc-table--compact">
+          <caption>Where the figures come from</caption>
+          <tbody>
+            <tr><th scope="row">Simulated</th><td>The robot cell, its camera and scale, the warehouse system, the retailer and its stores.</td></tr>
+            <tr><th scope="row">Sourced</th><td><span data-fig="r_m">400</span> picks an hour by hand (Fraunhofer IML) and <span data-fig="c">€35.80</span> an hour of labour (Eurostat).</td></tr>
+            <tr><th scope="row">Assumed</th><td>The robot may take <span data-fig="s">70&nbsp;%</span> of units, grasps <span data-fig="p">91&nbsp;%</span> of them and tries <span data-fig="r_c">500</span> an hour.</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+      <section class="vc-guide__chapter" data-vc-chapter="worth" data-vc-nav="What it is worth">
+        <h3><span data-fig="year">€342,069</span> a year for a DC of <span data-fig="units-year">6,000,000</span> units</h3>
+        <p class="vc-guide__lead">The engine prices the same work by hand and with the cell. The yearly figure is gross, before cell costs: a cell's cost differs by site, so there's no payback claim.</p>
+        <div class="vc-table-wrap"><table class="vc-table vc-table--compact">
+          <caption>At the reference site</caption>
+          <tbody>
+            <tr><th scope="row">Labour per 1,000 units</th><td class="vc-num"><span data-fig="manual">€89.50</span> by hand, <span data-fig="hybrid">€32.49</span> with the cell</td></tr>
+            <tr><th scope="row">A year</th><td class="vc-num"><span data-fig="year">€342,069</span> with <span data-fig="cells">4.2</span> cells on the night shift</td></tr>
+            <tr><th scope="row">Break-even per cell</th><td class="vc-num"><span data-fig="break-even">€40.72</span> an operating hour</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+      <section class="vc-guide__chapter" data-vc-chapter="present" data-vc-nav="How to present">
+        <h3>Show it in five minutes</h3>
+        <p class="vc-guide__lead">Five steps, one minute each, on the buttons under the header.</p>
+        <ol class="vc-guide__path">
+          <li><strong><span data-fig="plan-at">22:00</span> The plan.</strong> <span class="vc-guide__say">“The robot may take <span data-fig="robot-units">2,100</span> of <span data-fig="units">3,000</span> units; people take the <span data-fig="people-units">900</span> it may not grip.”</span> <span class="vc-guide__time">1 min</span></li>
+          <li><strong><span data-fig="learns-at">22:17</span> It learns.</strong> <span class="vc-guide__say">“The scale weighs <span data-fig="jar-new">400&nbsp;g</span>, not <span data-fig="jar-old">200&nbsp;g</span>: the model now expects that for every jar.”</span> <span class="vc-guide__time">1 min</span></li>
+          <li><strong><span data-fig="asks-at">23:10</span> It asks: click Confirm entry.</strong> <span class="vc-guide__say">“The robot never picks what it doesn't know: a person takes the <span data-fig="unknown-units">6</span> units.”</span> <span class="vc-guide__time">1 min</span></li>
+          <li><strong><span data-fig="end-at">06:00</span> The result.</strong> <span class="vc-guide__say">“Every truck left on time, with <span data-fig="labour-h">2.74&nbsp;h</span> of labour instead of <span data-fig="by-hand-h">7.52&nbsp;h</span> by hand.”</span> <span class="vc-guide__time">1 min</span></li>
+          <li><strong>Your DC: type their yearly volume.</strong> <span class="vc-guide__say">“Your yearly saving before cell costs. The next step: a pilot cell in shadow mode.”</span> <span class="vc-guide__time">1 min</span></li>
+        </ol>
+      </section>
+    </div>
+    <footer class="vc-dialog__footer vc-guide__footer">
+      <span class="vc-guide__count"></span>
+      <button type="button" class="vc-button vc-button--ghost" data-vc-guide-back><span class="vc-icon vc-icon--chevron-left" aria-hidden="true"></span>Back</button>
+      <button type="button" class="vc-button" data-vc-guide-next data-vc-guide-done="Start">Next<span class="vc-icon vc-icon--chevron-right" aria-hidden="true"></span></button>
+    </footer>
+  </dialog>
 
-  <!-- Boot screen: removed by js/main.js once the workspace is running. Without JavaScript modules
-       (for example when opened from disk via file://) it stays and explains what to do. -->
+  <!-- Boot screen: removed by js/main.js once the night is simulated. Opened from disk (file://), where
+       browsers block program modules, it stays and says what to do. -->
   <div id="boot" class="boot" data-state="loading">
     <div class="boot-card">
-      <div class="boot-brand">
-        <span class="vc-cell vc-cell--teal vc-cell--xl" aria-hidden="true"><span class="vc-icon vc-icon--layers"></span></span>
-        <span class="brand-name">Repack Pilot</span>
-      </div>
-      <p class="boot-status" role="status" aria-live="polite"><span class="vc-spinner" aria-hidden="true"></span><span id="boot-status">Starting Repack Pilot…</span></p>
+      <p class="boot-brand"><span class="vc-cell vc-cell--teal vc-cell--lg" aria-hidden="true"><span class="vc-icon vc-icon--layers"></span></span>Repack Pilot</p>
+      <p class="boot-status" role="status"><span class="vc-spinner" aria-hidden="true"></span><span id="boot-status">Simulating tonight's 3,000 units…</span></p>
       <p id="boot-detail" class="vc-alert vc-alert--danger boot-detail" hidden></p>
-      <div class="boot-help">
-        <p>Still on this screen? Repack Pilot has to be served over http or https. Browsers block its program modules when <code>index.html</code> is opened straight from disk, at an address starting with <code>file://</code>.</p>
-        <p>To run it on your computer, open a terminal in this folder, run <code>python -m http.server 8000</code>, then open <code>http://localhost:8000</code>. Published on GitHub Pages, it works as is. Use a current Chrome or Edge.</p>
-      </div>
-      <noscript><p class="boot-detail">Repack Pilot needs JavaScript. Allow it for this site and reload the page.</p></noscript>
+      <p class="boot-help">Still on this screen? Serve the folder over http, for example with <code>python -m http.server 8000</code>, and open <code>http://localhost:8000</code>. Browsers don't run its modules from a file.</p>
     </div>
   </div>
 </body>

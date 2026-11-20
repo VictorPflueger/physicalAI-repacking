@@ -1,6 +1,7 @@
-# Runs the test suites on every push and pull request. The app itself has no build step and no
-# dependencies; Playwright is installed here only for the browser suites (tests/README.md).
-# The suite list grows with the milestones (tests/run-all.mjs).
+# Runs every suite on every push and pull request. The showcase has no build step and no
+# dependencies; Playwright is installed here only for the browser suites (tests/README.md). ViciDesign
+# is checked out next to the app at the commit vici/ was copied from, so the suites can use Vici's own
+# checks and compare vici/ with it byte for byte.
 name: tests
 
 on:
@@ -10,32 +11,25 @@ on:
 permissions:
   contents: read
 
-# A newer push to the same branch or pull request cancels the run still in progress.
 concurrency:
   group: tests-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  node:
-    name: Colour system, page icon, Vici's files, world, client, formatting and engine (Node.js only)
-    # Pinned image: Playwright 1.56's system dependencies are known to install on Ubuntu 24.04.
+  tests:
+    name: Figures, files, lean, Vici's checks, and the showcase in Chromium
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - run: node tests/run-all.mjs tokens page-icon vici-files world unit engine
-
-  browser:
-    name: Browser suites (Playwright, Chromium)
-    runs-on: ubuntu-24.04
-    # Six browser suites, the six scenarios in three of them (M4), nothing round in both themes (0.5.0).
-    timeout-minutes: 60
-    needs: node
-    steps:
+          path: app
       - uses: actions/checkout@v4
+        with:
+          repository: VictorPflueger/ViciDesign
+          ref: 929e08da4dfa3d99bb017fbb419c00813f7179ee
+          path: ViciDesign
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -45,7 +39,9 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-1.56.0-chromium-${{ runner.os }}
       - run: npm install -g playwright@1.56.0 && npx playwright install --with-deps chromium
-      - run: NODE_PATH="$(npm root -g)" node tests/run-all.mjs smoke sims live accept layout hexagon
+      - name: All suites
+        working-directory: app
+        run: NODE_PATH="$(npm root -g)" node tests/run-all.mjs --require-vici
         env:
           RP_TEST_OUT: ${{ runner.temp }}/repack-pilot-tests
       - if: failure()

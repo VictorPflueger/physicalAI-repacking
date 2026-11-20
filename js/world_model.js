@@ -1,12 +1,11 @@
-// The world model (PLAN.md §a.4, "World model"; brief: expected against observed): what the cell
-// expects of every item, what its sensors observed, and the corrections log. The item master is the
+// The world model, expected against observed: what the cell expects of every item, what its sensors
+// observed, and the corrections log. The item master is the
 // starting point; a scale reading further than the tolerance from the expectation writes the observed
 // weight back for the whole SKU (every later unit is rehearsed and weighed against it), and the log
 // keeps time, sensor, field, old and new value.
 //
-// One rule, three users: the night simulation decides corrections with it (js/nightsim.js), the
-// board replays them from the night's events (js/cell_data.js, js/world_panel.js), and the agent's
-// world tools read it (js/wms.js). Pure: no DOM, no clock, no randomness.
+// The night simulation decides corrections with it (js/nightsim.js). Pure: no DOM, no clock, no
+// randomness.
 
 /** A reading further than this share away from the expected weight writes back (Assumption). */
 export const WEIGHT_TOLERANCE = 0.25;
