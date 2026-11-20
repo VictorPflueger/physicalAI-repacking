@@ -1,6 +1,6 @@
-// The labour engine (build brief, "KPIs and engine formulas"; PLAN.md §c.1–c.4). Pure and without
-// randomness: it computes every hour and euro the screen shows, and the agent only ever quotes its
-// results. Full precision inside; js/format.js rounds half up for display (PLAN.md §c.8).
+// The labour engine. Pure and without randomness: it computes every hour and euro the page shows, and
+// the agent only ever quotes its results. Full precision inside; js/format.js rounds half up for
+// display.
 //
 //   H_m   = 1000 / r_m                manual labour hours per 1,000 units
 //   H_h   = 1000 / r_m × (1 − s·p)    hybrid labour hours per 1,000 units
@@ -14,16 +14,9 @@
 //   Call-in: max(minimum, hours used) × c × (1 + premium)
 
 /**
- * The engine's inputs: default, unit and basis (a source key from DATA_SOURCES.md or "Assumption"),
- * in the order the assumptions tab lists them. Values are the brief's (PLAN.md §c.1).
+ * The engine's inputs: default, unit, range and basis (a source key from DATA_SOURCES.md or
+ * "Assumption"). Your DC lets a visitor change N, c and r_m within these ranges.
  */
-/**
- * The engine's and the night simulation's version: it changes whenever the same inputs would give a
- * different figure or night (as D46 and D48 did in M4). A recorded run stores it, and the script checker
- * refuses a recording made with another version (js/sim_check.js): record the run again then.
- */
-export const ENGINE_VERSION = "0.4.0";
-
 export const PARAMETERS = Object.freeze([
   { id: "N", label: "Units repacked per year", value: 6000000, unit: "units per year", step: 100000, min: 100000, max: 100000000,
     basis: "Assumption", note: "Illustrative regional DC, about 24,000 units a day on 250 days" },
@@ -49,17 +42,6 @@ export const PARAMETERS = Object.freeze([
     basis: "Brief", note: "22:00 to 06:00" }
 ]);
 
-/**
- * The inputs the night simulation itself reads (js/nightsim.js buildNight): the picking rate, the cell's
- * attempts per hour, the grasp success and the call-in minimum (how long a called-in picker stays).
- * The others price the night (c, the premium, the cost of a late order) or scale it to a year.
- */
-export const NIGHT_INPUTS = Object.freeze(["r_m", "r_c", "p", "callin_min_h"]);
-
-/** The night simulation's parameters from a set of inputs. */
-export function nightParams(v) {
-  return Object.fromEntries(NIGHT_INPUTS.map((k) => [k, v[k]]));
-}
 
 /** The default inputs as a plain object { N, r_m, c, s, p, r_c, callin_min_h, … }. */
 export function defaults() {
@@ -91,7 +73,7 @@ export function perCellHour(v) {
   return { robot_picks: v.r_c * v.p, break_even_eur: (v.r_c * v.p / v.r_m) * v.c };
 }
 
-/** Per year, gross before cell costs, with the cells it needs (PLAN.md §c.4). */
+/** Per year, gross before cell costs, with the cells it needs. */
 export function perYear(v) {
   const hours_avoided = (v.N / v.r_m) * v.s * v.p;
   const cell_hours = (v.N * v.s) / v.r_c;
@@ -113,11 +95,8 @@ export function night(v, V) {
 }
 
 /**
- * Tonight's labour in euros from the night simulation's hours (js/nightsim.js tonightFigures, or the
- * board's figures so far): the Tonight column of the KPI board and the night report. Called-in hours
- * cost the night premium on top of `c`, as the option card bills them (golden case O1; TECH_NOTES D46):
- * on scenario 1's option B, 2.855 base hours at €35.80 and 3 called-in hours at €44.75 make €236.46,
- * €69.55 per 1,000 of the 3,400 units.
+ * Tonight's labour in euros from the night simulation's hours (js/nightsim.js tonightFigures). Called-in
+ * hours, on a night that needs them, cost the night premium on top of `c`.
  */
 export function tonightEuros(v, figures) {
   const h = figures?.labour_hours ?? 0;
@@ -131,33 +110,7 @@ export function tonightEuros(v, figures) {
   };
 }
 
-/** Extra labour for a called-in picker: max(minimum, hours used) × c × (1 + premium). O1: €134.25. */
-export function callInCost(v, hoursUsed = 0) {
-  return Math.max(v.callin_min_h, hoursUsed) * v.c * (1 + v.callin_premium);
-}
-
-/** Everything the KPI board and the header tiles show for a set of inputs (the Plan column). */
+/** Everything the value figures need for a set of inputs. */
 export function plan(v) {
-  const k = perThousand(v);
-  const h = perCellHour(v);
-  const y = perYear(v);
-  return { inputs: { ...v }, per_thousand: k, per_cell_hour: h, per_year: y, demo_cell: demoCell(v) };
+  return { inputs: { ...v }, per_thousand: perThousand(v), per_cell_hour: perCellHour(v), per_year: perYear(v) };
 }
-
-/**
- * The demo cell's own share of the annual figure: the night's 3,000 units on every night of the year
- * (750,000 units at the defaults), at the same rates (PLAN.md §c.4: €42,759).
- */
-export function demoCell(v, unitsPerNight = 3000) {
-  const N = unitsPerNight * v.nights;
-  const hours_avoided = (N / v.r_m) * v.s * v.p;
-  return { units_per_year: N, eur_avoided: hours_avoided * v.c, cell_hours: (N * v.s) / v.r_c };
-}
-
-/** The brief's golden cases as inputs (PLAN.md §c.3). */
-export const GOLDEN = Object.freeze({
-  G1: {},
-  G2: { p: 0.7 },
-  G3: { s: 0.75 },
-  G4: { r_m: 600 }
-});

@@ -14,13 +14,33 @@
 // Each part first proves on planted examples that it catches every kind, and the test fails if one
 // slips through. vici/ is Vici's own (Vici checks it) and vendor/ holds other people's libraries; tests/
 // and tools/ are not part of the app. An exception needs its reason, written in EXCEPTIONS below.
-// The same file in all four prototypes; the states to visit are in tests/lib/prototype.mjs.
+// The tour visits the guide and the five steps, the decision answered and the night playing.
 // Usage: node tests/hexagon.mjs             (all three parts)
 //        node tests/hexagon.mjs files       (parts 1 and 2 only, no browser)
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { APP_ROOT, ONLY, launchBrowser, serveStatic, NETWORK_NOISE } from "./lib/harness.mjs";
-import { NAME, hexagonTour } from "./lib/prototype.mjs";
+
+const NAME = "Repack Pilot";
+
+/** The states to look at: the guide's first and last chapters, the five steps, the decision, playback. */
+async function hexagonTour(page, visit) {
+  await page.waitForFunction(() => document.documentElement.dataset.boot === "ready", null, { timeout: 15000 });
+  await visit("guide, chapter 1");
+  await page.click(".vc-guide__rail .vc-step__button >> nth=-1");
+  await visit("guide, the talk track");
+  await page.keyboard.press("Escape");
+  for (const id of ["plan", "learns", "asks", "result", "your-dc"]) {
+    await page.click(`#steps [data-step="${id}"] button`);
+    await visit(id);
+  }
+  await page.click('#steps [data-step="asks"] button');
+  await page.click("#confirm");
+  await visit("asks, confirmed");
+  await page.click('#steps [data-step="plan"] button');
+  await page.click("#play");
+  await visit("playing", { settle: 1500 });
+}
 
 /**
  * Allowed round things, each with its reason: { file or state, match (a substring of the finding),
@@ -301,4 +321,4 @@ if (failures.length) {
   console.error(`\n${failures.map((f) => `✗ ${f}`).join("\n")}\n\n${failures.length} round thing(s) or failed self-test(s). Make them hexagons (Vici's --vc-hex, vc-hex, vc-capsule, vc-cell), or add an exception with its reason.`);
   process.exit(1);
 }
-console.log(`\nNothing round in ${NAME}.`);
+console.log(`\nNothing round in ${NAME}.\nHEX OK`);

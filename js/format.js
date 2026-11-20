@@ -1,12 +1,10 @@
-// Formatting helpers for euros, hours, percentages, times and dates (English UI, EUR).
+// Formatting helpers for euros, hours, percentages and counts (English UI, EUR).
 //
 // Rounding: every figure is kept at full precision and rounded only for display, half up on its
 // decimal expansion (build brief, "KPIs and engine formulas"). Number.toFixed is not used for display:
 // it rounds the binary double, so (31.325).toFixed(2) gives "31.32" where G2's break-even must read
-// €31.33 (PLAN.md B9). The decimal expansion is first cut to ten places, far below any display
+// €31.33. The decimal expansion is first cut to ten places, far below any display
 // precision, which removes the binary noise (31.324999999999999 → 31.3250000000) before rounding.
-
-import { appToday } from "./clock.js";
 
 /**
  * Half-up rounding to `decimals` places as a plain decimal string without grouping:
@@ -62,20 +60,15 @@ export function eur0(value) {
   return s.startsWith("−") ? `−€${s.slice(1)}` : `€${s}`;
 }
 
-/** Small euro amounts with cents, for the cost meter: €0.38. */
-export function eurCents(value) {
-  return eur2(Number(value) || 0);
-}
-
-/** Hours with up to two decimals: hours(0.9075) → "0.91 h", hours(2.5) → "2.5 h". */
+/** Hours with up to two decimals: hours(0.9075) → "0.91 h", hours(2.5) → "2.5 h", with a no-break space. */
 export function hours(value, decimals = 2) {
-  return `${upTo(value, decimals)} h`;
+  return `${upTo(value, decimals)}\u00a0h`;
 }
 
-/** A share as a percentage with up to one decimal: pct(128 / 138) → "92.8 %", pct(0.95) → "95 %". */
+/** A share as a percentage with up to one decimal: pct(128 / 138) → "92.8 %", pct(0.95) → "95 %", with a no-break space. */
 export function pct(share, decimals = 1) {
   if (share === null || share === undefined || Number.isNaN(Number(share))) return "—";
-  return `${upTo(Number(share) * 100, decimals)} %`;
+  return `${upTo(Number(share) * 100, decimals)}\u00a0%`;
 }
 
 /** Whole numbers with grouping: int(4200) → "4,200". */
@@ -83,39 +76,3 @@ export function int(value) {
   return fixed(Number(value) || 0, 0);
 }
 
-/** mm:ss (or h:mm:ss) for the run stopwatch in the console. */
-export function clock(ms) {
-  const total = Math.max(0, Math.floor((ms || 0) / 1000));
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  const p = (x) => String(x).padStart(2, "0");
-  return h ? `${h}:${p(m)}:${p(s)}` : `${p(m)}:${p(s)}`;
-}
-
-// en-GB writes September "Sept" next to the three-letter Aug and Oct; keep all months at three.
-const month3 = (text) => text.replace(/\bSept\b/, "Sep");
-
-/**
- * "12 Oct 2026" from an ISO date or timestamp. A bare date is read as that day where the browser is,
- * not as midnight UTC (which is the day before west of UTC).
- */
-export function dateWithYear(iso) {
-  const text = String(iso ?? "");
-  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(text) ? `${text}T12:00:00` : text);
-  return Number.isNaN(d.getTime()) ? "an earlier date" : month3(d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }));
-}
-
-/** "Wed 23 Dec" for an ISO date, with the year when it is not this year. */
-export function shortDate(iso) {
-  const text = String(iso ?? "");
-  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(text) ? `${text}T12:00:00` : text);
-  if (Number.isNaN(d.getTime())) return "—";
-  const year = d.getFullYear() !== appToday().getFullYear() ? { year: "numeric" } : {};
-  return month3(d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", ...year }));
-}
-
-/** "15:56:03" local time from an ISO timestamp. */
-export function timeOfDay(iso) {
-  return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}

@@ -22,13 +22,13 @@ window.WORLD = {
     "world_version": "1.1.0",
     "synthetic": true,
     "retailer": "Ruhrkorb",
-    "retailer_note": "Ruhrkorb, its DC, its stores, tonight's orders, the item master, the robot cell and the shadow record are Synthetic. The towns are real places in North Rhine-Westphalia; no real store, company or person is described.",
+    "retailer_note": "Ruhrkorb, its DC, its stores, tonight's orders, the item master and the robot cell are Synthetic. The towns are real places in North Rhine-Westphalia; no real store, company or person is described.",
     "dc": {"id":"DC-UNNA","name":"Ruhrkorb DC Unna","town":"Unna","region":"Ruhr area and its eastern neighbours, North Rhine-Westphalia","note":"Fictional DC in a real logistics cluster by the Kamener Kreuz (A1/A2)"},
     "shift": {"start":"22:00","end":"06:00"},
     "peak_factor": 1.4,
     "risk_band_min": 15,
     "generated_by": "tools/build_world.mjs",
-    "sources": "PLAN.md §b (store and item tables, night calibration), approved 16 Oct 2026"
+    "sources": "The build plan's store and item tables and night calibration, approved 16 Oct 2026 (PLAN.md in release 0.5.0)"
   },
   "stores": [
     {"id":"ESS","name":"Essen","town":"Essen","plan_rank":1,"units_n1":320,"cutoff":"01:35","flagship":false,"express_truck":null,"note":"Farthest route, first truck"},
@@ -72,7 +72,7 @@ window.WORLD = {
   ],
   "waves": [
     {"id":"ambient","label":"Ambient goods","arrives":"22:00","note":"On the inbound pallets when the shift starts"},
-    {"id":"chilled","label":"Chilled goods","arrives":"01:00","note":"From the fresh hub, mid-shift (Assumption, PLAN.md B2)"}
+    {"id":"chilled","label":"Chilled goods","arrives":"01:00","note":"From the fresh hub, mid-shift (Assumption)"}
   ],
   "allocation": {
     "n1": {"ESS":{"S01":17,"S02":13,"S03":15,"S04":12,"S05":17,"S06":16,"S07":10,"S08":7,"S09":21,"S10":12,"S11":16,"S12":9,"S13":10,"S14":11,"S15":7,"S16":13,"S17":9,"S18":9,"S19":17,"S20":13,"S21":15,"S22":19,"S23":16,"S24":16},"GEL":{"S01":12,"S02":9,"S03":10,"S04":8,"S05":12,"S06":11,"S07":7,"S08":5,"S09":15,"S10":8,"S11":11,"S12":6,"S13":7,"S14":7,"S15":5,"S16":9,"S17":6,"S18":6,"S19":12,"S20":9,"S21":10,"S22":13,"S23":11,"S24":11},"BOC":{"S01":18,"S02":12,"S03":14,"S04":11,"S05":16,"S06":15,"S07":9,"S08":7,"S09":20,"S10":11,"S11":15,"S12":8,"S13":9,"S14":10,"S15":7,"S16":12,"S17":8,"S18":8,"S19":16,"S20":12,"S21":14,"S22":18,"S23":15,"S24":15},"HER":{"S01":10,"S02":6,"S03":8,"S04":6,"S05":8,"S06":8,"S07":5,"S08":4,"S09":11,"S10":6,"S11":8,"S12":4,"S13":5,"S14":5,"S15":4,"S16":6,"S17":4,"S18":4,"S19":8,"S20":6,"S21":8,"S22":10,"S23":8,"S24":8},"HAG":{"S01":14,"S02":10,"S03":11,"S04":9,"S05":13,"S06":12,"S07":7,"S08":6,"S09":16,"S10":9,"S11":12,"S12":6,"S13":7,"S14":8,"S15":6,"S16":10,"S17":6,"S18":6,"S19":13,"S20":10,"S21":11,"S22":14,"S23":12,"S24":12},"WIT":{"S01":13,"S02":9,"S03":11,"S04":8,"S05":12,"S06":12,"S07":7,"S08":5,"S09":16,"S10":8,"S11":12,"S12":6,"S13":7,"S14":8,"S15":5,"S16":9,"S17":6,"S18":6,"S19":12,"S20":9,"S21":11,"S22":14,"S23":12,"S24":12},"DOR":{"S01":36,"S02":24,"S03":28,"S04":22,"S05":32,"S06":30,"S07":18,"S08":14,"S09":40,"S10":22,"S11":30,"S12":16,"S13":18,"S14":20,"S15":14,"S16":24,"S17":16,"S18":16,"S19":32,"S20":24,"S21":28,"S22":36,"S23":30,"S24":30},"ISE":{"S01":11,"S02":7,"S03":8,"S04":7,"S05":10,"S06":9,"S07":5,"S08":4,"S09":12,"S10":7,"S11":9,"S12":5,"S13":5,"S14":6,"S15":4,"S16":7,"S17":5,"S18":5,"S19":10,"S20":7,"S21":8,"S22":11,"S23":9,"S24":9},"HAM":{"S01":16,"S02":10,"S03":12,"S04":10,"S05":14,"S06":13,"S07":8,"S08":6,"S09":17,"S10":10,"S11":13,"S12":7,"S13":8,"S14":8,"S15":6,"S16":10,"S17":7,"S18":7,"S19":14,"S20":10,"S21":12,"S22":16,"S23":13,"S24":13},"SOE":{"S01":12,"S02":6,"S03":7,"S04":5,"S05":8,"S06":7,"S07":4,"S08":4,"S09":10,"S10":5,"S11":7,"S12":4,"S13":4,"S14":5,"S15":4,"S16":6,"S17":4,"S18":4,"S19":8,"S20":6,"S21":7,"S22":9,"S23":7,"S24":7},"LUN":{"S01":8,"S02":6,"S03":7,"S04":5,"S05":7,"S06":7,"S07":4,"S08":3,"S09":9,"S10":5,"S11":7,"S12":4,"S13":4,"S14":5,"S15":3,"S16":6,"S17":4,"S18":4,"S19":7,"S20":6,"S21":7,"S22":8,"S23":7,"S24":7},"SCH":{"S01":13,"S02":8,"S03":9,"S04":7,"S05":11,"S06":10,"S07":6,"S08":5,"S09":13,"S10":7,"S11":10,"S12":5,"S13":6,"S14":7,"S15":5,"S16":8,"S17":5,"S18":5,"S19":11,"S20":8,"S21":9,"S22":12,"S23":10,"S24":10}},
