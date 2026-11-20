@@ -4,6 +4,8 @@
 //   steps     each of the five steps by click, by key (1 to 5, arrows, Home) and by address (?step=):
 //             its heading, its clock and the header's counters equal the night's state at that moment
 //   play      Play runs the night to the next step and stops there; Pause holds it and Play resumes
+//   kpis      the header's three key figures (data-vc-kpi), top right at every size, with the night's
+//             values: detection to decision counts what was caught, store orders on time 12 of 12 at 06:00
 //   decide    Confirm entry decides once; the world model's station, the unknown item's tile and the
 //             result's count follow the answer (or its absence); the answer stays; Restart clears it
 //   your DC   the inputs priced by the engine (10,000,000 units as the demo script types them), a
@@ -55,12 +57,15 @@ const view = (page) => page.evaluate(() => {
     title: document.getElementById("story-title").textContent, heading: step.heading,
     clock: document.getElementById("clock").textContent, stepClock: step.clock, stateClock: s.clock,
     units: document.getElementById("units-done").textContent, repacked: s.repacked.toLocaleString("en-GB"),
-    orders: document.getElementById("orders-ready").textContent, ready: String(s.ready),
+    orders: document.getElementById("orders-ready").textContent, onTime: String(s.onTime),
+    caught: document.getElementById("decision-note").textContent,
     current: document.querySelector('#steps [aria-current="step"]')?.closest("li")?.dataset.step,
     play: document.querySelector("#play .play-text").textContent
   };
 });
-const consistent = (v) => v.title === v.heading && v.clock === v.stateClock && v.units === v.repacked && v.orders === v.ready && v.current === IDS[v.index];
+const consistent = (v) => v.title === v.heading && v.clock === v.stateClock && v.units === v.repacked && v.orders === v.onTime && v.current === IDS[v.index];
+/** What the detection tile says at each step: nothing caught at 22:00, the jar at 22:17, the barcode from 23:10. */
+const CAUGHT = { plan: "scale and camera check every unit", learns: "1 caught: a wrong weight", asks: "2 caught: a weight, a barcode", result: "2 caught: a weight, a barcode", "your-dc": "2 caught: a weight, a barcode" };
 
 try {
   // ---- boot ---------------------------------------------------------------------------------------
@@ -86,7 +91,21 @@ try {
       const v = await view(page);
       seen.push(`${id} ${v.clock}`);
       check(v.id === id && consistent(v), `steps: a click on ${id} shows its heading, its clock ${v.clock} and the counters at that moment`);
+      check(v.caught === CAUGHT[id], `steps: at ${id} detection to decision says "${v.caught}"`);
     }
+    await page.click('#steps [data-step="result"] button');
+    const end = await page.evaluate(() => ({
+      names: [...document.querySelectorAll(".app-header [data-vc-kpi]")].map((k) => k.dataset.vcKpi),
+      labels: [...document.querySelectorAll(".app-header [data-vc-kpi] .vc-stat__label")].map((l) => l.textContent),
+      time: document.querySelector('#kpi-decision [data-fig="decision-time"]').textContent,
+      orders: document.getElementById("orders-ready").textContent, of: document.querySelector("#kpi-orders .kpi-of").textContent.trim(),
+      note: document.getElementById("orders-note").textContent, tone: document.getElementById("kpi-orders").dataset.tone,
+      count: document.querySelector(".pallet-count")?.textContent
+    }));
+    const names = ["Labour per 1,000 units", "Detection → decision", "Store orders on time"];
+    check(end.names.join("|") === names.join("|") && end.labels.join("|") === names.join("|"), `kpis: the header's key figures are ${end.names.join(", ")}`);
+    check(end.time === "<\u00a01\u00a0s" && end.orders === "12" && end.of === "of 12" && end.note === "every truck left on time" && end.tone === "done", `kpis: at 06:00 detection to decision reads ${end.time}, store orders on time ${end.orders} ${end.of} (${end.note})`);
+    check(end.count === "3,000 of 3,000 units repacked", `kpis: the units count sits with the pallet ("${end.count}")`);
     await page.click("#story-title"); // focus off the buttons, as a presenter's click on the page would
     const keys = [["1", "plan"], ["ArrowRight", "learns"], ["ArrowRight", "asks"], ["4", "result"], ["ArrowLeft", "asks"], ["5", "your-dc"], ["Home", "plan"]];
     let keyed = true;
@@ -223,6 +242,10 @@ try {
             const stage = r(document.querySelector(".stage"));
             const story = r(document.querySelector(".story"));
             for (const el of document.querySelectorAll(".station")) if (!inView(el, stage)) issues.push(`station ${el.dataset.station} cut off`);
+            const head = r(document.querySelector(".app-header"));
+            const kpis = [...document.querySelectorAll(".app-header [data-vc-kpi]")];
+            if (kpis.length !== 3) issues.push(`${kpis.length} key figures in the header`);
+            for (const k of kpis) { const b = r(k); if (b.left < vw * 0.45 || b.bottom > head.bottom + 0.5 || !inView(k)) issues.push(`key figure ${k.dataset.vcKpi} not top right`); }
             const tops = [...document.querySelectorAll(".station")].map((el) => Math.round(r(el).top));
             if (new Set(tops).size > 1) issues.push(`stations not in line (${tops.join(", ")})`);
             const tiles = [...document.querySelectorAll(".pallet .tile")];

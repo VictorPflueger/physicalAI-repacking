@@ -1,9 +1,10 @@
 # Vici, copied into this prototype
 
 These files come unchanged from Vici, Victor Pflüger's design system
-(<https://victorpflueger.github.io/ViciDesign/index.html>), from its main branch at commit **`929e08d`**
-(20 November 2026), on the way to Vici 2.0. That commit brings the How it works guide (`vc-guide`)
-and the 2.0 byline this showcase uses; its files still call themselves 1.0.0 until 2.0 is released.
+(<https://victorpflueger.github.io/ViciDesign/index.html>), from its main branch at commit **`1d1bd15`**
+(20 November 2026), on the way to Vici 2.0. That commit brings the How it works guide (`vc-guide`),
+the 2.0 byline, the key-figure rule and the pause icon this showcase uses; its files still call
+themselves 1.0.0 until 2.0 is released.
 The prototype loads them from here rather than from a CDN, so every page is served from this site alone.
 
 | File here | What it is |

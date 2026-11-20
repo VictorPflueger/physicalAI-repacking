@@ -712,6 +712,10 @@
     if (parts.back) parts.back.addEventListener('click', function () {
       if (parts.index > 0) showChapter(dlg, parts.index - 1, true);
     });
+    // How the guide was last used. After a click or a tap, the heading that takes focus shows no ring;
+    // Chrome would otherwise pass on the ring the dialog opened with (overlays.css).
+    dlg.addEventListener('pointerdown', function () { dlg.setAttribute('data-vc-pointer', ''); });
+    dlg.addEventListener('keydown', function () { dlg.removeAttribute('data-vc-pointer'); });
     dlg.addEventListener('close', function () {
       dlg.dispatchEvent(new CustomEvent('vc:guideclose', { bubbles: true, detail: { returnValue: dlg.returnValue } }));
       var back = parts.opener;

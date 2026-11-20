@@ -86,7 +86,6 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
   border-bottom: 1px solid var(--vc-border-subtle);
 }
 .play.vc-button { --_h: var(--hit); min-width: 7.5rem; justify-content: center; }
-.play-icon.app-icon--pause { --_icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 5.5 L9.25 4.5 L10.5 5.5 V18.5 L9.25 19.5 L8 18.5 Z M13.5 5.5 L14.75 4.5 L16 5.5 V18.5 L14.75 19.5 L13.5 18.5 Z'/%3E%3C/svg%3E"); }
 .restart.vc-icon-button { --_h: var(--hit); }
 
 .steps.vc-stepper { flex: 1 1 auto; min-width: 0; --_m: 1.9rem; }
@@ -171,6 +170,8 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
 /* Tonight's pallet: one tile per item, filling as its units are picked. */
 .pallet-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }
 .pallet-head h3 { margin: 0; font-size: 1.15rem; }
+.pallet-title { display: flex; align-items: baseline; gap: 6px 12px; flex-wrap: wrap; }
+.pallet-count { margin: 0; color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; padding: 0; list-style: none; color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); }
 .legend li { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
 .legend .vc-icon { --vc-icon-size: 1rem; }
@@ -275,10 +276,6 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
 .boot-help { margin: 0; max-width: var(--vc-container-prose); color: var(--vc-text-muted); opacity: 0; visibility: hidden; animation: bootReveal 0.3s ease 6s forwards; }
 .boot[data-state="failed"] .boot-help { animation: none; opacity: 1; visibility: visible; }
 @keyframes bootReveal { to { opacity: 1; visibility: visible; } }
-
-/* The guide turns a page by focusing the chapter's heading. After the first mouse click on Next, Chrome
-   carries the opening focus ring over to that heading; a heading is not a control, so it shows none. */
-.vc-guide__chapter > h3:focus-visible { outline: none; }
 
 /* ---------------------------------------------------------------- larger and smaller windows */
 

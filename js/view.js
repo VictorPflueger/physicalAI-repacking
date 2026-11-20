@@ -40,6 +40,7 @@ export function figuresOf(F) {
     manual: W.manual, hybrid: W.hybrid, saving: W.saving, year: W.year, "units-year": W.units, cells: W.cells, "break-even": W.break_even,
     "jar-new": `${F.jar.new} g`, "jar-old": `${F.jar.old} g`, "unknown-units": String(F.unknown.units),
     "labour-h": `${upTo(F.tonight.labourH, 2)} h`, "by-hand-h": `${upTo(F.tonight.byHandH, 2)} h`,
+    "decision-time": F.decision.text, "on-time": String(F.tonight.onTime),
     r_m: int(p("r_m")), c: eur2(p("c")), s: `${upTo(p("s") * 100, 0)} %`, p: `${upTo(p("p") * 100, 0)} %`, r_c: int(p("r_c"))
   };
 }
@@ -161,11 +162,19 @@ export function createPallet(root, timeline, F) {
 
 // ------------------------------------------------------------------ header
 
-/** The header's two counters at a state; tone "done" once every truck has left on time. */
+/** What the cell has caught so far, in the words of the detection tile. */
+function caughtText(state) {
+  if (state.learned && state.unknownSeen) return "2 caught: a weight, a barcode";
+  if (state.learned) return "1 caught: a wrong weight";
+  if (state.unknownSeen) return "1 caught: an unknown barcode";
+  return "scale and camera check every unit";
+}
+
+/** The header's two moving figures and the pallet's count at a state; tone "done" once every truck has left on time. */
 export function updateHeader(state, F) {
   setText($("units-done"), int(state.repacked));
-  setText($("units-note"), state.repacked ? `${int(state.robot)} by the robot · ${int(state.hand)} by hand` : "by the robot and by hand");
-  setText($("orders-ready"), String(state.ready));
+  setText($("decision-note"), caughtText(state));
+  setText($("orders-ready"), String(state.onTime));
   const allGone = state.shipped === state.orders && state.t >= F.end;
   setText($("orders-note"), allGone ? "every truck left on time" : state.ready === state.orders ? "all packed, trucks leaving" : `first truck at ${F.firstTruck.at}`);
   const tile = $("kpi-orders");

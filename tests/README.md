@@ -4,12 +4,12 @@ The showcase needs no Node.js, npm or build step. These suites check it; GitHub 
 
 | Suite | Command | Checks |
 |---|---|---|
-| figures | `node tests/figures.mjs` | Every value figure recomputed from the engine's formulas; the night's fingerprint equal to 0.5.0's main run; tonight's units, hours and euros recomputed from the unit log; the five steps at their moments with those figures; every figure written into `index.html` and the guide equal to the computed one |
-| files | `node tests/files.mjs` | Every file the page loads exists; every module import resolves and every module is used; the suites and the workflow name real files; `data/world.js` is what `tools/build_world.mjs` writes; `vici/` holds exactly the files its README lists, byte for byte as in ViciDesign at the pinned commit |
+| figures | `node tests/figures.mjs` | Every value figure recomputed from the engine's formulas; the night's fingerprint equal to 0.5.0's main run; tonight's units, hours and euros recomputed from the unit log; detection to decision measured from the night's events; the five steps at their moments with those figures; the talk track and the docs naming the three key figures; every figure written into `index.html` and the guide equal to the computed one |
+| files | `node tests/files.mjs` | Every file the page loads exists; every module import resolves and every module is used; the suites and the workflow name real files; `data/world.js` is what `tools/build_world.mjs` writes; `vici/` holds exactly the files its README lists, byte for byte as in ViciDesign at the pinned commit, which is on its main branch; no stand-in for what Vici ships |
 | lean | `node tests/lean.mjs` | At most 12 modules, 2,200 lines of JavaScript and 1,100 of CSS; no network, key or model code; a policy that connects nowhere; README and demo script within their word counts |
-| vici | `node tests/vici.mjs` | Vici's own `guideProblems`, `bylineProblems` and `writingProblems` on the page, on every sentence the steps write, and on the README, the demo script and the design notes |
-| showcase | `node tests/showcase.mjs` | In Chromium: boot without errors or outside requests; the five steps by click, key and address; Play, Pause and the stop at each step; the decision; Your DC against the engine; the layout at 1920 × 1080, 1366 × 768 and 1280 × 720 in both themes, and 375 px |
-| guide | `node tests/guide-behaviour.mjs` | The guide's behaviour as Vici's standard and its own render check describe it, over http |
+| vici | `node tests/vici.mjs` | Vici's own `guideProblems`, `bylineProblems` and `writingProblems` on the page (the guide naming every key figure), on every sentence the steps write, and on the README, the demo script and the design notes |
+| showcase | `node tests/showcase.mjs` | In Chromium: boot without errors or outside requests; the five steps by click, key and address; Play, Pause and the stop at each step; the three key figures top right with the night's values; the decision; Your DC against the engine; the layout at 1920 × 1080, 1366 × 768 and 1280 × 720 in both themes, and 375 px |
+| guide | `node tests/guide-behaviour.mjs` | The guide's behaviour as Vici's standard and its own render check describe it, over http; every chapter fits 1280 × 720 and 1366 × 768 without scrolling |
 | contrast | `node tests/contrast.mjs` | WCAG 2.2 AA for every visible text in ten states, light and dark, at two sizes |
 | hexagon | `node tests/hexagon.mjs` | Vici's hexagon rule in the app's files and the rendered page, both themes |
 

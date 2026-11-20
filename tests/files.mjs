@@ -95,7 +95,15 @@ if (!dir) {
     if (!theirs || !theirs.equals(ours)) differ.push(f);
   }
   check(!differ.length, `vici: all ${present.length} files are byte for byte ViciDesign's at ${commit}${differ.length ? `; differ: ${differ.join(", ")}` : ""}`);
+  // The copy comes from Vici's main branch, not from a branch that may never be merged.
+  const onMain = ["origin/main", "main"].some((ref) => { try { execFileSync("git", ["-C", dir, "merge-base", "--is-ancestor", commit, ref], { stdio: "ignore" }); return true; } catch { return false; } });
+  check(onMain, `vici: commit ${commit} is on ViciDesign's main branch`);
+  const workflowRef = (workflow.match(/repository:\s*VictorPflueger\/ViciDesign[\s\S]*?ref:\s*([0-9a-f]{40})/) || [])[1];
+  check(!!workflowRef && workflowRef.startsWith(commit), `vici: CI checks ViciDesign out at the same commit (${workflowRef ? workflowRef.slice(0, 7) : "none"})`);
 }
+// What Vici ships, the app takes from Vici: no drawn pause icon, no override of the guide's heading focus.
+const appCss = read("css/app.css");
+check(!/data:image\/svg\+xml|app-icon--pause/.test(appCss) && !/vc-guide__chapter\s*>\s*h3:focus/.test(appCss) && /vc-icon--pause/.test(read("js/main.js")), "vici: the app keeps no stand-in for what Vici now ships (the pause icon, the guide heading focus)");
 
 let failed = 0;
 for (const [ok, what] of results) { console.log(`${ok ? "PASS" : "FAIL"}  ${what}`); if (!ok) failed += 1; }

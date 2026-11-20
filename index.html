@@ -43,18 +43,18 @@
     </div>
 
     <div class="kpis" role="group" aria-label="Key figures">
-      <div class="kpi kpi--value vc-stat">
+      <div class="kpi kpi--value vc-stat" data-vc-kpi="Labour per 1,000 units">
         <p class="vc-stat__label">Labour per 1,000 units</p>
         <p class="vc-stat__value kpi-value"><span class="kpi-from" data-fig="manual">€89.50</span><span class="vc-icon vc-icon--arrow-right kpi-arrow" aria-hidden="true"></span><span class="vc-visually-hidden"> to </span><span data-fig="hybrid">€32.49</span></p>
         <p class="vc-stat__note kpi-note">by hand, then with the cell: <span data-fig="saving">−64&nbsp;%</span></p>
       </div>
-      <div class="kpi vc-stat" id="kpi-units">
-        <p class="vc-stat__label">Units repacked</p>
-        <p class="vc-stat__value kpi-value"><span id="units-done">0</span><span class="kpi-of"> of <span data-fig="units">3,000</span></span></p>
-        <p class="vc-stat__note kpi-note" id="units-note">by the robot and by hand</p>
+      <div class="kpi vc-stat" id="kpi-decision" data-vc-kpi="Detection → decision">
+        <p class="vc-stat__label">Detection → decision</p>
+        <p class="vc-stat__value kpi-value"><span data-fig="decision-time">&lt;&nbsp;1&nbsp;s</span></p>
+        <p class="vc-stat__note kpi-note" id="decision-note">scale and camera check every unit</p>
       </div>
-      <div class="kpi vc-stat" id="kpi-orders">
-        <p class="vc-stat__label">Store orders ready</p>
+      <div class="kpi vc-stat" id="kpi-orders" data-vc-kpi="Store orders on time">
+        <p class="vc-stat__label">Store orders on time</p>
         <p class="vc-stat__value kpi-value"><span id="orders-ready">0</span><span class="kpi-of"> of <span data-fig="stores">12</span></span></p>
         <p class="vc-stat__note kpi-note" id="orders-note">first truck at <span data-fig="first-truck">01:35</span></p>
       </div>
@@ -86,7 +86,10 @@
       </div>
       <ol class="flow" id="flow" aria-label="One item's way through the cell"></ol>
       <div class="pallet-head">
-        <h3>Tonight's pallet</h3>
+        <div class="pallet-title">
+          <h3>Tonight's pallet</h3>
+          <p class="pallet-count vc-tabular"><span id="units-done">0</span> of <span data-fig="units">3,000</span> units repacked</p>
+        </div>
         <ul class="legend" aria-label="Legend">
           <li class="legend-who"><span class="vc-icon vc-icon--gripper" aria-hidden="true"></span>the robot</li>
           <li class="legend-who"><span class="vc-icon vc-icon--user" aria-hidden="true"></span>people</li>
@@ -202,6 +205,20 @@
           </tbody>
         </table></div>
       </section>
+      <section class="vc-guide__chapter" data-vc-chapter="figures" data-vc-nav="The three figures">
+        <h3>Three figures at the top say what the cell delivers</h3>
+        <p class="vc-guide__lead">Labour per 1,000 units is the saving, detection to decision how fast the cell acts when a reading disagrees with its model, store orders on time the service it keeps. Your DC turns the saving into a year.</p>
+        <div class="vc-table-wrap"><table class="vc-table vc-table--compact">
+          <caption>Tonight, and a year at the reference site</caption>
+          <tbody>
+            <tr><th scope="row">Labour per 1,000 units</th><td><span data-fig="manual">€89.50</span> by hand, <span data-fig="hybrid">€32.49</span> with the cell: <span data-fig="saving">−64&nbsp;%</span></td></tr>
+            <tr><th scope="row">Detection → decision</th><td><span data-fig="decision-time">&lt;&nbsp;1&nbsp;s</span> from the scale's or the camera's reading to the cell acting on it, for both of tonight's catches</td></tr>
+            <tr><th scope="row">Store orders on time</th><td><span data-fig="on-time">12</span> of <span data-fig="stores">12</span>, every truck</td></tr>
+            <tr><th scope="row">A year</th><td><span data-fig="year">€342,069</span> for <span data-fig="units-year">6,000,000</span> units with <span data-fig="cells">4.2</span> cells, gross, before cell costs</td></tr>
+            <tr><th scope="row">Break-even per cell</th><td><span data-fig="break-even">€40.72</span> an operating hour</td></tr>
+          </tbody>
+        </table></div>
+      </section>
       <section class="vc-guide__chapter" data-vc-chapter="real" data-vc-nav="What is real">
         <h3>The cell is simulated, the arithmetic is real</h3>
         <p class="vc-guide__lead">Ruhrkorb, its stores and its robot cell are invented. The agent's words are a scripted replay of its run, and an engine computes every hour and euro as the night plays in your browser.</p>
@@ -214,26 +231,14 @@
           </tbody>
         </table></div>
       </section>
-      <section class="vc-guide__chapter" data-vc-chapter="worth" data-vc-nav="What it is worth">
-        <h3><span data-fig="year">€342,069</span> a year for a DC of <span data-fig="units-year">6,000,000</span> units</h3>
-        <p class="vc-guide__lead">The engine prices the same work by hand and with the cell. The yearly figure is gross, before cell costs: a cell's cost differs by site, so there's no payback claim.</p>
-        <div class="vc-table-wrap"><table class="vc-table vc-table--compact">
-          <caption>At the reference site</caption>
-          <tbody>
-            <tr><th scope="row">Labour per 1,000 units</th><td class="vc-num"><span data-fig="manual">€89.50</span> by hand, <span data-fig="hybrid">€32.49</span> with the cell</td></tr>
-            <tr><th scope="row">A year</th><td class="vc-num"><span data-fig="year">€342,069</span> with <span data-fig="cells">4.2</span> cells on the night shift</td></tr>
-            <tr><th scope="row">Break-even per cell</th><td class="vc-num"><span data-fig="break-even">€40.72</span> an operating hour</td></tr>
-          </tbody>
-        </table></div>
-      </section>
       <section class="vc-guide__chapter" data-vc-chapter="present" data-vc-nav="How to present">
         <h3>Show it in five minutes</h3>
         <p class="vc-guide__lead">Five steps, one minute each, on the buttons under the header.</p>
         <ol class="vc-guide__path">
-          <li><strong><span data-fig="plan-at">22:00</span> The plan.</strong> <span class="vc-guide__say">“The robot may take <span data-fig="robot-units">2,100</span> of <span data-fig="units">3,000</span> units; people take the <span data-fig="people-units">900</span> it may not grip.”</span> <span class="vc-guide__time">1 min</span></li>
-          <li><strong><span data-fig="learns-at">22:17</span> It learns.</strong> <span class="vc-guide__say">“The scale weighs <span data-fig="jar-new">400&nbsp;g</span>, not <span data-fig="jar-old">200&nbsp;g</span>: the model now expects that for every jar.”</span> <span class="vc-guide__time">1 min</span></li>
-          <li><strong><span data-fig="asks-at">23:10</span> It asks: click Confirm entry.</strong> <span class="vc-guide__say">“The robot never picks what it doesn't know: a person takes the <span data-fig="unknown-units">6</span> units.”</span> <span class="vc-guide__time">1 min</span></li>
-          <li><strong><span data-fig="end-at">06:00</span> The result.</strong> <span class="vc-guide__say">“Every truck left on time, with <span data-fig="labour-h">2.74&nbsp;h</span> of labour instead of <span data-fig="by-hand-h">7.52&nbsp;h</span> by hand.”</span> <span class="vc-guide__time">1 min</span></li>
+          <li><strong><span data-fig="plan-at">22:00</span> The plan: point at the three figures.</strong> <span class="vc-guide__say">“What the cell saves, how fast it reacts, and if every truck leaves on time.”</span> <span class="vc-guide__time">1 min</span></li>
+          <li><strong><span data-fig="learns-at">22:17</span> It learns.</strong> <span class="vc-guide__say">“The scale weighs <span data-fig="jar-new">400&nbsp;g</span>, not <span data-fig="jar-old">200&nbsp;g</span>: the model learns it in under a second.”</span> <span class="vc-guide__time">1 min</span></li>
+          <li><strong><span data-fig="asks-at">23:10</span> It asks: click Confirm entry.</strong> <span class="vc-guide__say">“The robot never picks what it doesn't know: the <span data-fig="unknown-units">6</span> units go to a person at once.”</span> <span class="vc-guide__time">1 min</span></li>
+          <li><strong><span data-fig="end-at">06:00</span> The result.</strong> <span class="vc-guide__say">“<span data-fig="on-time">12</span> of <span data-fig="stores">12</span> store orders on time, with <span data-fig="labour-h">2.74&nbsp;h</span> of labour instead of <span data-fig="by-hand-h">7.52&nbsp;h</span> by hand.”</span> <span class="vc-guide__time">1 min</span></li>
           <li><strong>Your DC: type their yearly volume.</strong> <span class="vc-guide__say">“Your yearly saving before cell costs. The next step: a pilot cell in shadow mode.”</span> <span class="vc-guide__time">1 min</span></li>
         </ol>
       </section>

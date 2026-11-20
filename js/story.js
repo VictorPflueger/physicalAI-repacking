@@ -56,6 +56,22 @@ export function buildShowcase(world) {
   return { night, res, hash: nightHash(res), facts, steps: stepsOf(facts) };
 }
 
+/**
+ * Detection to decision, the header's second key figure: for each catch of the night, the time from the
+ * reading that showed it (the scale's for a wrong weight, the camera's for an unknown barcode) to the
+ * cell acting on it (the model takes the weight; a rule sends the units to a person). The agent's own
+ * proposals, which wait for a person, don't count. Returns { ms: the longest, catches, text }.
+ */
+function decisionOf(res) {
+  const readAt = (type, unitId) => res.events.find((e) => e.type === type && e.payload.unit_id === unitId)?.t;
+  const times = [
+    ...res.corrections.map((c) => c.at - (readAt("scale_reading", c.unit_id) ?? c.at)),
+    ...res.escalations.filter((e) => e.rule === "E1").map((e) => e.t - (readAt("detection", e.unit_id) ?? e.t))
+  ];
+  const ms = times.length ? Math.max(...times) : 0;
+  return { ms, catches: times.length, text: ms < 1000 ? "< 1 s" : `${Math.ceil(ms / 1000)} s` };
+}
+
 function factsOf(world, night, res, toteStore) {
   const v = defaults();
   const w = worth(v);
@@ -81,6 +97,7 @@ function factsOf(world, night, res, toteStore) {
     firstTruck: { store: byCutoff[0].name, at: byCutoff[0].cutoff }, lastTruck: { store: byCutoff.at(-1).name, at: byCutoff.at(-1).cutoff },
     jar: { sku: corr.sku, name: itemName(jar.name), old: corr.old, new: corr.new, at: corr.at, clock: clockOf(corr.at), success: rehearsal?.expected_success ?? null, store: storeName(toteStore) },
     unknown: { barcode: esc.barcode, units: esc.units, at: esc.t, clock: clockOf(esc.t) },
+    decision: decisionOf(res),
     end: res.end_ms, endClock: clockOf(res.end_ms),
     lastWork: Math.max(...res.units.filter((u) => u.t_done !== null).map((u) => u.t_done)),
     tonight: {

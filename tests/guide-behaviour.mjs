@@ -4,7 +4,8 @@
 // focus on Next and no live region; Enter moves to chapter 2 and focus to its heading; the rail jumps
 // to the last chapter, whose button reads Start; Escape closes; the header button reopens it at
 // chapter 1; the last button closes it and gives focus back; a reload in the same tab doesn't reopen
-// it; ?guide=0 keeps it closed; ?guide=present opens the talk track; at 375 px it fills the screen.
+// it; ?guide=0 keeps it closed; ?guide=present opens the talk track; at 375 px it fills the screen;
+// at 1280 × 720 and 1366 × 768 every chapter, the talk track included, fits without scrolling.
 // Usage: NODE_PATH="$(npm root -g)" node tests/guide-behaviour.mjs
 import path from "node:path";
 import { APP_ROOT, launchBrowser, serveStatic, outDir } from "./lib/harness.mjs";
@@ -109,6 +110,27 @@ try {
   await ready(p5);
   await p5.waitForTimeout(200);
   await p5.screenshot({ path: path.join(out, "guide-present-dark.png") });
+
+  // On a shared laptop screen every chapter, the talk track included, reads without scrolling.
+  for (const [width, height] of [[1280, 720], [1366, 768]]) {
+    const c = await browser.newContext({ viewport: { width, height } });
+    const pg = await c.newPage();
+    watch(pg);
+    await pg.goto(`${server.base}?guide=what`);
+    await ready(pg);
+    await pg.waitForTimeout(150);
+    const over = await pg.evaluate(() => {
+      const d = document.querySelector("dialog.vc-guide");
+      const scroller = d.querySelector(".vc-guide__chapters");
+      return [...d.querySelectorAll(".vc-guide__rail .vc-step__button")].map((b, i) => {
+        b.click();
+        const chapter = d.querySelectorAll(".vc-guide__chapter")[i];
+        return { id: chapter.dataset.vcChapter, over: scroller.scrollHeight - scroller.clientHeight };
+      }).filter((x) => x.over > 1);
+    });
+    ok(!over.length, `at ${width} × ${height} the guide scrolls in ${over.map((x) => `"${x.id}" by ${x.over} px`).join(", ")}`);
+    await c.close();
+  }
   ok(!errs.length, `console errors: ${errs.join(" | ")}`);
 } finally {
   await browser.close();

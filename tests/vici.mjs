@@ -1,4 +1,4 @@
-// Vici's own rules, checked with Vici's own functions: the How it works guide (guideProblems), the
+// Vici's own rules, checked with Vici's own functions: the How it works guide and its key figures (guideProblems), the
 // byline (bylineProblems) and the Writing guideline's checkable patterns (writingProblems: no eyebrow,
 // no numbered middle-dot heading, no bold-label list item, no em dash as punctuation, no stock word),
 // on the page and on every sentence the showcase writes into it. Node.js only.
@@ -44,6 +44,9 @@ check(!b.length, `the byline follows Vici's standard${b.length ? `: ${b.join("; 
 const w = writingProblems(html);
 check(!w.length, `index.html keeps Vici's writing rules${w.length ? `: ${w.join("; ")}` : ""}`);
 check(/<html lang="en-GB">/.test(html), 'the page is marked lang="en-GB"');
+// The key figures: three in the header, each named in the guide (Vici's guideProblems() checks the naming).
+const kpis = [...html.matchAll(/\bdata-vc-kpi="([^"]+)"/g)].map((m) => m[1]);
+check(kpis.join("|") === "Labour per 1,000 units|Detection → decision|Store orders on time", `the header marks its three key figures (${kpis.join(", ")})`);
 
 // Every sentence the showcase writes at run time, as the page would show it.
 const S = await import(pathToFileURL(path.join(APP_ROOT, "js/story.js")).href);
@@ -63,8 +66,10 @@ for (const doc of ["README.md", "DEMO_SCRIPT.md", "DESIGN.md"]) {
   check(!p.length, `${doc} keeps the writing rules${p.length ? `: ${p.join("; ")}` : ""}`);
 }
 
-// The checks can fail: a page without a guide, a byline without the website link, an em dash.
+// The checks can fail: a page without a guide, a key figure the guide never names, a byline without the
+// website link, an em dash.
 check(guideProblems(html.replace(/<dialog\b[^>]*vc-guide[\s\S]*?<\/dialog>/, "")).length > 0, "control: a page without the guide is caught");
+check(guideProblems(html.replace("<div class=\"kpis\"", "<p class=\"vc-stat\" data-vc-kpi=\"Pallets per hour\">48</p><div class=\"kpis\"")).some((p) => /Pallets per hour/.test(p)), "control: a key figure the guide never names is caught");
 check(bylineProblems(html.replace(/href="https:\/\/victorpflueger\.github\.io\/VIP\/index\.html"/, 'href="#"')).length > 0, "control: a byline without the website link is caught");
 check(writingProblems('<html lang="en-GB"><body><p>Fast — and robust.</p></body></html>').length > 0, "control: an em dash and a stock word are caught");
 

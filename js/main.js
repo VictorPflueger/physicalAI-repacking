@@ -66,7 +66,9 @@ async function boot() {
 
   function drawPlay() {
     const last = state.index === steps.length - 1;
-    ui.play.querySelector(".play-icon").classList.toggle("app-icon--pause", state.playing);
+    const icon = ui.play.querySelector(".play-icon");
+    icon.classList.toggle("vc-icon--pause", state.playing);
+    icon.classList.toggle("vc-icon--play", !state.playing);
     ui.play.querySelector(".play-text").textContent = state.playing ? "Pause" : last ? "Replay" : "Play";
   }
 

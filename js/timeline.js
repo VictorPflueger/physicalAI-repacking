@@ -82,6 +82,8 @@ export function stateAt(tl, t) {
     items, robot, hand, setAside, repacked: robot + hand,
     attempts: countUpTo(tl.attempts, t),
     ready: tl.orders.filter((o) => o.done <= t).length,
+    // Ready before its truck: on time so far (a late order would count once it was done, not before).
+    onTime: tl.orders.filter((o) => o.done <= t && o.onTime).length,
     shipped: tl.orders.filter((o) => o.cutoff <= t).length,
     orders: tl.orders.length,
     // The jar's lesson and the unknown barcode, once they have happened.

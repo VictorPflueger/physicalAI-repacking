@@ -6,16 +6,26 @@ A five-minute customer showcase of Physical AI in a grocery distribution centre.
 
 It is a static page: no backend, no build step, no request to any other site. The robot cell, the retailer and its stores are simulated and fictional; the arithmetic and its sourced inputs are real.
 
+## The three figures
+
+The top right of the page holds the showcase's key figures. The guide's chapter *The three figures* explains them, and the talk track points at them.
+
+| Figure | What it shows | Tonight |
+|---|---|---|
+| Labour per 1,000 units | What the cell saves: the engine's labour cost by hand and with the cell | €89.50 → €32.49, −64 % |
+| Detection → decision | How fast the cell acts when a reading disagrees with its model: from the scale's or the camera's reading to the model taking the weight, or a rule sending the units to a person | < 1 s, twice |
+| Store orders on time | The service the cell keeps | 12 of 12 |
+
 ## The talk track
 
 The page opens with Vici's guide, *How the showcase works*, once per browser tab. Its last chapter is the talk track, and the same five steps are the buttons under the header. Each step is one minute.
 
 | Step | What the room sees | What you say |
 |---|---|---|
-| 22:00 The plan | 24 items in the world model, 2,100 units for the robot, 900 for people | "The robot may take 2,100 of tonight's 3,000 units; people take the 900 it may not grip." |
-| 22:17 It learns | The scale weighs the apricot jam jar at 400 g, the master data say 200 g | "From now on the model expects 400 g for every jar." |
-| 23:10 It asks | A barcode the model doesn't know: its 6 units go to a person. Click **Confirm entry** | "The robot never picks what it doesn't know; a person decides." |
-| 06:00 The result | 12 of 12 store orders on their trucks, 2.74 h of labour against 7.52 h by hand | "Every truck left on time, with 64 % less labour." |
+| 22:00 The plan | The three figures; 24 items in the world model, 2,100 units for the robot, 900 for people | "What the cell saves, how fast it reacts, and if every truck leaves on time." |
+| 22:17 It learns | The scale weighs the apricot jam jar at 400 g, the master data say 200 g | "The model learns it in under a second." |
+| 23:10 It asks | A barcode the model doesn't know: its 6 units go to a person. Click **Confirm entry** | "The robot never picks what it doesn't know; the units go to a person at once." |
+| 06:00 The result | 12 of 12 store orders on time, 2.74 h of labour against 7.52 h by hand | "With 64 % less labour." |
 | Your DC | The customer's yearly volume, labour cost and picking rate, priced by the engine | "The next step is a pilot cell in shadow mode." |
 
 `DEMO_SCRIPT.md` has the timings, the pre-flight and the questions you will get.

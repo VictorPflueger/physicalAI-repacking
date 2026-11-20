@@ -70,6 +70,18 @@ check(res.corrections.length === 1 && corr.sku === "S07" && corr.old === 200 && 
 const esc = res.escalations[0];
 check(res.escalations.length === 1 && esc.rule === "E1" && esc.units === 6 && NS.clockOf(esc.t) === "23:10", "night: one escalation, the unknown barcode on 6 units at 23:10");
 
+// ---- the key figures ------------------------------------------------------------------------------
+// Detection to decision, measured here from the events: the scale's reading to the model taking the
+// weight, the camera's reading to the rule sending the units to a person.
+const readAt = (type, unit) => res.events.find((e) => e.type === type && e.payload.unit_id === unit)?.t;
+const delays = [
+  ...res.events.filter((e) => e.type === "world_model_correction").map((e) => e.t - readAt("scale_reading", e.payload.unit_id)),
+  ...res.events.filter((e) => e.type === "escalation" && e.payload.rule === "E1").map((e) => e.t - readAt("detection", e.payload.unit_id))
+];
+check(delays.length === 2 && delays.every((d) => Number.isFinite(d) && d >= 0), `key figures: two catches tonight, each with a reading before it (${delays.join(" ms, ")} ms)`);
+check(F.decision.catches === delays.length && F.decision.ms === Math.max(...delays) && F.decision.text === (Math.max(...delays) < 1000 ? "<\u00a01\u00a0s" : `${Math.ceil(Math.max(...delays) / 1000)}\u00a0s`), `key figures: detection to decision reads "${F.decision.text}" for ${F.decision.catches} catches, ${F.decision.ms} ms at most`);
+check(F.tonight.onTime === res.orders.filter((o) => o.on_time).length && F.tonight.onTime === 12, `key figures: store orders on time ${F.tonight.onTime} of ${res.orders.length}`);
+
 // ---- the steps ------------------------------------------------------------------------------------
 const steps = show.steps;
 check(steps.map((s) => s.id).join() === S.STEP_IDS.join() && steps.map((s) => s.clock).join() === "22:00,22:17,23:10,06:00,06:00", `steps: ${steps.map((s) => `${s.id} ${s.clock}`).join(", ")}`);
@@ -97,7 +109,7 @@ check(T.stateAt(tl, esc.t).unknownSeen && !T.stateAt(tl, esc.t - 1).unknownSeen,
 // ---- the page: every stated figure is the computed one --------------------------------------------
 const html = readFileSync(path.join(APP_ROOT, "index.html"), "utf8");
 const figs = V.figuresOf(F);
-const decode = (t) => t.replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
+const decode = (t) => t.replace(/&nbsp;/g, "\u00a0").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
 const stated = [...html.matchAll(/<(\w+)\b[^>]*\bdata-fig="([^"]+)"[^>]*>([^<]*)<\/\1>/g)].map((m) => ({ key: m[2], text: decode(m[3]) }));
 const wrong = stated.filter((s) => figs[s.key] === undefined || figs[s.key] !== s.text);
 check(stated.length >= 30 && !wrong.length, `page: ${stated.length} figures in index.html equal the computed ones${wrong.length ? `; wrong: ${wrong.map((w) => `${w.key} "${w.text}" ≠ "${figs[w.key]}"`).join(", ")}` : ""}`);
@@ -113,6 +125,16 @@ for (const doc of ["README.md", "DEMO_SCRIPT.md"]) {
   const text = plain(readFileSync(path.join(APP_ROOT, doc), "utf8"));
   const missing = key.filter((k) => !text.includes(plain(k)));
   check(!missing.length, `docs: ${doc} states the computed figures${missing.length ? `; missing: ${missing.join(", ")}` : ""}`);
+}
+
+// The talk track says what the figure shows: "under a second" only while it is under a second.
+const track = (html.match(/data-vc-chapter="present"[\s\S]*?<\/section>/) || [""])[0];
+check(/under a second/.test(track) === (F.decision.ms < 1000) && /point at the three figures/i.test(track), "talk track: it points at the three figures and says detection to decision takes under a second, as measured");
+const kpiNames = ["Labour per 1,000 units", "Detection → decision", "Store orders on time"];
+for (const doc of ["README.md", "DEMO_SCRIPT.md"]) {
+  const text = readFileSync(path.join(APP_ROOT, doc), "utf8");
+  const missing = kpiNames.filter((k) => !text.includes(k));
+  check(!missing.length, `docs: ${doc} names the three key figures${missing.length ? `; missing: ${missing.join(", ")}` : ""}`);
 }
 
 let failed = 0;
