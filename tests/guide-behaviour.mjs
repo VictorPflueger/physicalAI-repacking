@@ -44,7 +44,7 @@ try {
   ok(s.active === "next", `focus not on Next at open: ${s.active}`);
   ok(s.back === true, "Back not disabled on chapter 1");
   ok(s.count === `1 of ${s.chapters}`, `count reads "${s.count}"`);
-  ok(s.rail === s.chapters && s.chapters === 5, `rail lists ${s.rail} of ${s.chapters} chapters`);
+  ok(s.rail === s.chapters && s.chapters === 4, `rail lists ${s.rail} of ${s.chapters} chapters`);
   ok(s.live === 0, "a live region is inside the guide");
   await p.screenshot({ path: path.join(out, "guide-1280.png") });
   await p.keyboard.press("Enter");
@@ -68,7 +68,7 @@ try {
   await p.waitForTimeout(150);
   s = await state();
   ok(s.open && s.shown[0] === "what", "the header button did not reopen it at chapter 1");
-  for (let i = 0; i < 5; i++) { await p.click("[data-vc-guide-next]"); await p.waitForTimeout(60); }
+  for (let i = 0; i < s.chapters; i++) { await p.click("[data-vc-guide-next]"); await p.waitForTimeout(60); }
   s = await state();
   ok(!s.open, "the last button did not close the guide");
   const focusAfter = await p.evaluate(() => document.activeElement && (document.activeElement.hasAttribute("data-vc-guide-open") || document.activeElement.id === "play"));

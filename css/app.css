@@ -2,7 +2,7 @@
  *
  * Vici sits in cascade layers, so these unlayered rules refine it without !important. They use
  * Vici's semantic tokens only, which switch with the theme. What each colour means (DESIGN.md):
- *   merlot (--vc-accent)   the person: Play, Confirm entry, and the units a person takes
+ *   merlot (--vc-accent)   the person: your turn, Confirm entry, your answer, the units a person takes
  *   fjord (--vc-info-*)    what the world model learns from a reading
  *   honey (--vc-warning-*) what the model doesn't know
  *   lilac (--vc-feature-*) the agent's words
@@ -27,7 +27,7 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
   height: 100dvh;
   overflow: hidden;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   background: var(--vc-bg);
   scrollbar-width: thin;
   scrollbar-color: var(--vc-border) transparent;
@@ -48,7 +48,6 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
   border-bottom: 1px solid var(--vc-border-subtle);
 }
 .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.brand-text { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }
 .brand-name {
   font-family: var(--vc-font-display);
   font-weight: var(--vc-weight-display);
@@ -56,12 +55,11 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
   letter-spacing: var(--vc-tracking-heading);
   white-space: nowrap;
 }
-.brand-sub { color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .header-actions { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; min-width: 0; }
 .header-actions .vc-button { --_h: 40px; }
 .header-actions .vc-icon-button { --_h: 40px; }
-.sim-tag.vc-tag { --_h: 32px; gap: 6px; cursor: help; }
+.mode-tag.vc-tag { cursor: help; letter-spacing: 0.04em; }
 
 .kpis { display: flex; align-items: stretch; gap: 8px; }
 .kpi.vc-stat { justify-content: center; gap: 0; padding: 6px 16px 7px; min-width: 150px; transition: background-color 0.3s ease, border-color 0.3s ease; }
@@ -75,6 +73,13 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
 .kpi[data-tone="done"] { background: var(--vc-success-bg); border-color: var(--vc-success-border); }
 .kpi[data-tone="done"] .kpi-value > span:first-child { color: var(--vc-success-text); }
 
+/* What the page shows and that its retailer is fictional, with the byline beside it (Vici: a single
+   screen carries them in a strip under the header). */
+.intro { display: flex; align-items: center; justify-content: space-between; gap: 6px 24px; flex-wrap: wrap; padding: 4px 18px; background: var(--vc-surface); border-bottom: 1px solid var(--vc-border-subtle); }
+.intro-text { margin: 0; min-width: 0; color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); }
+.intro .vc-byline { flex-wrap: nowrap; white-space: nowrap; }
+.intro .vc-byline__icon { min-width: var(--hit); min-height: 36px; }
+
 /* ---------------------------------------------------------------- the talk track */
 
 .player {
@@ -85,18 +90,19 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
   background: var(--vc-bg);
   border-bottom: 1px solid var(--vc-border-subtle);
 }
+/* Play, Pause and Replay share one button and keep one width, so the steps beside it stay put. It is
+   secondary: the one primary action on screen is the bar's, under the story. */
 .play.vc-button { --_h: var(--hit); min-width: 7.5rem; justify-content: center; }
-.restart.vc-icon-button { --_h: var(--hit); }
 
 .steps.vc-stepper { flex: 1 1 auto; min-width: 0; --_m: 1.9rem; }
 .steps .vc-step__button { min-height: var(--hit); }
 .steps .vc-step__label { font-size: var(--vc-font-size-md); white-space: nowrap; }
 .steps .vc-step__hint { font-size: var(--vc-font-size-sm); font-variant-numeric: tabular-nums; }
-/* Between two steps the line fills as the night plays (--fill, from js/main.js). */
-.steps .vc-step:not(:last-child)::after {
-  background: linear-gradient(to right, var(--vc-merlot-400) calc(var(--fill, 0) * 100%), var(--vc-border) 0);
-}
-.steps .vc-step--done:not(:last-child)::after { background: var(--vc-merlot-400); }
+/* 23:10, where you answer: until then its outline and number are merlot, so the step that waits for
+   you shows from the start without outshining the current one. The rail to the next step fills as Play
+   reads the current one (Vici's --vc-step-fill, from js/main.js). */
+.steps .vc-step[data-waits="true"]:not(.vc-step--done, .vc-step--current) .vc-step__marker { color: var(--vc-accent-text); font-weight: var(--vc-weight-bold); }
+.steps .vc-step[data-waits="true"]:not(.vc-step--done, .vc-step--current) .vc-step__marker::before { background: var(--vc-accent); }
 
 /* ---------------------------------------------------------------- workspace */
 
@@ -124,9 +130,12 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   grid-template-rows: auto auto auto;
+  align-content: start;
   column-gap: 10px;
   align-items: center;
   min-width: 0;
+  /* As tall as the tallest moment, so the pallet below never jumps while the night plays or you answer. */
+  min-height: var(--station-h, 8rem);
   margin: 0; /* Vici spaces prose list items (li + li); these lists are grids. */
   padding: 10px 12px 11px;
   background: var(--vc-surface);
@@ -211,8 +220,9 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
 
 /* ---------------------------------------------------------------- the story */
 
-.story { display: flex; flex-direction: column; gap: 18px; min-height: 0; overflow: auto; padding: 22px 26px 24px; background: var(--vc-surface); }
-.story:focus { outline: none; }
+/* The story scrolls as one column when a step holds more than the window; the bar at its foot stays in view. */
+.story { display: flex; flex-direction: column; gap: 18px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 22px 26px 0; background: var(--vc-surface); }
+.story:focus, .story-title:focus { outline: none; }
 .story-title { margin: 0; font-size: 1.75rem; line-height: 1.15; text-wrap: balance; }
 .story-text { margin: 0; max-width: 44ch; font-size: 1.125rem; line-height: 1.5; }
 
@@ -220,8 +230,6 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
 .agent figcaption { margin-bottom: 6px; }
 .agent blockquote { margin: 0; padding: 0; border: 0; color: var(--vc-text); font-size: 1.05rem; line-height: 1.45; }
 
-.decision-actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.decision-actions .vc-button { --_h: var(--hit); }
 .decision-outcome { margin: 0; padding: 12px 16px; background: var(--vc-accent-soft); color: var(--vc-on-accent-soft); border: 2px solid var(--vc-accent); border-radius: var(--vc-radius-md); line-height: 1.45; }
 
 .compare { display: grid; gap: 10px; }
@@ -249,22 +257,30 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
 .dc-facts dd { margin: 0; font-weight: var(--vc-weight-semibold); text-align: end; }
 .dc-next { margin: 0; padding: 12px 16px; background: var(--vc-bg-subtle); border-radius: var(--vc-radius-md); line-height: 1.45; }
 
-/* ---------------------------------------------------------------- footer and boot */
+/* Who answered what at 23:10, for the rest of the night. */
+.log { font-size: var(--vc-font-size-sm); }
+.log > summary { width: fit-content; color: var(--vc-text-muted); cursor: pointer; }
+.log ol { display: grid; gap: 2px; margin: 6px 0 0; padding-inline-start: 1.5rem; }
+.log time { margin-right: 4px; color: var(--vc-text-muted); }
 
-.app-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 52px;
-  padding: 0 16px;
-  background: var(--vc-bg);
-  border-top: 1px solid var(--vc-border-subtle);
-}
-.footer-note { display: inline-flex; align-items: center; gap: 8px; margin: 0; min-width: 0; color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); }
-.footer-note .vc-icon { flex: none; color: var(--vc-info-solid); }
-.app-footer .vc-byline { flex-wrap: nowrap; white-space: nowrap; }
-.app-footer .vc-byline__icon { min-width: var(--hit); min-height: var(--hit); }
+/* The bar right under what just happened, held in view when the story is longer than the window: in
+   words what happens next or what to do, with that one action. Merlot when it is your turn, plain while
+   Play reads the step, when a line along its foot fills; when it is full, the next step opens. */
+.story-foot { position: sticky; bottom: 0; z-index: 1; padding: 6px 0 16px; background: linear-gradient(to bottom, transparent, var(--vc-surface) 10px); }
+.move { position: relative; display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; overflow: hidden; padding: 10px 12px 10px 16px; background: var(--vc-accent-soft); color: var(--vc-on-accent-soft); border: 2px solid var(--vc-accent); border-radius: var(--vc-radius-md); }
+.move[data-tone="play"], .move[data-tone="done"] { background: var(--vc-bg); color: var(--vc-text); border-color: var(--vc-border); }
+.move-text { flex: 1 1 16rem; margin: 0; font-size: var(--vc-font-size-md); line-height: 1.4; text-wrap: pretty; }
+.move[data-tone="move"] .move-text strong { font-size: var(--vc-font-size-lg); }
+.move-note { color: var(--vc-text-muted); font-size: var(--vc-font-size-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.move-note:empty { display: none; }
+.move-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.move-actions:empty { display: none; }
+.move-actions .vc-button { --_h: var(--hit); }
+.move-fill { position: absolute; inset: auto 0 0; height: 4px; background: var(--vc-accent); transform: scaleX(var(--fill, 0)); transform-origin: left; }
+.move--new { animation: move-in 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes move-in { from { opacity: 0; translate: 0 6px; } }
+
+/* ---------------------------------------------------------------- boot */
 
 .boot { position: fixed; inset: 0; z-index: 3000; display: grid; place-items: center; padding: 24px; background: var(--vc-surface); transition: opacity 0.35s ease; }
 .boot[data-state="done"] { opacity: 0; pointer-events: none; }
@@ -286,14 +302,13 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
   .tile-name { font-size: var(--vc-font-size-md); }
   .tile-note { font-size: var(--vc-font-size-sm); }
   .tile-bar { height: 8px; margin-top: 8px; }
-  .story { gap: 22px; padding: 26px 30px 28px; }
+  .story { gap: 22px; padding: 26px 30px 0; }
   .story-title { font-size: 2rem; }
   .story-text { font-size: 1.25rem; }
   .agent blockquote { font-size: 1.15rem; }
 }
 
 @media (max-width: 1700px) {
-  .brand-sub { display: none; }
   :root { --fs-kpi: 1.75rem; }
 }
 @media (max-width: 1440px) {
@@ -303,19 +318,15 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
   .station-value { font-size: 1rem; }
   .flow { gap: 18px; }
   .station:not(:last-child)::after { right: -17px; width: 16px; }
-  .story { padding: 18px 20px 20px; gap: 14px; }
+  .story { padding: 18px 20px 0; gap: 14px; }
   .story-title { font-size: 1.5rem; }
   .story-text { font-size: 1.05rem; }
 }
 @media (max-width: 1366px) {
   :root { --fs-kpi: 1.5rem; --stage-gap: 10px; }
   .app-header { gap: 12px; min-height: 72px; }
-  .footer-note { display: none; }
-  .app-footer { justify-content: flex-end; min-height: 46px; }
   .stage { padding: 12px 16px 14px; }
-  .station-name { display: none; }
-  .station-value { margin-top: 0; grid-column: 2; grid-row: 1; }
-  .station-note { margin-top: 4px; }
+  .station-value { margin-top: 4px; }
   .pallet { gap: 6px; }
   .station-cell { --_s: var(--vc-cell-xs); }
   .tile { padding: 5px 8px 7px; }
@@ -331,7 +342,7 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
   .stage { gap: 8px; padding: 10px 16px 12px; }
   .stage-head h2 { font-size: 1.25rem; }
   .stage-clock { font-size: 1.35rem; }
-  .station { padding: 6px 10px 7px; }
+  .station { --station-h: 7rem; padding: 6px 10px 7px; }
   .station-value { font-size: 0.95rem; }
   .station-note { font-size: 0.8125rem; margin-top: 2px; }
   .pallet { gap: 6px; }
@@ -341,7 +352,8 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
   .tile-name { font-size: 0.8125rem; }
   .tile-note { grid-column: 1; font-size: 0.75rem; }
   .tile-bar { margin-top: 3px; height: 5px; }
-  .story { gap: 12px; padding: 14px 18px 16px; }
+  .intro { padding-block: 2px; }
+  .story { gap: 12px; padding: 14px 18px 0; }
   .story-title { font-size: 1.35rem; }
   .story-text { font-size: 1rem; }
   .agent { padding: 8px 12px 10px; }
@@ -352,7 +364,9 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
   .dc-facts { gap: 4px; }
   .dc-facts div { padding-top: 4px; }
   .dc-next { padding: 8px 12px; font-size: var(--vc-font-size-sm); }
-  .app-footer { min-height: 40px; }
+  .story-foot { padding: 4px 0 10px; }
+  .move { padding: 8px 10px 8px 14px; }
+  .move-actions .vc-button { --_h: 40px; }
 }
 @media (max-width: 1180px) {
   .app-header { grid-template-columns: 1fr auto; }
@@ -382,14 +396,15 @@ html { font-size: clamp(93.75%, 0.48vw + 50%, 112.5%); }
   .steps .vc-step { min-width: 4.5rem; }
   .play.vc-button { flex: 1 1 auto; }
   .dc-inputs { grid-template-columns: minmax(0, 1fr); }
-  .story { padding: 16px; }
-  .app-footer { justify-content: center; }
+  .story { padding: 16px 16px 0; }
+  .intro { padding: 6px 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .station, .kpi.vc-stat, .boot { transition: none; }
+  .move--new { animation: none; }
   .boot-help { animation: none; opacity: 1; visibility: visible; }
 }
 @media (forced-colors: active) {
-  .tile-fill, .compare-fill { forced-color-adjust: none; background: CanvasText; }
+  .tile-fill, .compare-fill, .move-fill { forced-color-adjust: none; background: CanvasText; }
 }

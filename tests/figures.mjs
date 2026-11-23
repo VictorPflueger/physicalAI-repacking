@@ -115,7 +115,7 @@ const wrong = stated.filter((s) => figs[s.key] === undefined || figs[s.key] !== 
 check(stated.length >= 30 && !wrong.length, `page: ${stated.length} figures in index.html equal the computed ones${wrong.length ? `; wrong: ${wrong.map((w) => `${w.key} "${w.text}" ≠ "${figs[w.key]}"`).join(", ")}` : ""}`);
 const unused = Object.keys(figs).filter((key) => !stated.some((s) => s.key === key));
 check(!unused.length, `page: every computed figure appears in the page${unused.length ? ` (not used: ${unused.join(", ")})` : ""}`);
-const heading = (html.match(/<h2 class="story-title" id="story-title">([^<]*)<\/h2>/) || [])[1];
+const heading = (html.match(/<h2 class="story-title" id="story-title"[^>]*>([^<]*)<\/h2>/) || [])[1];
 check(heading === steps[0].heading, `page: the story opens on step 1's heading ("${heading}")`);
 
 // ---- the docs: the README and the demo script state the same figures --------------------------

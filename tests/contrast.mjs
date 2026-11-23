@@ -1,6 +1,7 @@
 // Contrast: every visible text meets WCAG 2.2 AA (4.5:1, large text 3:1) against what is painted
 // behind it, in the light and the dark theme, at 1920 × 1080 and 1280 × 720: the five steps (the
-// decision answered and unanswered), the night playing, and the guide's first and last chapters.
+// decision answered and unanswered, with the bar under the story asking or done), the night playing,
+// and the guide's first and last chapters.
 // The measure is tests/lib/contrast.mjs; it first proves itself on a planted page.
 // Usage: NODE_PATH="$(npm root -g)" node tests/contrast.mjs
 import { APP_ROOT, launchBrowser, serveStatic } from "./lib/harness.mjs";
@@ -47,7 +48,7 @@ try {
       }
       await page.click('#steps [data-step="plan"] button');
       await page.click("#play");
-      await page.waitForTimeout(2500);
+      await page.waitForFunction(() => document.getElementById("clock").textContent > "22:00", null, { timeout: 12000 });
       await measure("playing");
       check(measured > 400 && !below.length, `${width} × ${height} ${theme}: ${measured} texts measured in 10 states${below.length ? `; below AA: ${[...new Set(below)].slice(0, 8).join(" | ")}` : ", all at AA or better"}`);
       await ctx.close();

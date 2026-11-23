@@ -1,6 +1,7 @@
 // Draws the page from the night (js/story.js, js/timeline.js): the header's figures, one item's way
-// through the cell, tonight's pallet, and the story of the step on screen. No state of its own: main.js
-// says what to show, these functions show it.
+// through the cell, tonight's pallet, the story of the step on screen, the decision log and the bar
+// under the story. No state of its own beyond what the bar last showed: main.js says what to show,
+// these functions show it.
 
 import { worth } from "./worth.js";
 import { inputs, PARAMETERS } from "./engine.js";
@@ -37,7 +38,7 @@ export function figuresOf(F) {
   return {
     units: int(F.units), stores: String(F.stores), "robot-units": int(F.robotUnits), "people-units": int(F.peopleUnits),
     "first-truck": F.firstTruck.at, "plan-at": "22:00", "learns-at": F.jar.clock, "asks-at": F.unknown.clock, "end-at": F.endClock,
-    manual: W.manual, hybrid: W.hybrid, saving: W.saving, year: W.year, "units-year": W.units, cells: W.cells, "break-even": W.break_even,
+    manual: W.manual, hybrid: W.hybrid, saving: W.saving,
     "jar-new": `${F.jar.new} g`, "jar-old": `${F.jar.old} g`, "unknown-units": String(F.unknown.units),
     "labour-h": `${upTo(F.tonight.labourH, 2)} h`, "by-hand-h": `${upTo(F.tonight.byHandH, 2)} h`,
     "decision-time": F.decision.text, "on-time": String(F.tonight.onTime),
@@ -184,21 +185,17 @@ export function updateHeader(state, F) {
 
 // ------------------------------------------------------------------ the story
 
-/** Shows a step's words, its decision, its comparison or Your DC. */
+/** Shows a step's words, the answer given at 23:10, its comparison or Your DC. The question itself is
+ * asked by the bar under the story (setMove). */
 export function renderStory(step, { decision } = {}) {
   setText($("story-title"), step.heading);
   setText($("story-text"), step.text);
   $("agent").hidden = !step.agent;
   if (step.agent) setText($("agent-text"), step.agent);
 
-  const d = $("decision");
-  d.hidden = !step.decision;
-  if (step.decision) {
-    const outcome = $("decision-outcome");
-    d.querySelector(".decision-actions").hidden = !!decision;
-    outcome.hidden = !decision;
-    if (decision) setText(outcome, step.decision[decision]);
-  }
+  const outcome = $("decision-outcome");
+  outcome.hidden = !(step.decision && decision);
+  if (step.decision && decision) setText(outcome, step.decision[decision]);
 
   const c = $("compare");
   c.hidden = !step.compare;
@@ -209,6 +206,49 @@ export function renderStory(step, { decision } = {}) {
     setText($("compare-saving"), `${step.compare.saving} labour with the cell`);
   }
   $("your-dc").hidden = step.id !== "your-dc";
+}
+
+/** The decision log: who answered what at 23:10, kept for the rest of the night. */
+export function renderLog(entries, shown) {
+  const log = $("log");
+  log.hidden = !(shown && entries.length);
+  const key = entries.map((e) => `${e.at} ${e.what}`).join("|");
+  if (log.dataset.key === key) return;
+  log.dataset.key = key;
+  setText($("log-summary"), `Decision log: ${entries.length === 1 ? "1 entry" : `${entries.length} entries`}`);
+  $("log-list").replaceChildren(...entries.map((e) => h("li", {}, h("time", { class: "vc-tabular", datetime: e.at }, e.at), ` ${e.what}`)));
+}
+
+// ------------------------------------------------------------------ the bar under the story
+
+let shownMove = "";
+/**
+ * The bar right under what just happened: in words, what happens next or what to do, with that one
+ * action (Rebate Hunter's pattern). tone: "play" while Play reads the step, "move" when it is the
+ * person's turn, "done" when the night is over. An action is { id, label, icon, iconEnd, kind, attention,
+ * onClick }; attention marks the one the page waits for. Returns true when the bar changed.
+ */
+export function setMove({ tone = "move", lead = "", text = "", actions = [] }) {
+  const key = JSON.stringify([tone, lead, text, actions.map((a) => [a.id, a.label, a.kind, !!a.attention])]);
+  if (key === shownMove) return false;
+  shownMove = key;
+  const box = $("move");
+  const hadFocus = box.contains(document.activeElement);
+  box.dataset.tone = tone;
+  $("move-text").replaceChildren(...(lead ? [h("strong", {}, lead), " "] : []), text);
+  $("move-actions").replaceChildren(...actions.map((a) => {
+    const b = h("button", { type: "button", id: a.id, class: `vc-button${a.kind ? ` vc-button--${a.kind}` : ""}`, "data-attention": a.attention ? true : null },
+      a.icon ? h("span", { class: `vc-icon vc-icon--${a.icon}`, "aria-hidden": "true" }) : null, a.label,
+      a.iconEnd ? h("span", { class: `vc-icon vc-icon--${a.iconEnd}`, "aria-hidden": "true" }) : null);
+    b.addEventListener("click", a.onClick);
+    return b;
+  }));
+  // A new request is seen arriving; under reduced motion it just appears (css/app.css).
+  box.classList.remove("move--new");
+  void box.offsetWidth;
+  box.classList.add("move--new");
+  if (hadFocus) (box.querySelector("[data-attention]") || box.querySelector("button"))?.focus({ preventScroll: true });
+  return true;
 }
 
 // ------------------------------------------------------------------ Your DC

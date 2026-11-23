@@ -20,10 +20,10 @@
 
 | Time | Step | What to do and say |
 |---|---|---|
-| 0:00 | Guide | "One night shift in a grocery DC: a robot cell repacks mixed pallets into store orders, working from a model of every item it lifts." Click **Start**. |
-| 0:30 | 22:00 The plan | Point at the three figures: "What the cell saves, how fast it reacts, and if every truck leaves on time." Then the pallet: "3,000 units for 12 stores. The robot may take 2,100; people take the 900 it may not grip." Click **Play**. |
+| 0:00 | Guide | "One night shift in a grocery DC: a robot cell repacks mixed pallets into store orders, working from a model of every item it lifts." Click **Start**; Play begins. |
+| 0:30 | 22:00 The plan | Point at the three figures: "What the cell saves, how fast it reacts, and if every truck leaves on time." Then the pallet: "3,000 units for 12 stores. The robot may take 2,100; people take the 900 it may not grip." Space pauses while you talk. |
 | 1:15 | 22:17 It learns | "The label says 200 g, the jam alone. The scale weighs 400 g, glass included, and the model learns it in under a second: that's detection to decision." |
-| 2:00 | 23:10 It asks | "A barcode the model has never seen. The robot doesn't guess: a rule sends the 6 units to a person at once, and the agent asks us to confirm a new entry." Click **Confirm entry**. |
+| 2:00 | 23:10 It asks | "A barcode the model has never seen. The robot doesn't guess: a rule sends the 6 units to a person at once, and the agent asks us to confirm a new entry." At *Your turn*, click **Confirm entry**. |
 | 2:45 | 06:00 The result | Point at the figures again: "12 of 12 store orders on time. Labour came to 2.74 hours where the same units take 7.52 by hand: €98 instead of €269 tonight, 64 % less." |
 | 3:30 | Your DC | Type their yearly volume. "Your saving a year, gross, before cell costs. A cell pays while it costs less than this an hour." |
 | 4:15 | Close | "The next step is a pilot cell in shadow mode: the agent proposes, your shift lead decides, and we measure how often they agree before it gets more autonomy." |
@@ -38,7 +38,7 @@ Say once: *"The agent's words are a scripted replay; the engine calculates every
 
 **Under a second, really?** For what the figure counts, yes: the model taking a weight and a rule routing an item are code at the cell. The agent's proposals wait for a person and don't count.
 
-**What exactly did I confirm?** That the barcode is a real item, so the model and the item master know it from now on. Without weight or grip yet, the robot leaves it to people.
+**What exactly did I confirm?** That the barcode is a real item, so the model and the item master know it from now on; without weight or grip, the robot still leaves it to people.
 
 **Our pickers do more than 400 an hour.** Type your rate into Your DC; every figure follows it.
 
@@ -50,4 +50,4 @@ Say once: *"The agent's words are a scripted replay; the engine calculates every
 
 ## If something goes wrong
 
-Press Home, or the restart arrow beside the steps, and carry on from 22:00. Every step is also a link, such as `?step=result`.
+Press Home and carry on from 22:00. Every step is also a link, such as `?step=result`.
