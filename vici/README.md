@@ -1,8 +1,8 @@
 # Vici, copied into this prototype
 
 These files come unchanged from Vici, Victor Pflüger's design system
-(<https://victorpflueger.github.io/ViciDesign/index.html>), from its main branch at commit **`4bf5d68`**
-(22 November 2026), Vici 2.0. That commit brings the How it works guide (`vc-guide`), the 2.0 byline,
+(<https://victorpflueger.github.io/ViciDesign/index.html>), from its main branch at commit **`17e0f46`**
+(23 November 2026), Vici 2.0. That commit brings the How it works guide (`vc-guide`), the 2.0 byline,
 the key-figure rule, the pause icon, `vc-attention` for the action the page waits for and
 `--vc-step-fill` for the rail Play fills; its files still call themselves 1.0.0 until 2.0 is tagged.
 The prototype loads them from here rather than from a CDN, so every page is served from this site alone.
