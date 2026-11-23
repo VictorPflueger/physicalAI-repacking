@@ -55,7 +55,7 @@ vm.createContext(sandbox);
 vm.runInContext(readFileSync(path.join(APP_ROOT, "data/world.js"), "utf8"), sandbox);
 const show = S.buildShowcase(sandbox.window.WORLD);
 const rows = (s) => [s.flow || [], ...Object.values(s.flowIf || {})].flat();
-const said = show.steps.flatMap((s) => [s.heading, s.text, s.agent, s.decision?.confirm, s.decision?.reject, ...rows(s).flatMap((f) => [f.value, f.note])]).filter(Boolean);
+const said = show.steps.flatMap((s) => [s.heading, s.text, s.agent, s.next, s.turn, s.done, s.decision?.confirm, s.decision?.reject, s.log?.confirm, s.log?.reject, ...rows(s).flatMap((f) => [f.value, f.note])]).filter(Boolean);
 const written = writingProblems(`<html lang="en-GB"><body>${said.map((t) => `<p>${t}</p>`).join("")}</body></html>`);
 check(!written.length, `the ${said.length} sentences and labels the steps write keep the writing rules${written.length ? `: ${written.join("; ")}` : ""}`);
 

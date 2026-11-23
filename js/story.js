@@ -112,9 +112,11 @@ function factsOf(world, night, res, toteStore) {
 }
 
 /**
- * The steps: { id, n, t, clock, label, heading, text, agent, flow, flowIf?, decision? }. flow holds what
- * each of the five stations says at that moment: [camera, model, robot, scale, person], each { value,
- * note, tone }; flowIf replaces it once the presenter has answered at 23:10 (see flowOf).
+ * The steps: { id, n, t, clock, label, heading, text, agent, next, flow, flowIf?, decision?, turn?, log? }.
+ * flow holds what each of the five stations says at that moment: [camera, model, robot, scale, person],
+ * each { value, note, tone }; flowIf replaces it once the presenter has answered at 23:10 (see flowOf).
+ * next is how the bar under the story announces the step while Play heads for it; turn is what the bar
+ * asks at 23:10, and log what the decision log keeps of the answer.
  */
 function stepsOf(F) {
   const T = F.tonight;
@@ -148,6 +150,7 @@ function stepsOf(F) {
       ]
     }),
     step("learns", F.jar.at, F.jar.clock, "It learns", {
+      next: "the scale finds a jar heavier than its label",
       heading: `The scale weighs a jar at ${nb(F.jar.new, "g")}, not ${nb(F.jar.old, "g")}`,
       text: `${F.jar.name.replace(/ \d.*$/, "")} is listed at ${nb(F.jar.old, "g")}, the jam alone; the robot lifts the glass too. The world model now expects ${nb(F.jar.new, "g")} for every jar, and the robot rehearses the next one with it.`,
       agent: `${F.jar.store}'s tote was packed with the old weight, so I close it and start a fresh one.`,
@@ -160,13 +163,16 @@ function stepsOf(F) {
       ]
     }),
     step("asks", F.unknown.at, F.unknown.clock, "It asks", {
+      next: "the camera reads a barcode the model doesn't know",
       heading: "A barcode the world model doesn't know",
       text: `The camera reads ${F.unknown.barcode} on ${F.unknown.units} units. The robot never picks what the model doesn't know, so a rule in code sends them to a person.`,
       agent: "I've created a provisional entry, marked unverified. Do you confirm it?",
+      turn: `Confirm the agent's entry and the world model knows this barcode from now on. Its ${F.unknown.units} units go to a person either way.`,
       decision: {
         confirm: `Confirmed by you. The model knows the barcode from now on, still without weight or grip, so tonight's ${F.unknown.units} units stay with a person.`,
         reject: `Rejected by you. The barcode stays unknown, and its ${F.unknown.units} units stay with a person.`
       },
+      log: { confirm: "You confirmed the agent's entry for the unknown barcode.", reject: "You rejected the agent's entry for the unknown barcode." },
       flow: asks({ value: "Not in the model", note: "a new entry waits for you", tone: "unknown" }),
       flowIf: {
         confirm: asks({ value: "Now in the model", note: "no weight or grip yet", tone: "learn" }),
@@ -174,6 +180,7 @@ function stepsOf(F) {
       }
     }),
     step("result", F.end, F.endClock, "The result", {
+      next: "the trucks have gone, and the engine adds up the labour",
       heading: "Every truck left on time",
       text: `${T.onTime} of ${T.orders} store orders made their trucks. The robot picked ${int(T.robot)} units and people ${int(T.hand)}; the ${T.setAside} unknown units went aside for a person.`,
       agent: `Night over: labour came to ${hours(T.labourH)}. By hand, the same units would have taken ${hours(T.byHandH)}.`,
@@ -190,12 +197,24 @@ function stepsOf(F) {
       }
     }),
     step("your-dc", F.end, F.endClock, "Your DC", {
+      next: "what the cell is worth for your DC",
       heading: "What it is worth for your DC",
       text: "Type your site's yearly volume and labour cost. The engine prices them at the rates of the night you just saw.",
       agent: null,
+      done: "Type your site's figures above, or replay the night.",
       flow: null
     })
   ];
+}
+
+/**
+ * How long Play stays on a step: as long as its words take to read, within Vici's 7 to 14 seconds
+ * (13.5 at most, so a slow frame never takes it past 14). Once the person has answered at 23:10, the
+ * answer is what is new to read.
+ */
+export function readMs(step, decision) {
+  const said = step.decision && decision ? step.decision[decision] : [step.heading, step.text, step.agent].filter(Boolean).join(" ");
+  return Math.min(13500, Math.max(7000, 3000 + 230 * said.split(/\s+/).filter(Boolean).length));
 }
 
 /** The step with this id, or the first. */

@@ -24,16 +24,13 @@
   <header class="app-header">
     <div class="brand">
       <span class="vc-cell vc-cell--teal" aria-hidden="true"><span class="vc-icon vc-icon--layers"></span></span>
-      <div class="brand-text">
-        <span class="brand-name">Repack Pilot</span>
-        <span class="brand-sub">Physical AI showcase · Ruhrkorb DC Unna, fictional</span>
-      </div>
+      <span class="brand-name">Repack Pilot</span>
     </div>
 
     <div class="header-actions">
       <span class="vc-tooltip-anchor">
-        <span class="vc-tag sim-tag" tabindex="0" aria-describedby="tip-sim"><span class="vc-icon vc-icon--cube" aria-hidden="true"></span>Simulated</span>
-        <span class="vc-tooltip vc-tooltip--bottom" role="tooltip" id="tip-sim">A scripted replay of the agent on a simulated robot cell. An engine computes every hour and euro.</span>
+        <span class="vc-tag vc-tag--lg mode-tag" tabindex="0" aria-describedby="tip-mode">SIMULATION</span>
+        <span class="vc-tooltip vc-tooltip--bottom" role="tooltip" id="tip-mode">A scripted replay of the agent on a simulated robot cell. An engine computes every hour and euro.</span>
       </span>
       <button type="button" class="vc-button vc-button--secondary" data-vc-guide-open="guide"><span class="vc-icon vc-icon--info" aria-hidden="true"></span>How it works</button>
       <span class="vc-tooltip-anchor">
@@ -61,8 +58,27 @@
     </div>
   </header>
 
+  <!-- What the page shows and that its retailer is fictional, with the byline beside it: Vici's strip
+       under the header of a single-screen app. -->
+  <div class="intro">
+    <p class="intro-text">A simulated robot cell repacks one night's store orders for a fictional grocery retailer, and asks you about what it doesn't know.</p>
+    <p class="vc-byline">
+      <span class="vc-byline__label">Built by</span>
+      <a class="vc-byline__person" href="https://www.linkedin.com/in/victorpflueger" rel="author noopener" target="_blank">
+        <span class="vc-avatar vc-avatar--xs"><img src="vici/assets/brand/portrait-96.jpg" alt="" width="96" height="96"></span>
+        <span class="vc-byline__name">Victor Pflüger</span>
+        <img class="vc-platform-mark" src="vici/assets/marks/linkedin.png" alt="" width="840" height="779">
+        <span class="vc-visually-hidden"> on LinkedIn (opens in a new tab)</span>
+      </a>
+      <span class="vc-tooltip-anchor">
+        <a class="vc-byline__icon" href="https://victorpflueger.github.io/VIP/index.html" rel="author noopener" target="_blank" aria-label="Victor Pflüger's website (opens in a new tab)"><span class="vc-icon vc-icon--globe-hex" aria-hidden="true"></span></a>
+        <span class="vc-tooltip vc-tooltip--bottom" aria-hidden="true">Website</span>
+      </span>
+    </p>
+  </div>
+
   <nav class="player" aria-label="Talk track">
-    <button type="button" class="vc-button play" id="play"><span class="vc-icon vc-icon--play play-icon" aria-hidden="true"></span><span class="play-text">Play</span></button>
+    <button type="button" class="vc-button vc-button--secondary play" id="play" data-state="play"><span class="vc-icon vc-icon--play" aria-hidden="true"></span><span class="play-text">Play</span></button>
     <ol class="vc-stepper steps" id="steps">
       <li class="vc-step" data-step="plan"><button type="button" class="vc-step__button"><span class="vc-step__marker" aria-hidden="true">1</span><span class="vc-step__label">The plan<span class="vc-step__hint">22:00</span></span></button></li>
       <li class="vc-step" data-step="learns"><button type="button" class="vc-step__button"><span class="vc-step__marker" aria-hidden="true">2</span><span class="vc-step__label">It learns<span class="vc-step__hint" data-fig="learns-at">22:17</span></span></button></li>
@@ -70,10 +86,6 @@
       <li class="vc-step" data-step="result"><button type="button" class="vc-step__button"><span class="vc-step__marker" aria-hidden="true">4</span><span class="vc-step__label">The result<span class="vc-step__hint">06:00</span></span></button></li>
       <li class="vc-step" data-step="your-dc"><button type="button" class="vc-step__button"><span class="vc-step__marker" aria-hidden="true">5</span><span class="vc-step__label">Your DC<span class="vc-step__hint">the business case</span></span></button></li>
     </ol>
-    <span class="vc-tooltip-anchor">
-      <button type="button" class="vc-icon-button restart" id="restart" aria-labelledby="tip-restart"><span class="vc-icon vc-icon--refresh" aria-hidden="true"></span></button>
-      <span class="vc-tooltip vc-tooltip--bottom" role="tooltip" id="tip-restart">Back to 22:00</span>
-    </span>
   </nav>
 
   <p class="vc-visually-hidden" id="announce" aria-live="polite"></p>
@@ -101,20 +113,13 @@
     </section>
 
     <section class="story" id="story" aria-labelledby="story-title" tabindex="-1">
-      <h2 class="story-title" id="story-title">Tonight: 3,000 units for 12 stores</h2>
+      <h2 class="story-title" id="story-title" tabindex="-1">Tonight: 3,000 units for 12 stores</h2>
       <p class="story-text" id="story-text"></p>
       <figure class="agent" id="agent">
         <figcaption><span class="vc-tag vc-tag--feature vc-tag--sm"><span class="vc-icon vc-icon--sparkle" aria-hidden="true"></span>Agent</span></figcaption>
         <blockquote id="agent-text"></blockquote>
       </figure>
-
-      <div class="decision" id="decision" hidden>
-        <div class="decision-actions">
-          <button type="button" class="vc-button" id="confirm"><span class="vc-icon vc-icon--check" aria-hidden="true"></span>Confirm entry</button>
-          <button type="button" class="vc-button vc-button--outline" id="reject">Reject</button>
-        </div>
-        <p class="decision-outcome" id="decision-outcome" tabindex="-1" hidden></p>
-      </div>
+      <p class="decision-outcome" id="decision-outcome" hidden></p>
 
       <div class="compare" id="compare" hidden>
         <p class="compare-title">Labour tonight</p>
@@ -150,25 +155,21 @@
         </dl>
         <p class="dc-next">Next step: a pilot cell in shadow mode. The agent proposes, your shift lead decides, and you measure how often they agree before it gets more autonomy.</p>
       </form>
+
+      <details class="log" id="log" hidden><summary id="log-summary">Decision log</summary><ol id="log-list"></ol></details>
+
+      <!-- Right under what just happened: in words, what happens next or what to do, with that one
+           action. While Play reads a step, the line along its foot fills (--fill). -->
+      <div class="story-foot">
+        <div class="move" id="move" data-tone="play" role="group" aria-label="What happens next">
+          <p class="move-text" id="move-text"></p>
+          <span class="move-note" id="move-note" aria-hidden="true"></span>
+          <div class="move-actions" id="move-actions"></div>
+          <span class="move-fill" id="move-fill" aria-hidden="true" hidden></span>
+        </div>
+      </div>
     </section>
   </main>
-
-  <footer class="app-footer">
-    <p class="footer-note"><span class="vc-icon vc-icon--check" aria-hidden="true"></span>Simulated night, figures from the engine. Ruhrkorb, its stores and items are fictional.</p>
-    <p class="vc-byline">
-      <span class="vc-byline__label">Built by</span>
-      <a class="vc-byline__person" href="https://www.linkedin.com/in/victorpflueger" rel="author noopener" target="_blank">
-        <span class="vc-avatar vc-avatar--xs"><img src="vici/assets/brand/portrait-96.jpg" alt="" width="96" height="96"></span>
-        <span class="vc-byline__name">Victor Pflüger</span>
-        <img class="vc-platform-mark" src="vici/assets/marks/linkedin.png" alt="" width="840" height="779">
-        <span class="vc-visually-hidden"> on LinkedIn (opens in a new tab)</span>
-      </a>
-      <span class="vc-tooltip-anchor">
-        <a class="vc-byline__icon" href="https://victorpflueger.github.io/VIP/index.html" rel="author noopener" target="_blank" aria-label="Victor Pflüger's website (opens in a new tab)"><span class="vc-icon vc-icon--globe-hex" aria-hidden="true"></span></a>
-        <span class="vc-tooltip" aria-hidden="true">Website</span>
-      </span>
-    </p>
-  </footer>
 
   <!-- How it works: Vici's guide. vici.js builds the chapter rail and opens it once per browser tab;
        ?guide=0 keeps it closed, ?guide=present opens the talk track. Every figure in it is the engine's
@@ -194,28 +195,14 @@
       </section>
       <section class="vc-guide__chapter" data-vc-chapter="how" data-vc-nav="How it works">
         <h3>The robot works from a model of every item</h3>
-        <p class="vc-guide__lead">The world model holds each item's weight, size, fragility and grip. The agent plans the night with it, and camera and scale check every pick against it.</p>
+        <p class="vc-guide__lead">The world model knows each item's weight, size and grip. Camera and scale check every pick against it; the model learns what clearly differs and asks a person about what it doesn't know.</p>
         <div class="vc-table-wrap"><table class="vc-table vc-table--compact">
-          <caption>The world model at work</caption>
+          <caption>The key figures at the top right</caption>
+          <thead><tr><th scope="col">Figure</th><th scope="col">What it measures</th><th scope="col" class="vc-num">Tonight</th></tr></thead>
           <tbody>
-            <tr><th scope="row">Knows</th><td>Every item on the pallet, before the night starts.</td></tr>
-            <tr><th scope="row">Checks</th><td>Camera and scale compare each item with the model; the robot rehearses every grasp first.</td></tr>
-            <tr><th scope="row">Learns</th><td>A reading that clearly differs is written back for every unit of that item.</td></tr>
-            <tr><th scope="row">Asks</th><td>What the model doesn't know goes to a person, who decides.</td></tr>
-          </tbody>
-        </table></div>
-      </section>
-      <section class="vc-guide__chapter" data-vc-chapter="figures" data-vc-nav="The three figures">
-        <h3>Three figures at the top say what the cell delivers</h3>
-        <p class="vc-guide__lead">Labour per 1,000 units is the saving, detection to decision how fast the cell acts when a reading disagrees with its model, store orders on time the service it keeps. Your DC turns the saving into a year.</p>
-        <div class="vc-table-wrap"><table class="vc-table vc-table--compact">
-          <caption>Tonight, and a year at the reference site</caption>
-          <tbody>
-            <tr><th scope="row">Labour per 1,000 units</th><td><span data-fig="manual">€89.50</span> by hand, <span data-fig="hybrid">€32.49</span> with the cell: <span data-fig="saving">−64&nbsp;%</span></td></tr>
-            <tr><th scope="row">Detection → decision</th><td><span data-fig="decision-time">&lt;&nbsp;1&nbsp;s</span> from the scale's or the camera's reading to the cell acting on it, for both of tonight's catches</td></tr>
-            <tr><th scope="row">Store orders on time</th><td><span data-fig="on-time">12</span> of <span data-fig="stores">12</span>, every truck</td></tr>
-            <tr><th scope="row">A year</th><td><span data-fig="year">€342,069</span> for <span data-fig="units-year">6,000,000</span> units with <span data-fig="cells">4.2</span> cells, gross, before cell costs</td></tr>
-            <tr><th scope="row">Break-even per cell</th><td><span data-fig="break-even">€40.72</span> an operating hour</td></tr>
+            <tr><th scope="row">Labour per 1,000 units</th><td>What the cell saves: labour cost by hand and with the cell</td><td class="vc-num"><span data-fig="manual">€89.50</span> by hand, <span data-fig="hybrid">€32.49</span> with the cell</td></tr>
+            <tr><th scope="row">Detection → decision</th><td>How fast the cell acts when a reading disagrees with its model</td><td class="vc-num"><span data-fig="decision-time">&lt;&nbsp;1&nbsp;s</span> for both catches</td></tr>
+            <tr><th scope="row">Store orders on time</th><td>The service it keeps: orders ready before their truck leaves</td><td class="vc-num"><span data-fig="on-time">12</span> of <span data-fig="stores">12</span></td></tr>
           </tbody>
         </table></div>
       </section>
@@ -233,7 +220,7 @@
       </section>
       <section class="vc-guide__chapter" data-vc-chapter="present" data-vc-nav="How to present">
         <h3>Show it in five minutes</h3>
-        <p class="vc-guide__lead">Five steps, one minute each, on the buttons under the header.</p>
+        <p class="vc-guide__lead">Five steps, five minutes. Play waits for you at 23:10; Space pauses it.</p>
         <ol class="vc-guide__path">
           <li><strong><span data-fig="plan-at">22:00</span> The plan: point at the three figures.</strong> <span class="vc-guide__say">“What the cell saves, how fast it reacts, and if every truck leaves on time.”</span> <span class="vc-guide__time">1 min</span></li>
           <li><strong><span data-fig="learns-at">22:17</span> It learns.</strong> <span class="vc-guide__say">“The scale weighs <span data-fig="jar-new">400&nbsp;g</span>, not <span data-fig="jar-old">200&nbsp;g</span>: the model learns it in under a second.”</span> <span class="vc-guide__time">1 min</span></li>

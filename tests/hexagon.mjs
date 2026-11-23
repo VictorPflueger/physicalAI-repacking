@@ -39,6 +39,7 @@ async function hexagonTour(page, visit) {
   await visit("asks, confirmed");
   await page.click('#steps [data-step="plan"] button');
   await page.click("#play");
+  await page.waitForFunction(() => document.getElementById("clock").textContent > "22:00", null, { timeout: 12000 });
   await visit("playing", { settle: 1500 });
 }
 

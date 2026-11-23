@@ -1,13 +1,17 @@
 // The showcase in Chromium, as a presenter uses it.
 //   boot      the page starts without a console error or a request to another site, opens the guide
-//             on a first visit and lands on 22:00
-//   steps     each of the five steps by click, by key (1 to 5, arrows, Home) and by address (?step=):
-//             its heading, its clock and the header's counters equal the night's state at that moment
-//   play      Play runs the night to the next step and stops there; Pause holds it and Play resumes
+//             on a first visit, lands on 22:00, and Play starts when the guide closes
+//   steps     each of the five steps by click, by key (1 to 5, arrows, PageDown, Home) and by address
+//             (?step=): its heading, its clock and the header's counters equal the night's state then
+//   play      Play reads each step for 7 to 14 s and moves on by itself, the night playing on to the
+//             next moment, and the bar says when; Pause holds it; at 23:10 Play holds until you answer;
+//             at Your DC it ends on Replay, which starts the night again with the question open
 //   kpis      the header's three key figures (data-vc-kpi), top right at every size, with the night's
 //             values: detection to decision counts what was caught, store orders on time 12 of 12 at 06:00
-//   decide    Confirm entry decides once; the world model's station, the unknown item's tile and the
-//             result's count follow the answer (or its absence); the answer stays; Restart clears it
+//   decide    the bar right under the agent's question says "Your turn" and holds Confirm entry, marked
+//             with vc-attention, and Reject; the answer is given once and logged; the world model's
+//             station, the unknown item's tile and the result's count follow it (or its absence); the
+//             answer stays; Home clears it
 //   your DC   the inputs priced by the engine (10,000,000 units as the demo script types them), a
 //             refused value says why, Reset appears once something is typed and goes back
 //   layout    at 1920 × 1080, 1366 × 768 and 1280 × 720, light and dark, in all five steps: nothing
@@ -60,7 +64,8 @@ const view = (page) => page.evaluate(() => {
     orders: document.getElementById("orders-ready").textContent, onTime: String(s.onTime),
     caught: document.getElementById("decision-note").textContent,
     current: document.querySelector('#steps [aria-current="step"]')?.closest("li")?.dataset.step,
-    play: document.querySelector("#play .play-text").textContent
+    play: document.querySelector("#play .play-text").textContent,
+    bar: document.getElementById("move").innerText.replace(/\s+/g, " ").trim(), say: document.getElementById("move-text").textContent, tone: document.getElementById("move").dataset.tone
   };
 });
 const consistent = (v) => v.title === v.heading && v.clock === v.stateClock && v.units === v.repacked && v.orders === v.onTime && v.current === IDS[v.index];
@@ -75,6 +80,7 @@ try {
     await closeGuide(page);
     const v = await view(page);
     check(v.id === "plan" && v.clock === "22:00" && consistent(v), `boot: lands on 22:00, the plan (${v.title})`);
+    check(v.playing && v.play === "Pause" && v.tone === "play" && /^Playing\. Next at 22:17:/.test(v.bar), `boot: Play starts when the guide closes, and the bar says what comes next ("${v.bar}")`);
     await page.screenshot({ path: path.join(out, "boot.png") });
     check(!errors.length, `boot: no console error${errors.length ? `: ${errors.join(" | ")}` : ""}`);
     check(!outside.length, `boot: no request to another site${outside.length ? `: ${outside.join(", ")}` : ""}`);
@@ -107,10 +113,10 @@ try {
     check(end.time === "<\u00a01\u00a0s" && end.orders === "12" && end.of === "of 12" && end.note === "every truck left on time" && end.tone === "done", `kpis: at 06:00 detection to decision reads ${end.time}, store orders on time ${end.orders} ${end.of} (${end.note})`);
     check(end.count === "3,000 of 3,000 units repacked", `kpis: the units count sits with the pallet ("${end.count}")`);
     await page.click("#story-title"); // focus off the buttons, as a presenter's click on the page would
-    const keys = [["1", "plan"], ["ArrowRight", "learns"], ["ArrowRight", "asks"], ["4", "result"], ["ArrowLeft", "asks"], ["5", "your-dc"], ["Home", "plan"]];
+    const keys = [["1", "plan"], ["ArrowRight", "learns"], ["PageDown", "asks"], ["4", "result"], ["ArrowLeft", "asks"], ["5", "your-dc"], ["PageUp", "result"], ["Home", "plan"]];
     let keyed = true;
     for (const [key, id] of keys) { await page.keyboard.press(key); const v = await view(page); if (v.id !== id || !consistent(v)) keyed = false; }
-    check(keyed, "steps: keys 1 to 5, the arrows and Home move between the steps");
+    check(keyed, "steps: keys 1 to 5, the arrows, a clicker's PageDown and PageUp, and Home move between the steps");
     for (const id of ["asks", "result"]) {
       const p2 = await ctx.newPage();
       await p2.goto(`${server.base}?step=${id}&guide=0`);
@@ -126,27 +132,50 @@ try {
   // ---- playback -----------------------------------------------------------------------------------
   if (wanted("play")) {
     const { page, ctx, errors } = await open("?step=plan&guide=0");
+    const at = await view(page);
+    check(!at.playing && at.play === "Play" && at.tone === "move" && /^Your turn\. Next at 22:17: .* Or press Play\.$/.test(at.say), `play: a link to a step opens it paused, and the bar says the move is yours ("${at.say}")`);
+    // Each change of step, timed in the page.
+    await page.evaluate(() => { window.__steps = []; new MutationObserver(() => window.__steps.push([performance.now(), window.repackPilot.state.index])).observe(document.getElementById("steps"), { subtree: true, attributes: true, attributeFilter: ["aria-current"] }); });
+    const reads = await page.evaluate(() => [0, 1, 3].map((i) => window.repackPilot.timing(i).read));
+    check(reads.every((r) => r >= 7000 && r <= 14000), `play: each step reads for 7 to 14 s (${reads.map((r) => (r / 1000).toFixed(1)).join(", ")} s)`);
+    await page.evaluate(() => { window.__t0 = performance.now(); });
     await page.click("#play");
-    await page.waitForTimeout(2500);
+    await page.waitForTimeout(1500);
+    const reading = await view(page);
+    const note = await page.$eval("#move-note", (el) => el.textContent);
+    check(reading.playing && reading.clock === "22:00" && reading.tone === "play" && /^in \d+ s$/.test(note), `play: Play first holds the plan's moment, and the bar says when the page moves on ("${reading.bar}")`);
+    await page.waitForFunction(() => document.getElementById("clock").textContent > "22:00", null, { timeout: 12000 });
     const mid = await view(page);
-    check(mid.playing && mid.index === 0 && mid.clock > "22:00" && mid.clock < "22:17" && Number(mid.units.replace(/,/g, "")) > 0 && mid.play === "Pause", `play: the night runs (${mid.clock}, ${mid.units} units repacked) and the button says Pause`);
+    check(mid.playing && mid.index === 0 && mid.clock < "22:17" && Number(mid.units.replace(/,/g, "")) > 0 && mid.play === "Pause", `play: within the plan's reading time the night plays on (${mid.clock}, ${mid.units} units), the button says Pause`);
+    await page.waitForFunction(() => window.repackPilot.state.index === 1, null, { timeout: 15000 });
+    const moved = await page.evaluate(() => (window.__steps.find(([, i]) => i === 1)[0] - window.__t0));
+    const learns = await view(page);
+    check(learns.playing && learns.id === "learns" && learns.clock === "22:17" && consistent(learns), "play: Play moves on to 22:17 by itself and keeps playing");
+    check(moved >= reads[0] - 50 && moved <= reads[0] + 600, `play: it stayed ${(moved / 1000).toFixed(1)} s on the plan, its reading time`);
+    await page.waitForTimeout(1200);
     await page.click("#play");
     const held = await view(page);
     await page.waitForTimeout(800);
     const still = await view(page);
-    check(!still.playing && still.clock === held.clock && still.play === "Play", `play: Pause holds the night at ${held.clock}`);
-    await page.click("#play");
-    await page.waitForFunction(() => window.repackPilot.state.index === 1 && !window.repackPilot.state.playing, null, { timeout: 9000 });
-    const at = await view(page);
-    check(at.id === "learns" && at.clock === "22:17" && consistent(at), "play: Play resumes and stops at 22:17, the next step");
+    check(!still.playing && still.clock === held.clock && still.play === "Play" && /^Your turn\. Next at 23:10: .* Or press Play\.$/.test(still.say), `play: Pause holds the night at ${held.clock}, and the bar says the move is yours ("${still.say}")`);
     await page.click('#steps [data-step="asks"] button');
     await page.click("#play");
-    await page.waitForFunction(() => window.repackPilot.state.index === 3 && !window.repackPilot.state.playing, null, { timeout: 14000 });
+    await page.waitForTimeout(3000);
+    const waiting = await page.evaluate(() => ({ index: window.repackPilot.state.index, playing: window.repackPilot.state.playing, at: window.repackPilot.P.at, bar: document.getElementById("move").innerText.replace(/\s+/g, " "), attention: !!document.querySelector("#confirm.vc-attention") }));
+    check(waiting.index === 2 && waiting.playing && waiting.at === 0 && /^Your turn\./.test(waiting.bar) && waiting.attention, "play: at 23:10 Play holds until you answer, with Confirm entry marked");
+    await page.click("#confirm");
+    const asked = await page.evaluate(() => window.repackPilot.timing(2).read);
+    await page.waitForFunction(() => window.repackPilot.state.index === 3, null, { timeout: asked + 3000 });
     const end = await view(page);
-    check(end.id === "result" && end.clock === "06:00" && end.units === "3,000" && end.orders === "12" && consistent(end), "play: from 23:10 the night runs to 06:00 and stops on the result");
-    await page.click("#play");
+    check(end.playing && end.id === "result" && end.clock === "06:00" && end.units === "3,000" && end.orders === "12" && consistent(end), `play: once you answer, Play reads the answer for ${(asked / 1000).toFixed(1)} s while the night runs to 06:00, the result`);
+    await page.click("#next");
+    await page.waitForFunction(() => window.repackPilot.state.index === 4);
     const dc = await view(page);
-    check(dc.id === "your-dc" && dc.play === "Replay", "play: from the result Play opens Your DC, where it offers a replay");
+    check(dc.id === "your-dc" && !dc.playing && dc.play === "Replay" && dc.tone === "done" && /^Done\./.test(dc.bar) && await page.locator("#replay").isVisible(), `play: at Your DC the night is over and Play offers Replay, as the bar does ("${dc.bar}")`);
+    await page.click("#replay");
+    const again = await view(page);
+    const cleared = await page.evaluate(() => window.repackPilot.state.decision === null && window.repackPilot.state.log.length === 0);
+    check(again.id === "plan" && again.clock === "22:00" && again.playing && cleared, "play: Replay starts the night again from 22:00, with the question open again");
     check(!errors.length, `play: no console error${errors.length ? `: ${errors.join(" | ")}` : ""}`);
     await ctx.close();
   }
@@ -160,34 +189,44 @@ try {
       const tile = document.querySelector('.tile[data-sku="unknown"]');
       return { model: `${model.querySelector(".station-value").textContent} / ${model.querySelector(".station-note").textContent}`, modelTone: model.dataset.tone || "", tile: tile.dataset.tone || "", note: tile.querySelector(".tile-note").textContent };
     });
-    const before = { buttons: await page.evaluate(() => !!document.getElementById("confirm").offsetParent), ...(await said()) };
-    check(before.buttons && before.tile === "unknown" && before.note === "not in the model" && before.model === "Not in the model / a new entry waits for you", `decide: at 23:10 Confirm entry waits; station and tile say the barcode isn't in the model (${before.model})`);
+    const before = { buttons: await page.evaluate(() => !!document.getElementById("confirm")?.offsetParent && !!document.getElementById("reject")?.offsetParent), ...(await said()) };
+    check(before.buttons && before.tile === "unknown" && before.note === "not in the model" && before.model === "Not in the model / a new entry waits for you", `decide: at 23:10 Confirm entry and Reject wait; station and tile say the barcode isn't in the model (${before.model})`);
+    const turn = await page.evaluate(() => {
+      const bar = document.getElementById("move");
+      return { text: bar.innerText.replace(/\s+/g, " ").trim(), tone: bar.dataset.tone, gap: Math.round(bar.getBoundingClientRect().top - document.getElementById("agent").getBoundingClientRect().bottom),
+        confirm: document.getElementById("confirm").className, reject: document.getElementById("reject").className, want: window.repackPilot.steps[2].turn };
+    });
+    check(turn.tone === "move" && turn.text.startsWith(`Your turn. ${turn.want}`) && turn.gap >= 0 && turn.gap <= 40, `decide: right under the agent's question (${turn.gap} px), the bar says "Your turn" and what confirming does`);
+    check(/\bvc-attention\b/.test(turn.confirm) && !/vc-button--/.test(turn.confirm) && /vc-button--outline/.test(turn.reject) && !/vc-attention/.test(turn.reject), "decide: Confirm entry is the one primary action, marked with vc-attention; Reject is the second choice");
     await page.click("#confirm");
     const after = await page.evaluate(() => ({
-      buttons: !!document.getElementById("confirm").offsetParent || !!document.getElementById("reject").offsetParent,
+      buttons: !!document.getElementById("confirm")?.offsetParent || !!document.getElementById("reject")?.offsetParent,
       outcome: document.getElementById("decision-outcome").textContent, shown: !document.getElementById("decision-outcome").hidden,
-      want: window.repackPilot.steps[2].decision.confirm, focus: document.activeElement?.id
+      want: window.repackPilot.steps[2].decision.confirm, focus: !!document.activeElement?.closest("#move"),
+      log: document.getElementById("log").hidden ? null : document.getElementById("log-list").textContent, summary: document.getElementById("log-summary").textContent
     }));
     const confirmed = await said();
     check(!after.buttons && after.shown && after.outcome === after.want, "decide: Confirm entry decides once: the buttons go and the answer shows");
+    check(after.log === "23:10 You confirmed the agent's entry for the unknown barcode." && after.summary === "Decision log: 1 entry", `decide: the decision log keeps who answered what, and when ("${after.log}")`);
     check(confirmed.tile === "learn" && confirmed.note === "confirmed by you" && confirmed.modelTone === "learn" && confirmed.model === "Now in the model / no weight or grip yet", `decide: confirmed, station and tile say the model learned the barcode (${confirmed.model})`);
-    check(after.focus === "decision-outcome", "decide: focus moves to the answer, not to the page's top");
+    check(after.focus, "decide: focus moves to the bar's next action, not to the page's top");
     await page.click('#steps [data-step="result"] button');
     const learned2 = (await said()).model;
     await page.click('#steps [data-step="asks"] button');
-    const kept = await page.evaluate(() => !document.getElementById("decision-outcome").hidden) && (await said()).tile === "learn";
-    check(kept, "decide: the answer stays when the presenter moves on and back");
+    const kept = await page.evaluate(() => !document.getElementById("decision-outcome").hidden && !document.getElementById("confirm")) && (await said()).tile === "learn";
+    check(kept, "decide: the answer stays when the presenter moves on and back, and the question isn't asked again");
     check(learned2 === "Learned 2 / a weight, a barcode", `decide: confirmed, the result says the model learned a weight and a barcode (${learned2})`);
-    await page.click("#restart");
+    await page.click("#story-title");
+    await page.keyboard.press("Home");
     await page.click('#steps [data-step="asks"] button');
-    const reset = await page.evaluate(() => !!document.getElementById("confirm").offsetParent && document.getElementById("decision-outcome").hidden) && (await said()).tile === "unknown";
-    check(reset, "decide: Restart clears the answer for the next demo");
+    const reset = await page.evaluate(() => !!document.getElementById("confirm")?.offsetParent && document.getElementById("decision-outcome").hidden && document.getElementById("log").hidden) && (await said()).tile === "unknown";
+    check(reset, "decide: Home clears the answer and its log for the next demo");
     await page.click('#steps [data-step="result"] button');
     const undecided = (await said()).model;
     check(undecided === "Learned 1 / a weight, not yet the barcode", `decide: unanswered, the result counts the weight only (${undecided})`);
     await page.click('#steps [data-step="asks"] button');
     await page.click("#reject");
-    const rejectedText = await page.evaluate(() => document.getElementById("decision-outcome").textContent === window.repackPilot.steps[2].decision.reject);
+    const rejectedText = await page.evaluate(() => document.getElementById("decision-outcome").textContent === window.repackPilot.steps[2].decision.reject && document.getElementById("log-list").textContent === "23:10 You rejected the agent's entry for the unknown barcode.");
     const rejected = await said();
     await page.click('#steps [data-step="result"] button');
     const learned1 = (await said()).model;
@@ -230,6 +269,8 @@ try {
         const problems = [];
         for (const id of IDS) {
           await page.click(`#steps [data-step="${id}"] button`);
+          // The bar slides in when it asks something new; measure it once it has arrived.
+          await page.evaluate(() => Promise.race([Promise.all(document.getAnimations().filter((a) => a.animationName === "move-in").map((a) => a.finished)), new Promise((r) => setTimeout(r, 1000))]));
           await page.waitForTimeout(80);
           const p = await page.evaluate((stepId) => {
             const issues = [];
@@ -238,7 +279,7 @@ try {
             const r = (el) => el.getBoundingClientRect();
             const inView = (el, box = { left: 0, top: 0, right: vw, bottom: vh }) => { const b = r(el); return b.width > 0 && b.height > 0 && b.left >= box.left - 0.5 && b.top >= box.top - 0.5 && b.right <= box.right + 0.5 && b.bottom <= box.bottom + 0.5; };
             if (document.documentElement.scrollWidth > vw) issues.push(`page ${document.documentElement.scrollWidth} px wide`);
-            for (const sel of [".app-header", ".player", ".app-footer", "#steps", "#play", "#restart", ".kpis"]) if (!inView(document.querySelector(sel))) issues.push(`${sel} not in view`);
+            for (const sel of [".app-header", ".intro", ".intro .vc-byline", ".player", "#steps", "#play", ".kpis"]) if (!inView(document.querySelector(sel))) issues.push(`${sel} not in view`);
             const stage = r(document.querySelector(".stage"));
             const story = r(document.querySelector(".story"));
             for (const el of document.querySelectorAll(".station")) if (!inView(el, stage)) issues.push(`station ${el.dataset.station} cut off`);
@@ -251,11 +292,11 @@ try {
             const tiles = [...document.querySelectorAll(".pallet .tile")];
             tiles.forEach((el, i) => { if (i % 6 && Math.abs(r(el).top - r(tiles[i - 1]).top) > 0.5) issues.push(`tile ${el.dataset.sku} out of its row`); });
             for (const el of document.querySelectorAll('.tile:not([data-shown="false"])')) if (!inView(el, stage)) issues.push(`tile ${el.dataset.sku} cut off`);
-            const must = ["#story-title", ...(stepId === "asks" ? ["#confirm", "#reject"] : []), ...(stepId === "result" ? ["#compare"] : []), ...(stepId === "your-dc" ? ["#dc-units", "#dc-cost", "#dc-rate", "#dc-year", ".dc-next"] : [])];
+            const must = ["#story-title", "#move", ...(stepId === "asks" ? ["#confirm", "#reject"] : []), ...(stepId === "result" ? ["#compare"] : []), ...(stepId === "your-dc" ? ["#dc-units", "#dc-cost", "#dc-rate", "#dc-year", ".dc-next", "#replay"] : [])];
             for (const sel of must) if (!inView(document.querySelector(sel), story)) issues.push(`${sel} not in view`);
             for (const el of document.querySelectorAll(".kpi .vc-stat__value, .station-value, .tile-name")) if (el.scrollWidth > el.clientWidth + 1) issues.push(`text cut: ${el.textContent.trim().slice(0, 30)}`);
             for (const el of document.querySelectorAll("button, input, a")) { const b = r(el); if (el.offsetParent && b.height > 0 && Math.min(b.height, b.width) < 24) issues.push(`small target ${el.id || el.className}`); }
-            for (const el of [...document.querySelectorAll("#play, #restart, #steps button, #confirm, #reject, .dc-inputs input")]) { const b = r(el); if (el.offsetParent && b.height < 40) issues.push(`target under 40 px: ${el.id || el.textContent.trim().slice(0, 20)}`); }
+            for (const el of [...document.querySelectorAll("#play, #steps button, #move button, .dc-inputs input")]) { const b = r(el); if (el.offsetParent && b.height < 39.5) issues.push(`target under 40 px: ${el.id || el.textContent.trim().slice(0, 20)}`); }
             return issues;
           }, id);
           if (p.length) problems.push(`${id}: ${[...new Set(p)].slice(0, 6).join("; ")}`);
