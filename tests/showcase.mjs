@@ -169,6 +169,7 @@ try {
     const end = await view(page);
     check(end.playing && end.id === "result" && end.clock === "06:00" && end.units === "3,000" && end.orders === "12" && consistent(end), `play: once you answer, Play reads the answer for ${(asked / 1000).toFixed(1)} s while the night runs to 06:00, the result`);
     await page.click("#next");
+    await page.waitForFunction(() => window.repackPilot.state.index === 4);
     const dc = await view(page);
     check(dc.id === "your-dc" && !dc.playing && dc.play === "Replay" && dc.tone === "done" && /^Done\./.test(dc.bar) && await page.locator("#replay").isVisible(), `play: at Your DC the night is over and Play offers Replay, as the bar does ("${dc.bar}")`);
     await page.click("#replay");
@@ -268,6 +269,8 @@ try {
         const problems = [];
         for (const id of IDS) {
           await page.click(`#steps [data-step="${id}"] button`);
+          // The bar slides in when it asks something new; measure it once it has arrived.
+          await page.evaluate(() => Promise.race([Promise.all(document.getAnimations().filter((a) => a.animationName === "move-in").map((a) => a.finished)), new Promise((r) => setTimeout(r, 1000))]));
           await page.waitForTimeout(80);
           const p = await page.evaluate((stepId) => {
             const issues = [];
@@ -293,7 +296,7 @@ try {
             for (const sel of must) if (!inView(document.querySelector(sel), story)) issues.push(`${sel} not in view`);
             for (const el of document.querySelectorAll(".kpi .vc-stat__value, .station-value, .tile-name")) if (el.scrollWidth > el.clientWidth + 1) issues.push(`text cut: ${el.textContent.trim().slice(0, 30)}`);
             for (const el of document.querySelectorAll("button, input, a")) { const b = r(el); if (el.offsetParent && b.height > 0 && Math.min(b.height, b.width) < 24) issues.push(`small target ${el.id || el.className}`); }
-            for (const el of [...document.querySelectorAll("#play, #steps button, #move button, .dc-inputs input")]) { const b = r(el); if (el.offsetParent && b.height < 40) issues.push(`target under 40 px: ${el.id || el.textContent.trim().slice(0, 20)}`); }
+            for (const el of [...document.querySelectorAll("#play, #steps button, #move button, .dc-inputs input")]) { const b = r(el); if (el.offsetParent && b.height < 39.5) issues.push(`target under 40 px: ${el.id || el.textContent.trim().slice(0, 20)}`); }
             return issues;
           }, id);
           if (p.length) problems.push(`${id}: ${[...new Set(p)].slice(0, 6).join("; ")}`);

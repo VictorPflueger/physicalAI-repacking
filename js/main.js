@@ -167,6 +167,8 @@ async function boot() {
     const step = steps[state.index];
     state.t = step.t;
     P.at = 0;
+    // Your DC: the night is over, so Play ends as the step opens and its button offers Replay at once.
+    if (finished()) pause();
     drawNight(state.t, { moment: true });
     renderStory(step, { decision: state.decision });
     renderLog(state.log, step.id === "asks" || step.id === "result");
@@ -226,7 +228,6 @@ async function boot() {
     const dt = P.last ? Math.min(now - P.last, 100) : 0;
     P.last = now;
     const i = state.index;
-    if (finished()) { pause(); return; }
     if (waits(i)) P.at = 0;
     else if (!covered()) {
       P.at += dt;
